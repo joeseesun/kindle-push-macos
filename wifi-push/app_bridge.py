@@ -114,6 +114,15 @@ def discover(force_scan=False):
 
 def handle(args):
     command = args[0]
+    if command.startswith('translation-'):
+        import translation as tr
+        if command == 'translation-settings': return tr.public_settings()
+        if command == 'translation-save': return tr.save_settings(args[1], args[2])
+        if command == 'translation-install': return tr.install()
+        if command == 'translation-start': return tr.start(args[1], len(args) > 2 and args[2] == 'preview')
+        if command == 'translation-progress': return tr.progress(args[1])
+        if command == 'translation-cancel': return tr.cancel(args[1])
+        raise ValueError('未知翻译操作。')
     if command == 'status':
         missing = [str(p) for p in [Path(kp.PANDOC), kp.DATA / 'id_ed25519', kp.DATA / 'known_hosts'] if not p.exists()]
         if missing:

@@ -12,8 +12,14 @@
 | 转换后的文章副本 | `~/Documents/Kindle推送/已转换/` |
 | Kindle 文章 | `/mnt/us/documents/我的文章/` |
 | Kindle 接收脚本与公钥 | `/mnt/us/koreader/settings/SSH/` |
+| 翻译 API Key | macOS 钥匙串；已有 Magpie 配置仅复用引用 |
+| 翻译设置（不含密钥） | `~/Library/Application Support/KindlePush/translation.json` |
+| 翻译副本、日志和检查点 | 同目录 `translations/`（包含正文，不应分享） |
+| 隔离翻译环境 | 同目录 `translation-runtime/` |
 
 源文章不改动，不建立自动同步任务，不绑定任何云账号。不把任何个人密钥、配置、文章作为发布包的一部分。
+
+主动点击试译或翻译时，书籍正文会提交至翻译设置里的模型服务，受该服务的数据政策与 API 计费约束。仅直接发送时不经过模型服务。密钥只在进程内读取并通过环境提供给翻译引擎，不放入命令参数或日志。更换服务地址不会继承原服务密钥。
 
 ## 设备认证
 

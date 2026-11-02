@@ -2,11 +2,13 @@
 
 <h1 align="center">Kindle 推送 · macOS</h1>
 
-<p align="center">把 Markdown 变成适合阅读的 EPUB，通过 Wi-Fi 发到 Kindle。</p>
+<p align="center">把文章或 EPUB 变成适合阅读的版本，翻译成中文对照，再通过 Wi-Fi 发到 Kindle。</p>
 
-<p align="center"><a href="https://github.com/chasepal/kindle-push-macos/releases/latest">下载 v1.1.0</a> · <a href="docs/SETUP.md">首次配置</a> · <a href="docs/FORMATS.md">格式支持</a> · <a href="docs/TROUBLESHOOTING.md">常见问题</a></p>
+<p align="center"><a href="https://github.com/joeseesun/kindle-push-macos/releases/latest">下载 v1.2.0</a> · <a href="docs/SETUP.md">首次配置</a> · <a href="docs/TRANSLATION.md">双语翻译</a> · <a href="docs/FORMATS.md">格式支持</a> · <a href="docs/TROUBLESHOOTING.md">常见问题</a></p>
 
-看了乔木的 Kindle / KOReader 分享后，做了这个 Mac 端配套小工具。文章在 Obsidian 或本地文件夹里写好，拖进应用、点发送，就能拿到 Kindle 上慢慢读。不用每次打开终端或 AI，也不需要云端中转。
+本分支基于 [chasepal/kindle-push-macos](https://github.com/chasepal/kindle-push-macos)，由乔木增加 EPUB 中文对照翻译。原项目作者、许可和传输协议保留；翻译引擎为 MIT 开源的 [bilingual_book_maker](https://github.com/yihong0618/bilingual_book_maker)。
+
+原作者看了乔木的 Kindle / KOReader 分享后，做了这个 Mac 端配套小工具。文章在 Obsidian 或本地文件夹里写好，拖进应用、点发送，就能拿到 Kindle 上慢慢读。直接发送不需要云端中转；主动选择中文对照翻译时，正文会提交给配置的模型服务。
 
 这是一个独立项目，感谢 [乔木 SimpleUI](https://github.com/joeseesun/qiaomu-simpleui) 的启发。它通过 KOReader 的 SSH 服务传文件，**不要求安装 SimpleUI，也不包含越狱工具**。
 
@@ -18,6 +20,7 @@
 - **换 Wi-Fi 后寻找设备**：先尝试上次地址，再寻找已配对的 Kindle；也可手动填写 IP。
 - **发送后校验**：读回远端 EPUB，比较 SHA-256，确认传输一致。
 - **原文不改动**：只读选择的文章及其引用附件，转换副本保存在本机。
+- **EPUB 中文对照翻译**：先试译 3 段正文，再翻译整本并发送；原文与简体中文逐段对照，保留图片与目录。支持取消、恢复检查点和复用已完成译本；失败或取消的译本不自动发送。
 
 ## 使用条件
 
@@ -34,12 +37,20 @@
 ## 开始使用
 
 1. 安装转换组件：`brew install python pandoc`。
-2. 从 [Releases](https://github.com/chasepal/kindle-push-macos/releases/latest) 下载应用 ZIP，解压后放入“应用程序”。
+2. 从 [Releases](https://github.com/joeseesun/kindle-push-macos/releases/latest) 下载应用 ZIP，解压后放入“应用程序”。
 3. 按 [首次配置](docs/SETUP.md) 完成 USB 接收端安装与设备配对。发布包不包含任何人的密钥，不能跳过这一步。
 4. 打开 **Kindle 推送**，拖入文章，点 **发送到 Kindle**。
 5. 在 KOReader 文件浏览器进入 `documents/我的文章` 阅读。
 
 应用目前使用本地 ad-hoc 签名，没有 Apple Developer ID 公证。macOS 可能提示无法验证开发者；是否打开由你自行决定，也可以从源码构建。不会要求全局关闭 Gatekeeper。
+
+## 把英文 EPUB 翻译成中文对照
+
+1. 打开齿轮「翻译设置」，安装翻译组件，配置 DeepSeek Flash 或其他 OpenAI 兼容服务。API Key 保存在 macOS 钥匙串。已有本机 `qiaomu-llm` Magpie Flash 配置时自动复用其凭据引用，不复制密钥。
+2. 拖入 EPUB，选择「中文对照版」，点击「先试译 3 段」检查正文译文。试译不会发送；整本与试译的缓存分开。
+3. 点击「翻译并发送」。完成后在 Kindle 的 `documents/我的文章` 阅读；本机副本在「查看已转换文件」。
+
+翻译需要网络和模型 API 额度。整本耗时和费用取决于书长、模型和服务限流，应用不承诺固定费用。取消或中断后，对相同内容和设置再次开始，会使用翻译引擎已保存的检查点；尚未落盘的请求可能重新计费。关闭应用时后台翻译会继续，重新加入同一 EPUB 可接续任务。详细说明见[双语翻译](docs/TRANSLATION.md)。
 
 ## 换网络也能用吗？
 
@@ -55,7 +66,7 @@
 
 ## 隐私与连接
 
-- 不上传文章到任何云服务，不提供遥测或后台同步。
+- 直接发送不上传文章到云服务，不提供遥测。仅在主动试译或翻译时将正文提交到所选模型服务；其数据政策与 API 费用由该服务决定。
 - 如果文章包含远程图片，Pandoc 可能访问该图片地址下载素材；需要完全离线时请先把图片存到本地。
 - 专用 SSH 私钥仅在本机生成和保存；Kindle 保存公钥。
 - 首次配对明确确认设备身份；后续严格核对已固定的主机密钥。
@@ -69,7 +80,7 @@
 需要 Xcode Command Line Tools 和 Swift 6.0+：
 
 ```sh
-git clone https://github.com/chasepal/kindle-push-macos.git
+git clone https://github.com/joeseesun/kindle-push-macos.git
 cd kindle-push-macos
 brew install python pandoc
 ./script/build_and_run.sh --verify
@@ -89,5 +100,12 @@ python3 -m unittest discover -s wifi-push -p 'test_*.py' -v
 - [乔木 SimpleUI](https://github.com/joeseesun/qiaomu-simpleui)：项目灵感与 Kindle 阅读体验。
 - [KOReader](https://github.com/koreader/koreader) / [SSH 插件文档](https://github.com/koreader/koreader/wiki/SSH)：Kindle 端阅读和 SSH 能力。
 - [Pandoc](https://pandoc.org/)：Markdown / EPUB 转换。
+- [bilingual_book_maker](https://github.com/yihong0618/bilingual_book_maker)：EPUB 双语翻译（隔离安装固定版本 1.3.2）。
+
+## English
+
+This fork of [chasepal/kindle-push-macos](https://github.com/chasepal/kindle-push-macos) adds bilingual EPUB translation using `bilingual_book_maker` 1.3.2. Drag in an EPUB, select the bilingual edition, preview three body paragraphs, then translate the complete book and send it over Wi-Fi to a paired KOReader Kindle. The original EPUB is preserved. Failed or cancelled jobs are never automatically sent.
+
+Requires macOS 14+, Homebrew Python 3.10+, Pandoc 3.8+, a jailbroken Kindle with KOReader SSH, and an OpenAI-compatible translation API. Install the translation component from the settings panel; configure the endpoint, model (DeepSeek Flash by default) and API key. Keys stay in macOS Keychain. Translation sends book text to the selected service and may incur charges; direct transfers stay local. Checkpoints and generated books stay outside the repository. Background translation continues after closing the app; re-add the same file to resume. Download the ad-hoc signed Apple Silicon app from this fork's Releases. Developer ID notarization, Intel device testing and long-book acceptance are not claimed. See [translation documentation](docs/TRANSLATION.md) and the MIT license. Upstream authorship is retained.
 
 本项目自有代码使用 [MIT](LICENSE) 许可。KOReader、SimpleUI、Pandoc 按各自许可证分发，本仓库不打包这些项目的程序或代码。应用图标由 AI 生成，源图与提示词位于 `mac-app/Assets/`。
