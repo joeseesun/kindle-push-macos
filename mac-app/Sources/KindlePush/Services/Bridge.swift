@@ -1,7 +1,8 @@
 import Foundation
 
 enum Bridge {
-    static func call(_ arguments: [String]) async -> BridgeResponse {
+    /// `input` goes to stdin, so secrets never appear in the process list.
+    static func call(_ arguments: [String], input: String? = nil) async -> BridgeResponse {
         await Task.detached(priority: .userInitiated) {
             guard let resources = Bundle.main.resourceURL else {
                 return BridgeResponse(ok: false, message: "应用组件不完整，请重新安装。")
@@ -17,10 +18,16 @@ enum Bridge {
             process.arguments = ["-B", resources.appendingPathComponent("app_bridge.py").path] + arguments
             let output = Pipe()
             process.standardOutput = output
+            let stdin = Pipe()
+            process.standardInput = input == nil ? FileHandle.nullDevice : stdin
             // Backend catches errors and returns structured diagnostics on stdout.
             process.standardError = FileHandle.nullDevice
             do {
                 try process.run()
+                if let input {
+                    stdin.fileHandleForWriting.write(Data((input + "\n").utf8))
+                    try? stdin.fileHandleForWriting.close()
+                }
                 let data = output.fileHandleForReading.readDataToEndOfFile()
                 process.waitUntilExit()
                 return try JSONDecoder().decode(BridgeResponse.self, from: data)

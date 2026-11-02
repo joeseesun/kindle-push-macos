@@ -9,7 +9,7 @@ ARCH=$(/usr/bin/uname -m)
 mkdir -p "$ROOT_DIR/release"
 NAME="KindlePush-$VERSION-macos-$ARCH.zip"
 /usr/bin/codesign --verify --deep --strict "$APP"
-/usr/bin/ditto -c -k --keepParent "$APP" "$ROOT_DIR/release/$NAME"
+/usr/bin/ditto -c -k --norsrc --noextattr --keepParent "$APP" "$ROOT_DIR/release/$NAME"
 cd "$ROOT_DIR/release"
 /usr/bin/shasum -a 256 "$NAME" > SHA256SUMS
 printf 'Release: %s\n' "$ROOT_DIR/release/$NAME"

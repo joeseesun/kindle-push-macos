@@ -72,7 +72,8 @@ def settings():
 
 def public_settings():
     config = settings()
-    return {'ok': True, 'base': config['base'], 'model': config['model'],
+    return {'ok': True, 'base': config['base'], 'model': config['model'], 'provider': config.get('provider', ''),
+            'hasKey': has_key(config),
             'workers': config.get('workers', DEFAULT_WORKERS), 'style': config.get('style', 'natural'),
             'glossary': config.get('glossary', ''),
             'runtimeReady': (RUNTIME / 'bin/bbook_maker').is_file()}
@@ -89,13 +90,29 @@ def glossary_lines(text):
     return '\n'.join(lines)
 
 
-def save_settings(base, model, workers=None, style=None, glossary=None):
-    base = endpoint(base)
+def is_local(base):
+    return urlsplit(base).hostname in {'localhost', '127.0.0.1', '::1'}
+
+
+def has_key(config):
+    if config.get('provider') == 'chatgpt' or not config.get('service'):
+        return False
+    probe = subprocess.run(['/usr/bin/security', 'find-generic-password', '-s', config['service'],
+                            '-a', config['account']], capture_output=True)
+    return probe.returncode == 0
+
+
+def save_settings(base, model, workers=None, style=None, glossary=None, provider=''):
+    chatgpt = provider == 'chatgpt'
+    base = '' if chatgpt else endpoint(base)
     model = model.strip()
     if not model or len(model) > 200:
-        raise ValueError('请填写服务支持的模型名称。')
+        raise ValueError('请选择或填写模型。')
+    if provider and not re.fullmatch(r'[a-z0-9-]{1,40}', provider):
+        raise ValueError('未知的翻译服务。')
     old = settings()
-    config = {'base': base, 'model': model, 'service': KEY_SERVICE, 'account': own_account(base),
+    config = {'provider': provider, 'base': base, 'model': model,
+              'service': '' if chatgpt else KEY_SERVICE, 'account': '' if chatgpt else own_account(base),
               'workers': old.get('workers', DEFAULT_WORKERS), 'style': old.get('style', 'natural'),
               'glossary': old.get('glossary', '')}
     if workers is not None:
@@ -110,14 +127,16 @@ def save_settings(base, model, workers=None, style=None, glossary=None):
         config['glossary'] = glossary_lines(glossary)
     # Preserve a borrowed credential only for its original address and when no app key exists.
     probe = subprocess.run(['/usr/bin/security', 'find-generic-password', '-s', KEY_SERVICE,
-                            '-a', own_account(base)], capture_output=True)
-    if probe.returncode and base == old['base']:
+                            '-a', own_account(base)], capture_output=True) if not chatgpt else None
+    if not chatgpt and probe.returncode and base == old['base'] and old.get('service'):
         config.update(service=old['service'], account=old['account'])
     atomic_json(SETTINGS, config)
     return public_settings()
 
 
 def read_key(config):
+    if is_local(config.get('base', '')) and not has_key(config):
+        return 'local'   # Ollama and LM Studio ignore the key, but the engine wants one.
     result = subprocess.run(['/usr/bin/security', 'find-generic-password', '-s', config['service'],
                              '-a', config['account'], '-w'], capture_output=True, text=True)
     if result.returncode or not result.stdout.strip():
@@ -178,11 +197,18 @@ def start(source, preview=False):
     if not (RUNTIME / 'bin/bbook_maker').is_file():
         raise ValueError('请先打开翻译设置，安装翻译组件。')
     config = settings()
-    # Check before starting a background job; never persist or pass the secret.
-    read_key(config)
+    if config.get('provider') == 'chatgpt':
+        import accounts
+        if not accounts.codex_binary():
+            raise ValueError('用 ChatGPT 翻译需要先安装 Codex 命令行工具，并在翻译设置里登录。')
+    else:
+        # Check before starting a background job; never persist or pass the secret.
+        read_key(config)
     digest = hashlib.sha256(source.read_bytes()).hexdigest()
     # Speed does not change the translation, so a run can resume at another worker count.
-    quality = {k: v for k, v in config.items() if k != 'workers' and (k not in {'style', 'glossary'} or v not in {'', 'natural'})}
+    # 'provider' only matters for the ChatGPT route; elsewhere base and model already identify the service.
+    quality = {k: v for k, v in config.items() if k != 'workers' and (k not in {'style', 'glossary', 'provider'} or v not in {'', 'natural'})
+               and not (k == 'provider' and v != 'chatgpt')}
     identity = json.dumps([digest, quality, preview, VERSION, 'pipeline-2'], sort_keys=True).encode()
     job = hashlib.sha256(identity).hexdigest()[:24]
     folder = job_dir(job)
@@ -221,9 +247,10 @@ def cancel(job):
 
 
 def command(folder, config, preview):
-    args = [str(RUNTIME / 'bin/bbook_maker'), '--book_name', str(folder / 'book.epub'),
-            '--api_format', 'openai', '--api_base', config['base'], '--model', config['model'],
-            '--language', 'zh-hans', '--no-thinking']
+    codex = config.get('provider') == 'chatgpt'
+    args = [str(RUNTIME / 'bin/bbook_maker'), '--book_name', str(folder / 'book.epub'), '--language', 'zh-hans']
+    args += (['--api_format', 'codex', '--model', config['model']] if codex else
+             ['--api_format', 'openai', '--api_base', config['base'], '--model', config['model'], '--no-thinking'])
     if (folder / '.book.temp.bin').is_file():
         args += ['--resume']
     system = STYLES.get(config.get('style', 'natural'), '')
@@ -236,8 +263,8 @@ def command(folder, config, preview):
     if preview:
         args += ['--translate-tags', 'p', '--test', '--test_num', '3']
     else:
-        args += ['--plan-classify', 'all', '--use_context', 'window']
-        workers = config.get('workers', DEFAULT_WORKERS)
+        args += ['--plan-classify', 'all'] + ([] if codex else ['--use_context', 'window'])
+        workers = 1 if codex else config.get('workers', DEFAULT_WORKERS)
         if workers > 1:
             args += ['--parallel-workers', str(workers)]
     return args
@@ -255,7 +282,12 @@ def worker(job):
         request = json.loads((folder / 'request.json').read_text())
         config = request['config']
         env = {k: v for k, v in os.environ.items() if not any(s in k.upper() for s in ('API_KEY', 'TOKEN', 'SECRET'))}
-        env.update(BBM_API_KEY=read_key(config), PYTHONUNBUFFERED='1', PYTHONIOENCODING='utf-8')
+        if config.get('provider') == 'chatgpt':
+            import accounts
+            env['PATH'] = accounts.codex_env()['PATH']
+        else:
+            env['BBM_API_KEY'] = read_key(config)
+        env.update(PYTHONUNBUFFERED='1', PYTHONIOENCODING='utf-8')
         state.update(state='running', message='正在翻译，首次分析可能需要几分钟…')
         atomic_json(folder / 'state.json', state)
         # A previous failed run must never leave a stale final book eligible for delivery.

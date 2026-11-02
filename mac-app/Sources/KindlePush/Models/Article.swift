@@ -41,6 +41,14 @@ struct BridgeResponse: Decodable, Sendable {
     var workers: Int?
     var style: String?
     var glossary: String?
+    var provider: String?
+    var hasKey: Bool?
+    var key: String?
+    var models: [RemoteModel]?
+    var installed: Bool?
+    var loggedIn: Bool?
+    var plan: String?
+    var email: String?
 }
 
 enum ArticlePhase { case waiting, working, ready, done, failed, stopped }
@@ -57,4 +65,10 @@ extension Article {
         }
     }
     var folder: String { URL(fileURLWithPath: path).deletingLastPathComponent().lastPathComponent }
+}
+
+struct RemoteModel: Decodable, Sendable, Hashable, Identifiable {
+    var id: String
+    var name: String
+    var `default`: Bool?
 }

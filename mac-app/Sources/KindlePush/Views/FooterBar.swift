@@ -52,7 +52,7 @@ struct FooterBar: View {
             Label("中英对照只支持 EPUB，请移除其他格式或切回原文", systemImage: "exclamationmark.triangle")
                 .font(.caption).foregroundStyle(.orange)
         } else {
-            Label("仅 EPUB · 正文发给翻译模型，按用量计费", systemImage: "globe")
+            Label(store.translationProvider == "chatgpt" ? "仅 EPUB · 用 ChatGPT 套餐额度翻译" : "仅 EPUB · 正文发给翻译模型，按用量计费", systemImage: "globe")
                 .font(.caption).foregroundStyle(.secondary)
         }
     }

@@ -17,6 +17,7 @@ final class PushStore: ObservableObject {
     @Published var connectionIssue = ""
     @Published var setupNeeded = false
     @Published var translationReady: Bool?
+    @Published var translationProvider = ""
     @Published var completed = 0
     @Published var total = 0
     @Published var translateBooks = UserDefaults.standard.bool(forKey: "translateBooks") {
@@ -116,7 +117,9 @@ final class PushStore: ObservableObject {
     }
 
     func refreshTranslationStatus() async {
-        translationReady = await Bridge.call(["translation-settings"]).runtimeReady ?? false
+        let response = await Bridge.call(["translation-settings"])
+        translationReady = response.runtimeReady ?? false
+        translationProvider = response.provider ?? ""
     }
 
     func connect(manual: Bool = false) async {

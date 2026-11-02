@@ -114,10 +114,26 @@ def discover(force_scan=False):
 
 def handle(args):
     command = args[0]
+    if command in {'codex-status', 'codex-login', 'codex-logout', 'models', 'sign-in-key'}:
+        import accounts
+        if command == 'codex-status': return accounts.codex_status()
+        if command == 'codex-login': return accounts.codex_login()
+        if command == 'codex-logout': return accounts.codex_logout()
+        if command == 'models':
+            # A key typed but not yet saved comes on stdin; otherwise use the one saved for this address.
+            key = sys.stdin.readline().strip() if len(args) > 2 and args[2] == '--key-stdin' else ''
+            if not key:
+                import translation as tr
+                base = tr.endpoint(args[1])
+                saved = tr.settings()
+                config = saved if saved.get('base') == base and saved.get('service') else {'base': base, 'service': tr.KEY_SERVICE, 'account': tr.own_account(base)}
+                if tr.has_key(config): key = tr.read_key(config)
+            return accounts.list_models(args[1], key)
+        return accounts.sign_in_key(args[1])
     if command.startswith('translation-'):
         import translation as tr
         if command == 'translation-settings': return tr.public_settings()
-        if command == 'translation-save': return tr.save_settings(args[1], args[2], *args[3:])
+        if command == 'translation-save': return tr.save_settings(**json.loads(args[1]))
         if command == 'translation-install': return tr.install()
         if command == 'translation-start': return tr.start(args[1], len(args) > 2 and args[2] == 'preview')
         if command == 'translation-progress': return tr.progress(args[1])

@@ -59,6 +59,33 @@ class TranslationTests(unittest.TestCase):
         self.assertIn('--resume', tr.command(folder, tr.settings(), False))
         self.assertIn('--test', tr.command(folder, tr.settings(), True))
 
+    def test_chatgpt_route_uses_codex_without_key_or_parallel(self):
+        args = tr.command(self.root, {'provider': 'chatgpt', 'base': '', 'model': 'gpt-6-luna', 'workers': 4}, False)
+        self.assertEqual(args[args.index('--api_format') + 1], 'codex')
+        for flag in ['--api_base', '--no-thinking', '--parallel-workers', '--use_context']:
+            self.assertNotIn(flag, args)
+
+    def test_provider_does_not_change_identity_of_existing_api_jobs(self):
+        base = {'base': 'https://example.com/v1', 'model': 'm', 'service': 's', 'account': 'a'}
+        jobs = []
+        for config in [base, {**base, 'provider': 'deepseek'}]:
+            with patch.object(tr, 'settings', return_value=config):
+                jobs.append(tr.start(self.source)['job'])
+        self.assertEqual(jobs[0], jobs[1])
+
+    def test_save_chatgpt_and_api_services(self):
+        with patch.object(tr, 'settings', return_value={'base': 'https://old.example/v1', 'model': 'm', 'service': 's', 'account': 'a'}), \
+             patch.object(tr, 'has_key', return_value=False), \
+             patch.object(tr.subprocess, 'run', return_value=subprocess.CompletedProcess([], 1)):
+            tr.save_settings(base='', model='gpt-6-luna', provider='chatgpt')
+            saved = json.loads(tr.SETTINGS.read_text())
+            self.assertEqual((saved['provider'], saved['base'], saved['service']), ('chatgpt', '', ''))
+            tr.save_settings(base='https://api.deepseek.com/v1/', model='deepseek-flash', provider='deepseek', workers='2')
+            saved = json.loads(tr.SETTINGS.read_text())
+            self.assertEqual((saved['base'], saved['workers'], saved['service']), ('https://api.deepseek.com/v1', 2, tr.KEY_SERVICE))
+            with self.assertRaisesRegex(ValueError, '模型'):
+                tr.save_settings(base='https://api.deepseek.com/v1', model=' ', provider='deepseek')
+
     def test_speed_and_quality_options(self):
         config = {**tr.settings(), 'workers': 4, 'style': 'literary', 'glossary': 'Hari Seldon -> 哈里·谢顿'}
         args = tr.command(self.root, config, False)
