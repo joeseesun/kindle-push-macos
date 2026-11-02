@@ -34,6 +34,7 @@ NATIVE = {'.pdf', '.xps', '.djvu', '.djv', '.cbz', '.cbr', '.cbt',
           '.fb2.zip', '.txt.zip', '.html.zip', '.htm.zip', '.htmlz', '.rtf.zip', '.md.zip',
           '.png', '.jpg', '.jpeg', '.gif', '.webp', '.tif', '.tiff'}
 MOBI = {'.mobi', '.azw', '.azw3', '.prc'}
+RECEIVER_VERSIONS = {b'kindle-push-v1', b'kindle-push-v2'}
 SUPPORTED = {'.epub'} | MARKDOWN | set(DOCUMENTS) | NATIVE
 CHAPTER = re.compile(r'^\s*(第[0-9０-９零〇一二三四五六七八九十百千万两]+[章节回卷部集篇幕]|序章|序言|楔子|引子|尾声|后记|番外|(chapter|part)\s+[0-9ivxlc]+\b)', re.I)
 
@@ -217,7 +218,7 @@ def ssh(config, operation, content=b''):
 def send(epub, config):
     content = epub.read_bytes()
     version = ssh(config, 'ping').strip()
-    if version not in {b'kindle-push-v1', b'kindle-push-v2'}:
+    if version not in RECEIVER_VERSIONS:
         raise ValueError('接收端未配置好。')
     if extension(epub) != '.epub' and version == b'kindle-push-v1':
         raise ValueError('Kindle 上的接收端是旧版，只收 EPUB。发送 ' + extension(epub)[1:].upper()

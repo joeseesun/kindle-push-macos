@@ -102,7 +102,7 @@ def pair_host(host):
     atomic_write(known, entry.encode())
     known.chmod(0o600)
     try:
-        if kp.ssh({'host': str(ip)}, 'ping').strip() != b'kindle-push-v1':
+        if kp.ssh({'host': str(ip)}, 'ping').strip() not in kp.RECEIVER_VERSIONS:
             raise ValueError('接收端未正常响应。')
     except Exception:
         if old is None:

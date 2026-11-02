@@ -59,7 +59,7 @@ def verify(host):
         raise ValueError('没有连上 Kindle。请连接同一个 Wi-Fi，在 Kindle 打开 KOReader；然后点“自动寻找”。')
     if not matches_device(host, trusted_key()):
         raise ValueError('这个地址的设备与已配对 Kindle 不一致。请核对 IP；应用没有发送文件。')
-    if kp.ssh({'host': host}, 'ping').strip() != b'kindle-push-v1':
+    if kp.ssh({'host': host}, 'ping').strip() not in kp.RECEIVER_VERSIONS:
         raise ValueError('Kindle 接收服务没有正常响应，请重新打开 KOReader。')
     kp.get_config(host)
     return host

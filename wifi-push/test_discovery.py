@@ -5,6 +5,21 @@ import app_bridge as bridge
 
 
 class DiscoveryTests(unittest.TestCase):
+    def test_both_receiver_versions_are_accepted(self):
+        for version in [b'kindle-push-v1\n', b'kindle-push-v2\n']:
+            with patch.object(bridge, 'reachable', return_value=True), \
+                 patch.object(bridge, 'trusted_key', return_value='paired-key'), \
+                 patch.object(bridge, 'matches_device', return_value=True), \
+                 patch.object(bridge.kp, 'ssh', return_value=version), \
+                 patch.object(bridge.kp, 'get_config'):
+                self.assertEqual(bridge.verify('192.168.1.42'), '192.168.1.42')
+        with patch.object(bridge, 'reachable', return_value=True), \
+             patch.object(bridge, 'trusted_key', return_value='paired-key'), \
+             patch.object(bridge, 'matches_device', return_value=True), \
+             patch.object(bridge.kp, 'ssh', return_value=b'something-else\n'):
+            with self.assertRaisesRegex(ValueError, '没有正常响应'):
+                bridge.verify('192.168.1.42')
+
     def test_cached_address_failure_falls_back_to_identified_device(self):
         with patch.object(bridge, 'trusted_key', return_value='paired-key'), \
              patch.object(bridge, 'config', return_value={'host': '192.168.1.10'}), \
