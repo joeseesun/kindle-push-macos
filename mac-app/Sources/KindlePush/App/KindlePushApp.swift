@@ -17,7 +17,8 @@ struct KindlePushApp: App {
         WindowGroup("Kindle 推送") {
             ContentView(store: store)
         }
-        .defaultSize(width: 620, height: 740)
+        .defaultSize(width: 660, height: 640)
+        .windowToolbarStyle(.unified(showsTitle: true))
         .commands {
             CommandGroup(replacing: .appInfo) {
                 Button("关于 Kindle 推送") {
@@ -28,16 +29,26 @@ struct KindlePushApp: App {
                 Button("添加文章…") { store.showPicker = true }
                     .keyboardShortcut("o").disabled(store.busy)
             }
-            CommandGroup(replacing: .appSettings) {
-                Button("翻译设置…") { store.showTranslationSettings = true }
-                    .keyboardShortcut(",").disabled(store.busy)
-            }
             CommandMenu("Kindle") {
-                Button("自动寻找") { Task { await store.connect() } }.disabled(store.busy)
-                Button("发送文章") { Task { await store.send() } }.disabled(store.busy || store.pendingCount == 0)
+                Button("重新寻找 Kindle") { Task { await store.connect() } }
+                    .keyboardShortcut("r").disabled(store.busy)
+                Button("连接设置…") { store.showConnection = true }
+                    .keyboardShortcut("k")
+                Divider()
+                Button("发送到 Kindle") { Task { await store.send() } }
+                    .keyboardShortcut(.return, modifiers: .command)
+                    .disabled(store.busy || store.pendingCount == 0)
+                Button("先试译 3 段") { Task { await store.preview() } }
+                    .disabled(store.busy || !store.translateBooks || !store.previewAvailable)
+                Button("停止翻译") { store.stopTranslation() }
+                    .keyboardShortcut(".").disabled(store.currentJob == nil)
                 Divider()
                 Button("查看已转换文件") { store.revealOutput() }
+                    .keyboardShortcut("o", modifiers: [.command, .shift])
             }
+        }
+        Settings {
+            TranslationSettingsView(store: store)
         }
     }
 }

@@ -4,7 +4,6 @@ import CryptoKit
 
 struct TranslationSettingsView: View {
     @ObservedObject var store: PushStore
-    @Environment(\.dismiss) private var dismiss
     @State private var base = ""
     @State private var model = ""
     @State private var key = ""
@@ -12,51 +11,71 @@ struct TranslationSettingsView: View {
     @State private var working = false
     @State private var ready = false
 
+    @State private var saved = false
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Text("翻译设置").font(.title2.bold())
-            Text("默认使用 DeepSeek Flash，生成原文与简体中文逐段对照的 EPUB。原书保留。")
-                .font(.callout).foregroundStyle(.secondary)
-            Form {
-                TextField("服务地址", text: $base).textContentType(.URL)
-                TextField("模型名称", text: $model)
-                SecureField("API Key（留空保留现有密钥）", text: $key)
-            }.textFieldStyle(.roundedBorder)
-            Text("书籍正文会发送至上述模型服务，可能产生 API 费用。密钥保存在 macOS 钥匙串；更换地址需要对应的新密钥。")
-                .font(.caption).foregroundStyle(.secondary)
-            HStack {
-                Label(ready ? "翻译组件已就绪" : "需要安装翻译组件", systemImage: ready ? "checkmark.circle" : "arrow.down.circle")
-                    .font(.callout)
-                Spacer()
-                if !ready {
-                    Button("安装翻译组件") {
-                        working = true; message = "正在下载并安装，首次可能需要几分钟…"
-                        Task {
-                            let response = await Bridge.call(["translation-install"])
-                            ready = response.runtimeReady ?? false
-                            message = ready ? "安装完成" : response.message ?? "安装未完成，请重试。"
-                            working = false
-                        }
-                    }.disabled(working)
+        Form {
+            Section {
+                TextField("服务地址", text: $base, prompt: Text("https://api.deepseek.com"))
+                    .textContentType(.URL)
+                TextField("模型", text: $model, prompt: Text("deepseek-chat"))
+                SecureField("API Key", text: $key, prompt: Text("留空则保留现有密钥"))
+            } header: {
+                Text("翻译服务")
+            } footer: {
+                Text("兼容 OpenAI 接口的服务均可。书籍正文会发送到这里，按用量计费；密钥保存在 macOS 钥匙串，换地址需要填写对应的新密钥。")
+                    .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            Section("翻译组件") {
+                LabeledContent {
+                    if ready {
+                        Label("已就绪", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                    } else if working && message.hasPrefix("正在下载") {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Button("安装") { Task { await install() } }.disabled(working)
+                    }
+                } label: {
+                    Text("中英对照引擎")
+                    Text("基于开源 bilingual_book_maker，首次安装需要几分钟").font(.caption)
                 }
             }
-            if working { ProgressView().controlSize(.small) }
-            if !message.isEmpty { Text(message).font(.callout).textSelection(.enabled) }
-            HStack {
+        }
+        .formStyle(.grouped)
+        .safeAreaInset(edge: .bottom) {
+            HStack(spacing: 10) {
+                if saved {
+                    Label("已保存", systemImage: "checkmark").foregroundStyle(.green).transition(.opacity)
+                } else if !message.isEmpty {
+                    Text(message).foregroundStyle(.secondary).textSelection(.enabled).lineLimit(2)
+                }
                 Spacer()
-                Button("取消") { dismiss() }.keyboardShortcut(.cancelAction).disabled(working)
                 Button("保存") { Task { await save() } }
                     .buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction)
                     .disabled(working || base.isEmpty || model.isEmpty)
             }
+            .font(.callout).padding(.horizontal, 20).padding(.bottom, 16)
         }
-        .padding(24).frame(width: 520)
+        .frame(width: 500)
+        .fixedSize(horizontal: false, vertical: true)
         .task {
             let response = await Bridge.call(["translation-settings"])
             base = response.base ?? ""; model = response.model ?? ""
             ready = response.runtimeReady ?? false
             if !response.ok { message = response.message ?? "无法读取配置。" }
         }
+        .onChange(of: base) { saved = false }
+        .onChange(of: model) { saved = false }
+    }
+
+    private func install() async {
+        working = true; message = "正在下载并安装，首次可能需要几分钟…"
+        let response = await Bridge.call(["translation-install"])
+        ready = response.runtimeReady ?? false
+        store.translationReady = ready
+        message = ready ? "" : response.message ?? "安装未完成，请重试。"
+        working = false
     }
 
     private func save() async {
@@ -87,7 +106,9 @@ struct TranslationSettingsView: View {
         }
         let response = await Bridge.call(["translation-save", normalized, model])
         working = false
-        if response.ok { dismiss() }
-        else { message = response.message ?? "设置保存失败。" }
+        if response.ok {
+            message = ""
+            withAnimation { saved = true }
+        } else { message = response.message ?? "设置保存失败。" }
     }
 }

@@ -4,108 +4,48 @@ import UniformTypeIdentifiers
 struct ContentView: View {
     @ObservedObject var store: PushStore
     @State private var targeted = false
+    @State private var selection = Set<UUID>()
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("把文章，留给慢读。")
-                        .font(.system(size: 25, weight: .semibold, design: .rounded))
-                    Text("从 Mac 到 Kindle，拖进来就好。")
-                        .font(.subheadline).foregroundStyle(.secondary)
-                }
-                Spacer()
-                VStack(spacing: 5) {
-                    Image(systemName: "paperplane").font(.system(size: 30, weight: .light)).foregroundStyle(Color.accentColor)
-                    Text("v" + (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.1.0"))
-                        .font(.caption2).foregroundStyle(.secondary)
-                }
-            }
-            ConnectionView(store: store)
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Picker("发送版本", selection: $store.translateBooks) {
-                        Text("直接发送").tag(false)
-                        Text("中文对照版").tag(true)
-                    }.pickerStyle(.segmented).labelsHidden().disabled(store.busy)
-                    Button { store.showTranslationSettings = true } label: {
-                        Image(systemName: "gearshape").font(.body)
-                    }.buttonStyle(.borderless).help("翻译设置").accessibilityLabel("翻译设置").disabled(store.busy)
-                }
-                if store.translateBooks {
-                    HStack(alignment: .top, spacing: 12) {
-                        Text("EPUB 原文与中文逐段对照\n正文会发送给所选模型服务，按 API 用量计费；原书保留。")
-                            .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                        Spacer(minLength: 0)
-                        Button("先试译 3 段") { Task { await store.preview() } }
-                            .disabled(store.busy || !store.previewAvailable)
-                    }
-                }
-            }
-            VStack(spacing: 10) {
-                Image(systemName: "doc.badge.plus").font(.system(size: 28, weight: .light)).foregroundStyle(Color.accentColor)
-                Text("拖入 Markdown 或 EPUB").fontWeight(.medium)
-                HStack(spacing: 6) {
-                    Text("支持多篇文章，自动转换排版").foregroundStyle(.secondary)
-                    Button("选择文件…") { store.showPicker = true }.buttonStyle(.link).disabled(store.busy)
-                }.font(.caption)
-            }
-            .frame(maxWidth: .infinity).padding(.vertical, 20)
-            .background(targeted ? Color.accentColor.opacity(0.12) : Color.clear, in: RoundedRectangle(cornerRadius: 14))
-            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(targeted ? Color.accentColor : Color.secondary.opacity(0.3), style: StrokeStyle(lineWidth: 1.5, dash: [6, 5])))
-            .dropDestination(for: URL.self) { urls, _ in
-                guard !store.busy else { return false }; store.add(urls); return true
-            } isTargeted: { targeted = $0 }
-            HStack {
-                Text("文章列表").fontWeight(.semibold)
-                Text("\(store.articles.count)").foregroundStyle(.secondary)
-                Spacer()
-                if store.articles.contains(where: { $0.status == "已发送" }) {
-                    Button("清除已发送") { store.clearSent() }.buttonStyle(.link).font(.caption).disabled(store.busy)
-                }
-            }
+        VStack(spacing: 0) {
             if store.articles.isEmpty {
-                VStack(spacing: 8) {
-                    Text("还没有文章").foregroundStyle(.secondary)
-                    Text("原文留在原位置，发送后的文章在 Kindle「我的文章」里。")
-                        .font(.caption).foregroundStyle(.tertiary)
-                }.frame(maxWidth: .infinity, maxHeight: .infinity)
+                EmptyStateView(store: store, targeted: targeted)
             } else {
-                ScrollView {
-                    LazyVStack(spacing: 0) {
-                        ForEach(store.articles) { article in
-                            ArticleRow(article: article, store: store)
-                            Divider()
-                        }
+                listHeader
+                List(selection: $selection) {
+                    ForEach(store.articles) { article in
+                        ArticleRow(article: article, store: store).tag(article.id)
                     }
-                }.frame(minHeight: 100)
+                }
+                .listStyle(.inset)
+                .scrollContentBackground(.hidden)
+                .contextMenu(forSelectionType: UUID.self) { ids in
+                    Button("在访达中显示") { store.reveal(ids) }
+                    Button("再次发送") { ids.forEach(store.retry) }.disabled(store.busy)
+                    Divider()
+                    Button("从列表移除") { store.remove(ids) }.disabled(store.busy)
+                } primaryAction: { store.reveal($0) }
+                .onDeleteCommand { store.remove(selection); selection.removeAll() }
             }
-            if !store.notice.isEmpty {
-                Label(store.notice, systemImage: store.isError ? "exclamationmark.circle" : "checkmark.circle")
-                    .font(.callout).foregroundStyle(store.isError ? Color.orange : Color.green)
-                    .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
-            }
-            Divider()
-            HStack(spacing: 12) {
-                if store.busy { ProgressView().controlSize(.small) }
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(store.busy ? store.activity : store.translateBooks ? "翻译为中文对照版，再通过 Wi-Fi 发送" : "只在本地转换，通过 Wi-Fi 传输")
-                        .font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                    Button("查看已转换文件") { store.revealOutput() }.buttonStyle(.link).font(.caption)
-                }
-                Spacer(minLength: 10)
-                if store.currentJob != nil {
-                    Button("停止翻译") { store.stopTranslation() }
-                }
-                Button { Task { await store.send() } } label: {
-                    Label(store.busy ? "请稍候…" : "\(store.translateBooks ? "翻译并发送" : "发送到 Kindle")\(store.pendingCount > 0 ? " · \(store.pendingCount)" : "")", systemImage: "paperplane.fill")
-                        .padding(.horizontal, 8).padding(.vertical, 5)
-                }
-                .buttonStyle(.borderedProminent).keyboardShortcut(.return, modifiers: .command)
-                .disabled(store.busy || store.pendingCount == 0)
+            FooterBar(store: store)
+        }
+        .background(Color(nsColor: .textBackgroundColor))
+        .overlay { if targeted && !store.articles.isEmpty { DropOverlay() } }
+        .animation(.easeOut(duration: 0.15), value: targeted)
+        .dropDestination(for: URL.self) { urls, _ in
+            guard !store.busy else { return false }; store.add(urls); return true
+        } isTargeted: { targeted = $0 && !store.busy }
+        .frame(minWidth: 560, minHeight: 480)
+        .navigationTitle("Kindle 推送")
+        .navigationSubtitle(subtitle)
+        .toolbar {
+            ToolbarItemGroup(placement: .primaryAction) {
+                ConnectionButton(store: store)
+                Button { store.showPicker = true } label: { Label("添加文章", systemImage: "plus") }
+                    .help("添加 Markdown 或 EPUB（⌘O）").disabled(store.busy)
+                SettingsLink { Label("翻译设置", systemImage: "gearshape") }.help("翻译设置（⌘,）")
             }
         }
-        .padding(26).frame(minWidth: 560, minHeight: 660)
-        .sheet(isPresented: $store.showTranslationSettings) { TranslationSettingsView(store: store) }
         .fileImporter(isPresented: $store.showPicker,
                       allowedContentTypes: [UTType(filenameExtension: "md") ?? .plainText,
                                             UTType(filenameExtension: "markdown") ?? .plainText,
@@ -118,5 +58,123 @@ struct ContentView: View {
         }
         .task { await store.start() }
         .onOpenURL { store.add([$0]) }
+    }
+
+    private var subtitle: String {
+        if store.busy && store.total > 0 { return "\(store.completed) / \(store.total) 已完成" }
+        if store.pendingCount > 0 { return "\(store.pendingCount) 篇待发送" }
+        return store.articles.isEmpty ? "" : "全部已送达"
+    }
+
+    private var listHeader: some View {
+        HStack(spacing: 6) {
+            Text("文章").font(.headline)
+            Text("待发送 \(store.pendingCount) · 已送达 \(store.sentCount)")
+                .font(.callout).foregroundStyle(.secondary).monospacedDigit()
+            Spacer()
+            if store.sentCount > 0 {
+                Button("清除已送达") { store.clearSent() }
+                    .buttonStyle(.borderless).controlSize(.small).disabled(store.busy)
+            }
+        }
+        .padding(.horizontal, 20).padding(.top, 14).padding(.bottom, 4)
+    }
+}
+
+private struct DropOverlay: View {
+    var body: some View {
+        RoundedRectangle(cornerRadius: 14, style: .continuous)
+            .fill(Color.accentColor.opacity(0.07))
+            .strokeBorder(Color.accentColor.opacity(0.6), style: StrokeStyle(lineWidth: 1.5, dash: [7, 5]))
+            .overlay {
+                Label("松手，加入发送列表", systemImage: "arrow.down.doc")
+                    .font(.headline).foregroundStyle(Color.accentColor)
+                    .padding(.horizontal, 16).padding(.vertical, 9)
+                    .background(.regularMaterial, in: Capsule())
+            }
+            .padding(10).allowsHitTesting(false)
+            .transition(.opacity)
+    }
+}
+
+private struct EmptyStateView: View {
+    @ObservedObject var store: PushStore
+    let targeted: Bool
+    var body: some View {
+        VStack(spacing: 0) {
+            Spacer(minLength: 24)
+            ReaderGlyph(lifted: targeted)
+            Text(targeted ? "松手，交给 Kindle" : "把文章留给慢读")
+                .font(.system(size: 26, weight: .semibold, design: .serif))
+                .padding(.top, 26)
+                .contentTransition(.opacity)
+            Text("拖入 Markdown 或 EPUB，自动排版，经 Wi‑Fi 送到 Kindle。")
+                .font(.callout).foregroundStyle(.secondary).padding(.top, 8)
+            Button("选择文件…") { store.showPicker = true }
+                .controlSize(.large).padding(.top, 22).disabled(store.busy)
+            Spacer(minLength: 24)
+            HStack(spacing: 10) {
+                Step(number: 1, text: "拖入文章")
+                Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
+                Step(number: 2, text: "本机排版")
+                Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
+                Step(number: 3, text: "在「我的文章」阅读")
+            }
+            .padding(.bottom, 22)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(targeted ? Color.accentColor.opacity(0.06) : Color.clear)
+                .strokeBorder(targeted ? Color.accentColor.opacity(0.6) : Color.secondary.opacity(0.18),
+                              style: StrokeStyle(lineWidth: 1.5, dash: [7, 5]))
+                .padding(16)
+        }
+        .animation(.spring(duration: 0.3), value: targeted)
+    }
+}
+
+private struct Step: View {
+    let number: Int
+    let text: String
+    var body: some View {
+        HStack(spacing: 6) {
+            Text("\(number)").font(.caption2.weight(.semibold)).monospacedDigit()
+                .frame(width: 16, height: 16).background(.quaternary, in: Circle())
+            Text(text).font(.caption)
+        }
+        .foregroundStyle(.secondary)
+    }
+}
+
+/// A small e-reader with a page of text and a paper plane arriving.
+private struct ReaderGlyph: View {
+    let lifted: Bool
+    private let lines: [CGFloat] = [44, 52, 50, 30, 0, 52, 46, 52, 24]
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color(nsColor: .windowBackgroundColor))
+                .strokeBorder(Color.primary.opacity(0.22), lineWidth: 1.5)
+                .shadow(color: .black.opacity(lifted ? 0.14 : 0.06), radius: lifted ? 14 : 6, y: lifted ? 8 : 3)
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(Color.primary.opacity(0.035))
+                .padding(.horizontal, 9).padding(.top, 10).padding(.bottom, 20)
+            VStack(alignment: .leading, spacing: 5) {
+                ForEach(lines.indices, id: \.self) { i in
+                    Capsule().fill(Color.primary.opacity(lines[i] == 0 ? 0 : 0.2))
+                        .frame(width: lines[i], height: 2.5)
+                }
+            }
+            .frame(width: 54, alignment: .leading).offset(y: -5)
+        }
+        .frame(width: 86, height: 114)
+        .overlay(alignment: .topTrailing) {
+            Image(systemName: "paperplane.fill")
+                .font(.system(size: 22, weight: .medium)).foregroundStyle(Color.accentColor)
+                .rotationEffect(.degrees(lifted ? -8 : 0))
+                .offset(x: lifted ? 30 : 22, y: lifted ? -22 : -14)
+        }
+        .scaleEffect(lifted ? 1.05 : 1)
     }
 }

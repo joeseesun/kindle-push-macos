@@ -4,27 +4,103 @@ import AppKit
 struct ArticleRow: View {
     let article: Article
     @ObservedObject var store: PushStore
+    @State private var hovering = false
+
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: article.status == "已发送" ? "checkmark.circle.fill" : "doc.text")
-                .font(.title2).foregroundStyle(article.status == "已发送" ? Color.green : Color.secondary)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(article.title).fontWeight(.medium).lineLimit(1).help(article.path)
-                Text(article.details.isEmpty ? article.format + " · " + article.status : article.details)
-                    .font(.caption).foregroundStyle(article.status == "失败" ? Color.orange : Color.secondary)
-                    .lineLimit(2).help(article.details)
+            FileBadge(format: article.format, sent: article.phase == .done)
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Text(article.title).font(.body.weight(.medium)).lineLimit(1).truncationMode(.middle)
+                    if article.bilingual == true {
+                        Text("中英对照").font(.caption2.weight(.medium)).foregroundStyle(Color.accentColor)
+                            .padding(.horizontal, 5).padding(.vertical, 1)
+                            .background(Color.accentColor.opacity(0.12), in: Capsule())
+                    }
+                }
+                Text(subtitle).font(.caption)
+                    .foregroundStyle(article.phase == .failed ? Color.orange : Color.secondary)
+                    .lineLimit(2).help(article.details.isEmpty ? article.path : article.details)
             }
-            Spacer()
-            if ["发送中", "翻译中", "试译中"].contains(article.status) { ProgressView().controlSize(.small) }
-            else { Text(article.status).font(.caption).foregroundStyle(.secondary) }
-            Button { store.remove(article.id) } label: { Image(systemName: "xmark").font(.caption) }
-                .buttonStyle(.borderless).help("从列表移除，不删除原文").disabled(store.busy)
+            Spacer(minLength: 8)
+            HStack(spacing: 2) {
+                if [.failed, .stopped].contains(article.phase) {
+                    iconButton("arrow.clockwise", help: "再次发送") { store.retry(article.id) }
+                }
+                iconButton("magnifyingglass", help: "在访达中显示") {
+                    NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: article.path)])
+                }
+                iconButton("xmark", help: "从列表移除（不删除原文）") { store.remove(article.id) }
+            }
+            .opacity(hovering && !store.busy ? 1 : 0)
+            StatusChip(article: article)
         }
-        .padding(.vertical, 8)
-        .contextMenu {
-            Button("在访达中显示") { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: article.path)]) }
-            Button("再次发送") { store.retry(article.id) }.disabled(store.busy)
-            Button("从列表移除") { store.remove(article.id) }.disabled(store.busy)
+        .padding(.vertical, 6).padding(.horizontal, 4)
+        .contentShape(Rectangle())
+        .onHover { hovering = $0 }
+        .animation(.easeOut(duration: 0.12), value: hovering)
+    }
+
+    private var subtitle: String {
+        if !article.details.isEmpty { return article.details }
+        return article.folder.isEmpty ? article.format : "\(article.format) · \(article.folder)"
+    }
+
+    private func iconButton(_ symbol: String, help: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol).font(.system(size: 11, weight: .semibold))
+                .frame(width: 22, height: 22).contentShape(Rectangle())
+        }
+        .buttonStyle(.borderless).foregroundStyle(.secondary).help(help)
+        .accessibilityLabel(help)
+    }
+}
+
+private struct FileBadge: View {
+    let format: String
+    let sent: Bool
+    var body: some View {
+        VStack(spacing: 3) {
+            Image(systemName: format == "EPUB" ? "book.closed" : "text.alignleft")
+                .font(.system(size: 13, weight: .regular))
+            Text(format == "EPUB" ? "EPUB" : "MD").font(.system(size: 7.5, weight: .bold)).kerning(0.3)
+        }
+        .foregroundStyle(.secondary)
+        .frame(width: 32, height: 40)
+        .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Color.primary.opacity(0.08)))
+        .overlay(alignment: .bottomTrailing) {
+            if sent {
+                Image(systemName: "checkmark.circle.fill").font(.system(size: 13))
+                    .foregroundStyle(.white, .green)
+                    .background(Circle().fill(Color(nsColor: .textBackgroundColor)).padding(-1.5))
+                    .offset(x: 7, y: 7)
+            }
+        }
+    }
+}
+
+private struct StatusChip: View {
+    let article: Article
+    var body: some View {
+        HStack(spacing: 5) {
+            if article.phase == .working { ProgressView().controlSize(.mini) }
+            Text(label)
+        }
+        .font(.caption.weight(.medium)).foregroundStyle(tint)
+        .padding(.horizontal, 8).padding(.vertical, 3)
+        .background(tint.opacity(article.phase == .waiting ? 0.08 : 0.12), in: Capsule())
+        .fixedSize()
+    }
+
+    private var label: String { article.status == "等待发送" ? "待发送" : article.status }
+
+    private var tint: Color {
+        switch article.phase {
+        case .done: .green
+        case .working, .ready: .accentColor
+        case .failed: .orange
+        case .waiting, .stopped: .secondary
         }
     }
 }

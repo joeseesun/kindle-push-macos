@@ -27,6 +27,8 @@ cat > "$CONTENTS/Info.plist" <<'PLIST'
 <plist version="1.0"><dict>
 <key>CFBundleExecutable</key><string>KindlePush</string>
 <key>CFBundleIdentifier</key><string>local.chase.KindlePush</string>
+<key>CFBundleDevelopmentRegion</key><string>zh_CN</string>
+<key>CFBundleLocalizations</key><array><string>zh-Hans</string></array>
 <key>CFBundleName</key><string>Kindle 推送</string>
 <key>CFBundleDisplayName</key><string>Kindle 推送</string>
 <key>CFBundlePackageType</key><string>APPL</string>

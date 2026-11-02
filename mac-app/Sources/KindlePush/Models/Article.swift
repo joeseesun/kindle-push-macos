@@ -23,3 +23,19 @@ struct BridgeResponse: Decodable, Sendable {
     var model: String?
     var runtimeReady: Bool?
 }
+
+enum ArticlePhase { case waiting, working, ready, done, failed, stopped }
+
+extension Article {
+    var phase: ArticlePhase {
+        switch status {
+        case "已发送": .done
+        case "发送中", "翻译中", "试译中": .working
+        case "试译完成", "翻译完成": .ready
+        case "失败": .failed
+        case "已停止": .stopped
+        default: .waiting
+        }
+    }
+    var folder: String { URL(fileURLWithPath: path).deletingLastPathComponent().lastPathComponent }
+}

@@ -12,13 +12,16 @@ final class PushStore: ObservableObject {
     @Published var notice = ""
     @Published var isError = false
     @Published var showPicker = false
-    @Published var showManual = false
+    @Published var showConnection = false
+    @Published var searching = false
+    @Published var connectionIssue = ""
+    @Published var setupNeeded = false
+    @Published var translationReady: Bool?
     @Published var completed = 0
     @Published var total = 0
     @Published var translateBooks = UserDefaults.standard.bool(forKey: "translateBooks") {
         didSet { UserDefaults.standard.set(translateBooks, forKey: "translateBooks") }
     }
-    @Published var showTranslationSettings = false
     @Published var currentJob: String?
     private var stopRequested = false
     private var started = false
@@ -32,13 +35,37 @@ final class PushStore: ObservableObject {
                 return item
             }
         }
+        updateBadge()
     }
 
     var pendingCount: Int { articles.filter { $0.status != "已发送" }.count }
     var previewAvailable: Bool { articles.contains { $0.format == "EPUB" && $0.status != "已发送" } }
+    var sentCount: Int { articles.count - pendingCount }
+    var markdownPending: Bool { articles.contains { $0.status != "已发送" && $0.format != "EPUB" } }
+    var connectionTitle: String {
+        if searching { return "正在寻找…" }
+        if connected { return "我的 Kindle" }
+        return setupNeeded ? "需要首次配置" : "未连接 Kindle"
+    }
 
     func save() {
         if let data = try? JSONEncoder().encode(articles) { UserDefaults.standard.set(data, forKey: "articles") }
+        updateBadge()
+    }
+
+    private func updateBadge() {
+        NSApp?.dockTile.badgeLabel = pendingCount > 0 ? "\(pendingCount)" : nil
+    }
+
+    func dismissNotice() { notice = ""; isError = false }
+
+    private func announce(_ message: String, error: Bool) {
+        notice = message; isError = error
+        guard !error else { return }
+        Task {
+            try? await Task.sleep(for: .seconds(8))
+            if notice == message { dismissNotice() }
+        }
     }
 
     func add(_ urls: [URL]) {
@@ -56,11 +83,16 @@ final class PushStore: ObservableObject {
             } else { articles.append(Article(path: path)) }
         }
         if rejected > 0 { notice = "已略过 \(rejected) 个不支持的文件。请选择 Markdown 或 EPUB。"; isError = true }
-        else { notice = ""; isError = false }
+        else if isError { dismissNotice() }
         save()
     }
 
-    func remove(_ id: UUID) { guard !busy else { return }; articles.removeAll { $0.id == id }; save() }
+    func remove(_ id: UUID) { remove([id]) }
+    func remove(_ ids: Set<UUID>) { guard !busy else { return }; articles.removeAll { ids.contains($0.id) }; save() }
+    func reveal(_ ids: Set<UUID>) {
+        let urls = articles.filter { ids.contains($0.id) }.map { URL(fileURLWithPath: $0.path) }
+        if !urls.isEmpty { NSWorkspace.shared.activateFileViewerSelecting(urls) }
+    }
     func clearSent() { guard !busy else { return }; articles.removeAll { $0.status == "已发送" }; save() }
     func retry(_ id: UUID) {
         guard !busy, let index = articles.firstIndex(where: { $0.id == id }) else { return }
@@ -74,31 +106,40 @@ final class PushStore: ObservableObject {
         if status.ok {
             host = status.host ?? ""; manualHost = host
             await findConnection(manual: false)
-        } else { present(status) }
+        } else {
+            setupNeeded = true
+            connectionIssue = status.message ?? "还没完成首次配置。"
+            activity = "需要首次配置"
+        }
         busy = false
+        await refreshTranslationStatus()
+    }
+
+    func refreshTranslationStatus() async {
+        translationReady = await Bridge.call(["translation-settings"]).runtimeReady ?? false
     }
 
     func connect(manual: Bool = false) async {
         guard !busy else { return }
-        busy = true; notice = ""; isError = false
+        busy = true
         await findConnection(manual: manual)
+        if connected && isError { dismissNotice() }
         busy = false
     }
 
     private func findConnection(manual: Bool) async {
-        connected = false
+        connected = false; searching = true
+        defer { searching = false }
         activity = manual ? "正在连接 Kindle…" : "正在寻找你的 Kindle…"
         let response = await Bridge.call(manual ? ["connect", manualHost.trimmingCharacters(in: .whitespacesAndNewlines)] : ["discover"])
         if response.ok {
             host = response.host ?? ""; manualHost = host; connected = true
+            setupNeeded = false; connectionIssue = ""
             activity = "Kindle 已连接"
-        } else { present(response); activity = "Kindle 尚未连接" }
-    }
-
-    private func present(_ response: BridgeResponse) {
-        isError = !response.ok
-        notice = response.message ?? "操作未完成，请重试。"
-        if !response.ok { activity = "需要检查连接" }
+        } else {
+            connectionIssue = response.message ?? "没有找到 Kindle，请重试。"
+            activity = "Kindle 尚未连接"
+        }
     }
 
     func send() async {
@@ -112,7 +153,9 @@ final class PushStore: ObservableObject {
         total = ids.count
         // Revalidate every time; recover automatically after a Wi-Fi change.
         await findConnection(manual: false)
-        guard connected else { busy = false; return }
+        guard connected else {
+            notice = connectionIssue; isError = true; busy = false; return
+        }
         var failures = 0
         for id in ids {
             if stopRequested { break }
@@ -134,10 +177,10 @@ final class PushStore: ObservableObject {
             if !response.ok { failures += 1 }
             completed += 1; save()
         }
-        isError = failures > 0
-        notice = stopRequested ? "已停止。已完成的翻译保留，未完成的书籍没有发送。" : failures == 0 ? "\(total) 篇文章已送达。Kindle → 文件浏览器 → documents → 我的文章。" : "\(total - failures) 篇已送达，\(failures) 篇未完成。可以重试未完成的文章。"
+        announce(stopRequested ? "已停止。已完成的翻译保留，未完成的书籍没有发送。" : failures == 0 ? "\(total) 篇已送达 · 在 KOReader 打开 documents › 我的文章" : "\(total - failures) 篇已送达，\(failures) 篇未完成。可以重试未完成的文章。", error: failures > 0)
         activity = stopRequested ? "已停止" : failures == 0 ? "发送完成" : "部分文章未完成"
         busy = false
+        if !NSApp.isActive { NSApp.requestUserAttention(.informationalRequest) }
     }
 
     private func translate(index: Int, preview: Bool) async -> String? {
@@ -167,10 +210,10 @@ final class PushStore: ObservableObject {
 
     func preview() async {
         guard !busy, let index = articles.firstIndex(where: { $0.format == "EPUB" && $0.status != "已发送" }) else { return }
-        busy = true; stopRequested = false; notice = ""; isError = false
+        busy = true; stopRequested = false; dismissNotice()
         if let output = await translate(index: index, preview: true) {
             NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: output)])
-            notice = "试译完成，仅生成样本，没有发送到 Kindle。请检查译文后再翻译整本。"
+            announce("试译样本已在访达中打开，没有发送到 Kindle。满意后再翻译整本。", error: false)
         } else { notice = articles[index].details; isError = !stopRequested }
         busy = false
     }
