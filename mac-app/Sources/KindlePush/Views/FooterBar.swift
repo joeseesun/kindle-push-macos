@@ -16,11 +16,8 @@ struct FooterBar: View {
                 Spacer(minLength: 8)
                 if store.currentJob != nil {
                     Button("停止") { store.stopTranslation() }.controlSize(.large)
-                } else if store.translateBooks && !store.busy {
-                    Button("先试译 3 段") { Task { await store.preview() } }
-                        .controlSize(.large)
-                        .disabled(!store.previewAvailable || store.translationReady == false)
-                        .help("只翻译 3 段正文给你检查，不发送")
+                } else if !store.busy {
+                    secondaryButton
                 }
                 sendButton
             }
@@ -51,8 +48,8 @@ struct FooterBar: View {
                 SettingsLink { Text("去设置") }.buttonStyle(.link)
             }
             .font(.caption).foregroundStyle(.orange)
-        } else if store.markdownPending {
-            Label("中英对照只支持 EPUB，请移除 Markdown 或切回原文", systemImage: "exclamationmark.triangle")
+        } else if store.nonEpubPending {
+            Label("中英对照只支持 EPUB，请移除其他格式或切回原文", systemImage: "exclamationmark.triangle")
                 .font(.caption).foregroundStyle(.orange)
         } else {
             Label("仅 EPUB · 正文发给翻译模型，按用量计费", systemImage: "globe")
@@ -68,9 +65,29 @@ struct FooterBar: View {
         }
     }
 
+    /// Work that stays on this Mac: no Kindle needed.
+    @ViewBuilder private var secondaryButton: some View {
+        if store.translateBooks {
+            Menu("先试译 3 段") {
+                Button("先试译 3 段") { Task { await store.preview() } }
+                    .disabled(!store.previewAvailable)
+                Divider()
+                Button("翻译整本，只保存到本机") { Task { await store.saveLocally() } }
+                    .disabled(sendDisabled)
+            } primaryAction: { Task { await store.preview() } }
+            .controlSize(.large).fixedSize()
+            .disabled(!store.previewAvailable || store.translationReady == false)
+            .help("只翻译 3 段正文给你检查，不发送。点箭头可翻译整本并只保存到本机（⌥⌘↩）")
+        } else {
+            Button("保存到本机") { Task { await store.saveLocally() } }
+                .controlSize(.large).disabled(sendDisabled)
+                .help("只转换排版，保存到本机，不需要 Kindle（⌥⌘↩）")
+        }
+    }
+
     private var sendDisabled: Bool {
         store.busy || store.pendingCount == 0
-            || (store.translateBooks && (store.markdownPending || store.translationReady == false))
+            || (store.translateBooks && (store.nonEpubPending || store.translationReady == false))
     }
 
     private var sendButton: some View {

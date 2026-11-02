@@ -1,4 +1,24 @@
-# Markdown → EPUB 格式支持
+# 格式支持
+
+KOReader 能打开的格式都支持（对照 KOReader 源码 `credocument.lua`、`pdfdocument.lua`、`djvudocument.lua`、`picdocument.lua` 的注册列表）。
+
+| 格式 | 处理方式 |
+| --- | --- |
+| EPUB | 校验结构后原样发送 |
+| Markdown | 转成 EPUB，见下文 |
+| TXT | 转成 EPUB：自动识别 UTF-8 / GB18030 / Big5 编码，每行一段，「第一章」「序章」「Chapter 1」等行变成章节标题和目录 |
+| HTML、XHTML、DOCX、ODT、RTF | Pandoc 转成带目录、阅读样式的 EPUB；原文件中 Pandoc 不支持的样式会提示但不中断 |
+| PDF、XPS、DjVu | 校验文件头后原样发送 |
+| CBZ、CBR、CBT 漫画 | 原样发送 |
+| MOBI、AZW、AZW3、PRC、PDB、TCR | 原样发送；带 DRM 的 MOBI/AZW 会提示无法打开。AZW3 改名为 `.azw`（KOReader 按这个扩展名打开 KF8） |
+| FB2、FB3、CHM、DOC、DOCM | 原样发送，由 KOReader 的 crengine 排版 |
+| fb2.zip、txt.zip、html.zip、htm.zip、htmlz、rtf.zip、md.zip | 原样发送，KOReader 直接打开压缩包 |
+| PNG、JPG、GIF、WEBP、TIFF | 原样发送，KOReader 可当作单页查看 |
+
+原样发送的格式需要 v2 接收端（PDF、MOBI 等，见 README「发送 PDF、MOBI 等原生格式」）。中英对照翻译只支持 EPUB。
+
+## Markdown → EPUB
+
 
 转换引擎为 Pandoc，输出 EPUB 3。字体大小、页边距等最终仍可由 KOReader 的阅读设置覆盖。
 

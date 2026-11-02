@@ -23,6 +23,10 @@ class ReceiverTests(unittest.TestCase):
             self.assertEqual((dest / '中文.epub').read_bytes(), data)
             self.assertNotEqual(call('put', b'../outside.epub\n1\nx').returncode, 0)
             self.assertNotEqual(call('arbitrary shell command', b'').returncode, 0)
+            self.assertEqual(call('ping', b'').stdout, b'kindle-push-v2\n')
+            self.assertEqual(call('put', b'paper.pdf\n4\n%PDF').returncode, 0)
+            self.assertEqual(call('put', b'novel.fb2.zip\n1\nx').returncode, 0)
+            self.assertNotEqual(call('put', b'run.sh\n1\nx').returncode, 0)
 
 
 if __name__ == '__main__':

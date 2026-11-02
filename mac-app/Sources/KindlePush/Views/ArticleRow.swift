@@ -61,9 +61,9 @@ private struct FileBadge: View {
     let sent: Bool
     var body: some View {
         VStack(spacing: 3) {
-            Image(systemName: format == "EPUB" ? "book.closed" : "text.alignleft")
-                .font(.system(size: 13, weight: .regular))
-            Text(format == "EPUB" ? "EPUB" : "MD").font(.system(size: 7.5, weight: .bold)).kerning(0.3)
+            Image(systemName: symbol).font(.system(size: 13, weight: .regular))
+            Text(label).font(.system(size: 7.5, weight: .bold)).kerning(0.3)
+                .lineLimit(1).minimumScaleFactor(0.7)
         }
         .foregroundStyle(.secondary)
         .frame(width: 32, height: 40)
@@ -76,6 +76,30 @@ private struct FileBadge: View {
                     .background(Circle().fill(Color(nsColor: .textBackgroundColor)).padding(-1.5))
                     .offset(x: 7, y: 7)
             }
+        }
+    }
+}
+
+extension FileBadge {
+    var label: String {
+        switch format {
+        case "MD", "MARKDOWN", "MD.ZIP": "MD"
+        case "HTM", "XHTML", "HTML.ZIP", "HTM.ZIP", "HTMLZ": "HTML"
+        case "JPEG": "JPG"
+        case "TIFF": "TIF"
+        default: format.replacingOccurrences(of: ".ZIP", with: "")
+        }
+    }
+    var symbol: String {
+        switch format {
+        case "EPUB", "MOBI", "AZW", "AZW3", "PRC", "PDB", "TCR", "FB2", "FB3", "FB2.ZIP": "book.closed"
+        case "PDF", "XPS", "DJVU", "DJV", "CHM": "doc.richtext"
+        case "CBZ", "CBR", "CBT": "book.pages"
+        case "PNG", "JPG", "JPEG", "GIF", "WEBP", "TIF", "TIFF": "photo"
+        case "TXT", "TXT.ZIP": "doc.plaintext"
+        case "HTML", "HTM", "XHTML", "HTMLZ", "HTML.ZIP", "HTM.ZIP": "globe"
+        case "DOC", "DOCX", "DOCM", "ODT", "RTF", "RTF.ZIP": "doc.text"
+        default: "text.alignleft"
         }
     }
 }

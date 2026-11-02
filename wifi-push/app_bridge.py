@@ -117,7 +117,7 @@ def handle(args):
     if command.startswith('translation-'):
         import translation as tr
         if command == 'translation-settings': return tr.public_settings()
-        if command == 'translation-save': return tr.save_settings(args[1], args[2])
+        if command == 'translation-save': return tr.save_settings(args[1], args[2], *args[3:])
         if command == 'translation-install': return tr.install()
         if command == 'translation-start': return tr.start(args[1], len(args) > 2 and args[2] == 'preview')
         if command == 'translation-progress': return tr.progress(args[1])
@@ -131,6 +131,11 @@ def handle(args):
     if command in {'discover', 'scan', 'connect'}:
         host = verify(args[1]) if command == 'connect' else discover(command == 'scan')
         return {'ok': True, 'host': host, 'message': 'Kindle 已连接'}
+    if command == 'convert':
+        log = io.StringIO()
+        with contextlib.redirect_stdout(log):
+            output = kp.convert(Path(args[1]))
+        return {'ok': True, 'output': str(output), 'message': '已保存到本机', 'details': log.getvalue()}
     if command == 'send':
         host = verify(args[1])
         source = Path(args[2])

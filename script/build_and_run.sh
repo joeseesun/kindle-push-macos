@@ -40,10 +40,10 @@ cat > "$CONTENTS/Info.plist" <<'PLIST'
 <key>NSHighResolutionCapable</key><true/>
 <key>NSLocalNetworkUsageDescription</key><string>在当前 Wi-Fi 中寻找已配对 Kindle 并发送你选择的文章。</string>
 <key>CFBundleDocumentTypes</key><array><dict>
-<key>CFBundleTypeName</key><string>可推送文章</string>
+<key>CFBundleTypeName</key><string>可推送文章与电子书</string>
 <key>CFBundleTypeRole</key><string>Viewer</string>
 <key>LSHandlerRank</key><string>Alternate</string>
-<key>CFBundleTypeExtensions</key><array><string>md</string><string>markdown</string><string>epub</string></array>
+<key>CFBundleTypeExtensions</key><array><string>epub</string><string>md</string><string>markdown</string><string>txt</string><string>html</string><string>htm</string><string>xhtml</string><string>docx</string><string>odt</string><string>rtf</string><string>pdf</string><string>xps</string><string>djvu</string><string>djv</string><string>cbz</string><string>cbr</string><string>cbt</string><string>mobi</string><string>azw</string><string>azw3</string><string>prc</string><string>pdb</string><string>tcr</string><string>fb2</string><string>fb3</string><string>chm</string><string>doc</string><string>docm</string><string>htmlz</string></array>
 </dict></array>
 </dict></plist>
 PLIST

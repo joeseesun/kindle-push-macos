@@ -41,7 +41,7 @@ final class PushStore: ObservableObject {
     var pendingCount: Int { articles.filter { $0.status != "已发送" }.count }
     var previewAvailable: Bool { articles.contains { $0.format == "EPUB" && $0.status != "已发送" } }
     var sentCount: Int { articles.count - pendingCount }
-    var markdownPending: Bool { articles.contains { $0.status != "已发送" && $0.format != "EPUB" } }
+    var nonEpubPending: Bool { articles.contains { $0.status != "已发送" && $0.format != "EPUB" } }
     var connectionTitle: String {
         if searching { return "正在寻找…" }
         if connected { return "我的 Kindle" }
@@ -72,7 +72,7 @@ final class PushStore: ObservableObject {
         guard !busy else { return }
         var rejected = 0
         for url in urls {
-            guard url.isFileURL, ["md", "markdown", "epub"].contains(url.pathExtension.lowercased()) else {
+            guard url.isFileURL, Article.isSupported(url) else {
                 rejected += 1; continue
             }
             let path = url.standardizedFileURL.path
@@ -82,7 +82,7 @@ final class PushStore: ObservableObject {
                 articles[index].output = nil; articles[index].bilingual = false
             } else { articles.append(Article(path: path)) }
         }
-        if rejected > 0 { notice = "已略过 \(rejected) 个不支持的文件。请选择 Markdown 或 EPUB。"; isError = true }
+        if rejected > 0 { notice = "已略过 \(rejected) 个不支持的文件。支持 KOReader 能打开的电子书、漫画、文档，以及 Markdown。"; isError = true }
         else if isError { dismissNotice() }
         save()
     }
@@ -142,21 +142,28 @@ final class PushStore: ObservableObject {
         }
     }
 
-    func send() async {
+    func send() async { await process(deliver: true) }
+    /// Convert or translate without a Kindle: the result stays on this Mac.
+    func saveLocally() async { await process(deliver: false) }
+
+    private func process(deliver: Bool) async {
         guard !busy, pendingCount > 0 else { return }
-        if translateBooks && articles.contains(where: { $0.status != "已发送" && $0.format != "EPUB" }) {
-            notice = "中文对照翻译仅支持 EPUB。请移除 Markdown，或切换为直接发送。"; isError = true; return
+        if translateBooks && nonEpubPending {
+            notice = "中英对照只支持 EPUB。请移除其他格式，或切回原文。"; isError = true; return
         }
         busy = true; notice = ""; isError = false; completed = 0
         stopRequested = false
         let ids = articles.filter { $0.status != "已发送" }.map(\.id)
         total = ids.count
-        // Revalidate every time; recover automatically after a Wi-Fi change.
-        await findConnection(manual: false)
-        guard connected else {
-            notice = connectionIssue; isError = true; busy = false; return
+        if deliver {
+            // Revalidate every time; recover automatically after a Wi-Fi change.
+            await findConnection(manual: false)
+            guard connected else {
+                notice = connectionIssue; isError = true; busy = false; return
+            }
         }
         var failures = 0
+        var saved: [URL] = []
         for id in ids {
             if stopRequested { break }
             guard let index = articles.firstIndex(where: { $0.id == id }) else { continue }
@@ -168,6 +175,21 @@ final class PushStore: ObservableObject {
                 source = output
             }
             if stopRequested { break }
+            if !deliver {
+                var output = translateBooks ? source : nil
+                if output == nil {
+                    articles[index].status = "发送中"; articles[index].details = "正在转换…"
+                    activity = "正在转换 \(completed + 1) / \(total)：\(articles[index].title)"
+                    let response = await Bridge.call(["convert", source])
+                    output = response.ok ? response.output : nil
+                    if !response.ok { articles[index].details = response.message ?? "转换失败" }
+                }
+                if let output {
+                    articles[index].status = "已保存"; articles[index].details = "已保存到本机 · 可在访达中查看"
+                    articles[index].output = output; saved.append(URL(fileURLWithPath: output))
+                } else { articles[index].status = "失败"; failures += 1 }
+                completed += 1; save(); continue
+            }
             articles[index].status = "发送中"
             activity = "正在发送 \(completed + 1) / \(total)：\(articles[index].title)"
             let response = await Bridge.call(["send", host, source])
@@ -176,6 +198,12 @@ final class PushStore: ObservableObject {
             articles[index].output = response.output
             if !response.ok { failures += 1 }
             completed += 1; save()
+        }
+        if !deliver {
+            if !saved.isEmpty { NSWorkspace.shared.activateFileViewerSelecting(saved) }
+            announce(stopRequested ? "已停止。已完成的文件保留在本机。" : failures == 0 ? "\(saved.count) 个文件已保存到本机，已在访达中选中。" : "\(saved.count) 个已保存，\(failures) 个未完成。", error: failures > 0)
+            activity = "已保存到本机"; busy = false
+            return
         }
         announce(stopRequested ? "已停止。已完成的翻译保留，未完成的书籍没有发送。" : failures == 0 ? "\(total) 篇已送达 · 在 KOReader 打开 documents › 我的文章" : "\(total - failures) 篇已送达，\(failures) 篇未完成。可以重试未完成的文章。", error: failures > 0)
         activity = stopRequested ? "已停止" : failures == 0 ? "发送完成" : "部分文章未完成"

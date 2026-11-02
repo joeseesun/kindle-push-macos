@@ -42,14 +42,12 @@ struct ContentView: View {
             ToolbarItemGroup(placement: .primaryAction) {
                 ConnectionButton(store: store)
                 Button { store.showPicker = true } label: { Label("添加文章", systemImage: "plus") }
-                    .help("添加 Markdown 或 EPUB（⌘O）").disabled(store.busy)
+                    .help("添加文章或电子书（⌘O）").disabled(store.busy)
                 SettingsLink { Label("翻译设置", systemImage: "gearshape") }.help("翻译设置（⌘,）")
             }
         }
         .fileImporter(isPresented: $store.showPicker,
-                      allowedContentTypes: [UTType(filenameExtension: "md") ?? .plainText,
-                                            UTType(filenameExtension: "markdown") ?? .plainText,
-                                            UTType(filenameExtension: "epub") ?? .data],
+                      allowedContentTypes: Article.extensions.compactMap { UTType(filenameExtension: $0) } + [.zip],
                       allowsMultipleSelection: true) { result in
             switch result {
             case .success(let urls): store.add(urls)
@@ -57,7 +55,6 @@ struct ContentView: View {
             }
         }
         .task { await store.start() }
-        .onOpenURL { store.add([$0]) }
     }
 
     private var subtitle: String {
@@ -108,8 +105,11 @@ private struct EmptyStateView: View {
                 .font(.system(size: 26, weight: .semibold, design: .serif))
                 .padding(.top, 26)
                 .contentTransition(.opacity)
-            Text("拖入 Markdown 或 EPUB，自动排版，经 Wi‑Fi 送到 Kindle。")
+            Text("拖入文章或电子书，自动排版，经 Wi‑Fi 送到 Kindle。")
                 .font(.callout).foregroundStyle(.secondary).padding(.top, 8)
+            Text("EPUB · PDF · MOBI · AZW3 · FB2 · DjVu · CBZ · TXT · Word · HTML · Markdown")
+                .help("KOReader 能打开的格式都支持：EPUB、PDF、XPS、DjVu、CBZ/CBR/CBT、MOBI/AZW/AZW3/PRC/PDB、FB2/FB3、CHM、DOC/DOCX/ODT/RTF、TXT、HTML、Markdown、图片")
+                .font(.caption).foregroundStyle(.tertiary).padding(.top, 6)
             Button("选择文件…") { store.showPicker = true }
                 .controlSize(.large).padding(.top, 22).disabled(store.busy)
             Spacer(minLength: 24)

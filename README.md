@@ -2,7 +2,7 @@
 
 <h1 align="center">Kindle 推送 · macOS</h1>
 
-<p align="center">把文章或 EPUB 变成适合阅读的版本，翻译成中文对照，再通过 Wi-Fi 发到 Kindle。</p>
+<p align="center">把文章和电子书变成适合阅读的版本，翻译成中文对照，再通过 Wi-Fi 发到 Kindle，或只保存在本机。</p>
 
 <p align="center"><a href="https://github.com/joeseesun/kindle-push-macos/releases/latest">下载 v1.2.0</a> · <a href="docs/SETUP.md">首次配置</a> · <a href="docs/TRANSLATION.md">双语翻译</a> · <a href="docs/FORMATS.md">格式支持</a> · <a href="docs/TROUBLESHOOTING.md">常见问题</a></p>
 
@@ -14,13 +14,17 @@
 
 ## 能做什么
 
+- **KOReader 能读的都能发**：EPUB、PDF、XPS、DjVu、CBZ/CBR/CBT 漫画、MOBI/AZW/AZW3/PRC/PDB、FB2/FB3、CHM、DOC、压缩的 fb2.zip/txt.zip 等原样发送；带 DRM 的 MOBI/AZW 会提前提示。
+- **转换后再发**：Markdown、TXT、HTML、Word（DOCX）、ODT、RTF 转成带目录的 EPUB。TXT 自动识别 GBK/GB18030 编码，把「第一章」「Chapter 1」这类行变成章节标题。
 - **Markdown → EPUB**：保留标题、作者、目录、列表、表格、代码和脚注，加入适合小屏阅读的样式。
 - **Obsidian 支持**：双链转为显示文字，图片打包到 EPUB，支持整篇笔记嵌入和提示块。
-- **拖放与批量发送**：支持 `.md`、`.markdown`、`.epub`，记录发送结果，失败可重试。
+- **拖放与批量发送**：整个窗口都能拖入，记录发送结果，失败可重试。
+- **只保存到本机**：不连 Kindle 也能用，「保存到本机」只转换，「翻译整本，只保存到本机」只翻译，结果在访达中选中。
 - **换 Wi-Fi 后寻找设备**：先尝试上次地址，再寻找已配对的 Kindle；也可手动填写 IP。
 - **发送后校验**：读回远端 EPUB，比较 SHA-256，确认传输一致。
 - **原文不改动**：只读选择的文章及其引用附件，转换副本保存在本机。
 - **EPUB 中文对照翻译**：先试译 3 段正文，再翻译整本并发送；原文与简体中文逐段对照，保留图片与目录。支持取消、恢复检查点和复用已完成译本；失败或取消的译本不自动发送。
+- **更快、更好的译文**：默认 3 章并行（可选 1–4），费用不变；四种译文风格（自然流畅、忠实准确、文学润色、技术学术）；术语表让人名、地名全书统一。
 
 ## 使用条件
 
@@ -50,7 +54,13 @@
 2. 拖入 EPUB，选择「中文对照版」，点击「先试译 3 段」检查正文译文。试译不会发送；整本与试译的缓存分开。
 3. 点击「翻译并发送」。完成后在 Kindle 的 `documents/我的文章` 阅读；本机副本在「查看已转换文件」。
 
+在「翻译设置 › 质量与速度」里可以选译文风格、填术语表（每行 `原文 -> 译名`）、设置同时翻译几章。
+
 翻译需要网络和模型 API 额度。整本耗时和费用取决于书长、模型和服务限流，应用不承诺固定费用。取消或中断后，对相同内容和设置再次开始，会使用翻译引擎已保存的检查点；尚未落盘的请求可能重新计费。关闭应用时后台翻译会继续，重新加入同一 EPUB 可接续任务。详细说明见[双语翻译](docs/TRANSLATION.md)。
+
+## 发送 PDF、MOBI 等原生格式
+
+EPUB 和会转成 EPUB 的格式（Markdown、TXT、Word、HTML 等）用原来的接收端就能发。PDF、MOBI、AZW3、DjVu、漫画等原样发送的格式，需要 Kindle 上的新版接收端：用 USB 连接 Kindle，按[首次配置](docs/SETUP.md)重新运行一次。应用会识别旧版接收端并提示，不会发一半。AZW3 发送时改名为 `.azw`，KOReader 按这个扩展名打开 KF8 书。
 
 ## 换网络也能用吗？
 

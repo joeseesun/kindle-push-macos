@@ -1,5 +1,15 @@
 # 更新记录
 
+## 未发布
+
+- 全新界面：原生工具栏与连接面板、整窗拖放、空状态插画、状态标签、悬停操作、底部操作栏、标准设置窗口、中文系统菜单与快捷键、Dock 角标。
+- 新图标：纸色底板、石墨墨水屏阅读器、朱红纸飞机，用代码绘制（`mac-app/Assets/make_icon.swift`）。
+- 支持 KOReader 能打开的全部格式：PDF、XPS、DjVu、CBZ/CBR/CBT、MOBI/AZW/AZW3/PRC/PDB/TCR、FB2/FB3、CHM、DOC、压缩包和图片原样发送；TXT（自动识别 GBK、生成章节）、HTML、DOCX、ODT、RTF 转成 EPUB。DRM 的 MOBI/AZW 提前提示。
+- Kindle 接收端协议 v2：原样发送新格式需要用 USB 重新配置一次；旧接收端仍可接收 EPUB，并给出明确提示。
+- 只保存到本机：只转换或只翻译，不需要 Kindle。
+- 翻译加速与质量：默认 3 章并行（1–4 可选，不影响接续），四种译文风格，术语表。
+- 修复：从访达一次打开多个文件时会弹出新窗口、只加入第一个文件。
+
 ## 1.2.0（乔木分支）
 
 - 集成 bilingual_book_maker 1.3.2，默认 DeepSeek Flash，将 EPUB 生成原文与简体中文逐段对照版。

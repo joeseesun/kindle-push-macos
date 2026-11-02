@@ -1,4 +1,5 @@
 import base64
+import re
 import json
 from pathlib import Path
 import tempfile
@@ -117,6 +118,68 @@ lang: zh-CN
         fake = self.root / 'fake.epub'; fake.write_text('not a zip')
         with self.assertRaisesRegex(ValueError, '有效'):
             kp.convert(fake)
+
+    def epub_text(self, path):
+        with zipfile.ZipFile(path) as book:
+            return ''.join(book.read(n).decode() for n in book.namelist() if n.endswith('.xhtml'))
+
+    def test_gb18030_text_becomes_chaptered_epub(self):
+        novel = self.root / '小说.txt'
+        novel.write_bytes('第一章 开端\n\n\u3000\u3000他推开门。\n第二章 远行\n路很长。'.encode('gb18030'))
+        output = kp.convert(novel)
+        self.assertEqual(output.suffix, '.epub')
+        text = self.epub_text(output)
+        self.assertIn('第一章 开端', text); self.assertIn('他推开门。', text)
+        self.assertRegex(text, r'<h2[^>]*>第二章 远行</h2>')
+
+    def test_docx_and_html_convert_to_epub(self):
+        draft = self.root / 'draft.md'; draft.write_text('# 报告\n\nWord 正文。')
+        docx = self.root / '报告.docx'
+        kp.run([kp.PANDOC, str(draft), '-o', str(docx)])
+        self.assertIn('Word 正文。', self.epub_text(kp.convert(docx)))
+        page = self.root / '网页.html'; page.write_text('<h1>标题</h1><p>网页正文 &amp; 符号</p>')
+        self.assertIn('网页正文 &amp; 符号', self.epub_text(kp.convert(page)))
+
+    def test_native_formats_are_validated_and_kept(self):
+        pdf = self.root / '论文.pdf'; pdf.write_bytes(b'%PDF-1.7\n%%EOF')
+        output = kp.convert(pdf)
+        self.assertEqual(output.suffix, '.pdf'); self.assertEqual(output.read_bytes(), pdf.read_bytes())
+        fake = self.root / 'fake.pdf'; fake.write_text('hello')
+        with self.assertRaisesRegex(ValueError, 'PDF'):
+            kp.convert(fake)
+
+    def test_zipped_and_comic_formats_keep_their_extension(self):
+        book = self.root / '小说.fb2.zip'
+        with zipfile.ZipFile(book, 'w') as archive: archive.writestr('a.fb2', '<FictionBook/>')
+        output = kp.convert(book)
+        self.assertTrue(output.name.startswith('小说-')); self.assertTrue(output.name.endswith('.fb2.zip'))
+        (self.root / 'bad.cbz').write_text('x')
+        with self.assertRaisesRegex(ValueError, '压缩包'):
+            kp.convert(self.root / 'bad.cbz')
+
+    def test_receiver_and_converter_agree_on_formats(self):
+        receiver = Path(kp.__file__).with_name('kindle-receive.sh').read_text()
+        accepted = set(re.findall(r'\*(\.[a-z0-9.]+)', receiver))
+        self.assertEqual(accepted - {'.azw3'}, (kp.NATIVE | {'.epub'}) - {'.azw3'})
+
+    def mobi(self, path, encryption):
+        header = bytearray(96)
+        header[60:68] = b'BOOKMOBI'; header[78:82] = (96).to_bytes(4, 'big')
+        record = bytearray(16); record[12:14] = encryption.to_bytes(2, 'big')
+        path.write_bytes(bytes(header + record))
+
+    def test_drm_mobi_is_rejected(self):
+        self.mobi(self.root / 'free.azw3', 0)
+        self.assertEqual(kp.convert(self.root / 'free.azw3').suffix, '.azw')
+        self.mobi(self.root / 'locked.mobi', 2)
+        with self.assertRaisesRegex(ValueError, 'DRM'):
+            kp.convert(self.root / 'locked.mobi')
+
+    def test_old_receiver_refuses_native_formats_with_guidance(self):
+        pdf = kp.OUT / 'a.pdf'; kp.OUT.mkdir(parents=True, exist_ok=True); pdf.write_bytes(b'%PDF')
+        with patch.object(kp, 'ssh', return_value=b'kindle-push-v1\n'):
+            with self.assertRaisesRegex(ValueError, 'USB'):
+                kp.send(pdf, {'host': '192.168.1.2'})
 
     def test_mermaid_is_preserved_and_warned(self):
         self.note.write_text('```mermaid\ngraph LR\nA-->B\n```')

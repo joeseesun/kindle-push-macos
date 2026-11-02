@@ -20,6 +20,16 @@ RUNTIME = DATA / 'translation-runtime'
 SETTINGS = DATA / 'translation.json'
 JOBS = DATA / 'translations'
 KEY_SERVICE = 'local.chase.KindlePush.translation'
+WORKERS = (1, 2, 3, 4)
+DEFAULT_WORKERS = 3
+ENGINE_PROMPT = 'Please help me to translate,`{text}` to {language}, please return only translated content not include the origin text'
+# System messages layered on the engine's own user template; 'natural' keeps the engine default.
+STYLES = {
+    'natural': '',
+    'faithful': '你是资深译者。把原文准确、完整地译成简体中文：不增删信息，保留原文的逻辑层次与语气，专有名词前后统一。',
+    'literary': '你是文学翻译家。把原文译成地道、流畅、有文采的简体中文：保留作者的语气、修辞和人物口吻，避免翻译腔，但不改写情节与信息。',
+    'technical': '你是技术与学术翻译专家。把原文译成严谨、易读的简体中文：术语准确且前后统一，首次出现的专业术语在译名后用括号保留英文原词，代码、公式、命令保持原样。',
+}
 
 
 def atomic_json(path, value):
@@ -63,16 +73,41 @@ def settings():
 def public_settings():
     config = settings()
     return {'ok': True, 'base': config['base'], 'model': config['model'],
+            'workers': config.get('workers', DEFAULT_WORKERS), 'style': config.get('style', 'natural'),
+            'glossary': config.get('glossary', ''),
             'runtimeReady': (RUNTIME / 'bin/bbook_maker').is_file()}
 
 
-def save_settings(base, model):
+def glossary_lines(text):
+    lines = [line.strip() for line in text.replace('\r', '').split('\n')]
+    lines = [line for line in lines if line]
+    for line in lines:
+        if not line.startswith('#') and '->' not in line:
+            raise ValueError('术语表每行写成「原文 -> 译名」：' + line[:40])
+    if len(lines) > 500:
+        raise ValueError('术语表最多 500 行。')
+    return '\n'.join(lines)
+
+
+def save_settings(base, model, workers=None, style=None, glossary=None):
     base = endpoint(base)
     model = model.strip()
     if not model or len(model) > 200:
         raise ValueError('请填写服务支持的模型名称。')
     old = settings()
-    config = {'base': base, 'model': model, 'service': KEY_SERVICE, 'account': own_account(base)}
+    config = {'base': base, 'model': model, 'service': KEY_SERVICE, 'account': own_account(base),
+              'workers': old.get('workers', DEFAULT_WORKERS), 'style': old.get('style', 'natural'),
+              'glossary': old.get('glossary', '')}
+    if workers is not None:
+        if not str(workers).isdigit() or int(workers) not in WORKERS:
+            raise ValueError('同时翻译的章节数应为 1–4。')
+        config['workers'] = int(workers)
+    if style is not None:
+        if style not in STYLES:
+            raise ValueError('未知的译文风格。')
+        config['style'] = style
+    if glossary is not None:
+        config['glossary'] = glossary_lines(glossary)
     # Preserve a borrowed credential only for its original address and when no app key exists.
     probe = subprocess.run(['/usr/bin/security', 'find-generic-password', '-s', KEY_SERVICE,
                             '-a', own_account(base)], capture_output=True)
@@ -136,7 +171,7 @@ def progress(job):
 def start(source, preview=False):
     source = Path(source).expanduser().resolve(strict=True)
     if source.suffix.lower() != '.epub':
-        raise ValueError('中文对照翻译仅支持 EPUB。Markdown 可以直接发送。')
+        raise ValueError('中文对照翻译仅支持 EPUB。其他格式可以直接发送。')
     if source.stat().st_size > 100 * 1024 * 1024:
         raise ValueError('EPUB 超过 100 MB，请先缩小图片。')
     kp.validate_epub(source)
@@ -146,7 +181,9 @@ def start(source, preview=False):
     # Check before starting a background job; never persist or pass the secret.
     read_key(config)
     digest = hashlib.sha256(source.read_bytes()).hexdigest()
-    identity = json.dumps([digest, config, preview, VERSION, 'pipeline-2'], sort_keys=True).encode()
+    # Speed does not change the translation, so a run can resume at another worker count.
+    quality = {k: v for k, v in config.items() if k != 'workers' and (k not in {'style', 'glossary'} or v not in {'', 'natural'})}
+    identity = json.dumps([digest, quality, preview, VERSION, 'pipeline-2'], sort_keys=True).encode()
     job = hashlib.sha256(identity).hexdigest()[:24]
     folder = job_dir(job)
     folder.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -189,10 +226,20 @@ def command(folder, config, preview):
             '--language', 'zh-hans', '--no-thinking']
     if (folder / '.book.temp.bin').is_file():
         args += ['--resume']
+    system = STYLES.get(config.get('style', 'natural'), '')
+    if system:
+        (folder / 'prompt.json').write_text(json.dumps({'user': ENGINE_PROMPT, 'system': system}, ensure_ascii=False))
+        args += ['--prompt', str(folder / 'prompt.json')]
+    if config.get('glossary'):
+        (folder / 'glossary.txt').write_text(config['glossary'] + '\n')
+        args += ['--glossary', str(folder / 'glossary.txt')]
     if preview:
         args += ['--translate-tags', 'p', '--test', '--test_num', '3']
     else:
         args += ['--plan-classify', 'all', '--use_context', 'window']
+        workers = config.get('workers', DEFAULT_WORKERS)
+        if workers > 1:
+            args += ['--parallel-workers', str(workers)]
     return args
 
 

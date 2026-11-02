@@ -2,6 +2,14 @@ import SwiftUI
 import AppKit
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    /// Files opened from Finder or the Dock, all at once and into the one window.
+    var open: (([URL]) -> Void)? { didSet { flush() } }
+    private var pending: [URL] = []
+    func application(_ application: NSApplication, open urls: [URL]) { pending += urls; flush() }
+    private func flush() {
+        guard let open, !pending.isEmpty else { return }
+        open(pending); pending = []
+    }
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
@@ -14,8 +22,9 @@ struct KindlePushApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var store = PushStore()
     var body: some Scene {
-        WindowGroup("Kindle 推送") {
+        Window("Kindle 推送", id: "main") {
             ContentView(store: store)
+                .onAppear { appDelegate.open = { store.add($0) } }
         }
         .defaultSize(width: 660, height: 640)
         .windowToolbarStyle(.unified(showsTitle: true))
@@ -37,6 +46,9 @@ struct KindlePushApp: App {
                 Divider()
                 Button("发送到 Kindle") { Task { await store.send() } }
                     .keyboardShortcut(.return, modifiers: .command)
+                    .disabled(store.busy || store.pendingCount == 0)
+                Button(store.translateBooks ? "只翻译，保存到本机" : "只转换，保存到本机") { Task { await store.saveLocally() } }
+                    .keyboardShortcut(.return, modifiers: [.command, .option])
                     .disabled(store.busy || store.pendingCount == 0)
                 Button("先试译 3 段") { Task { await store.preview() } }
                     .disabled(store.busy || !store.translateBooks || !store.previewAvailable)

@@ -12,8 +12,102 @@ struct TranslationSettingsView: View {
     @State private var ready = false
 
     @State private var saved = false
+    @State private var workers = 3
+    @State private var style = "natural"
+    @State private var glossary = ""
+
+    private let styles: [(id: String, name: String, note: String)] = [
+        ("natural", "自然流畅", "翻译引擎默认风格，适合大多数书。"),
+        ("faithful", "忠实准确", "不增删信息，保留原文层次与语气，适合非虚构、历史、传记。"),
+        ("literary", "文学润色", "更地道有文采，保留人物口吻，减少翻译腔，适合小说、散文。"),
+        ("technical", "技术学术", "术语准确统一，首次出现保留英文原词，代码和公式不动。"),
+    ]
 
     var body: some View {
+        TabView {
+            serviceForm.tabItem { Label("翻译服务", systemImage: "network") }
+            qualityForm.tabItem { Label("质量与速度", systemImage: "wand.and.stars") }
+        }
+        .safeAreaInset(edge: .bottom) {
+            HStack(spacing: 10) {
+                if saved {
+                    Label("已保存", systemImage: "checkmark").foregroundStyle(.green).transition(.opacity)
+                } else if !message.isEmpty {
+                    Text(message).foregroundStyle(.secondary).textSelection(.enabled).lineLimit(2)
+                }
+                Spacer()
+                Button("保存") { Task { await save() } }
+                    .buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction)
+                    .disabled(working || base.isEmpty || model.isEmpty)
+            }
+            .font(.callout).padding(.horizontal, 20).padding(.bottom, 16)
+        }
+        .frame(width: 520)
+        .fixedSize(horizontal: false, vertical: true)
+        .task {
+            let response = await Bridge.call(["translation-settings"])
+            base = response.base ?? ""; model = response.model ?? ""
+            workers = response.workers ?? 3; style = response.style ?? "natural"; glossary = response.glossary ?? ""
+            ready = response.runtimeReady ?? false
+            if !response.ok { message = response.message ?? "无法读取配置。" }
+        }
+        .onChange(of: base) { saved = false }
+        .onChange(of: model) { saved = false }
+        .onChange(of: style) { saved = false }
+        .onChange(of: workers) { saved = false }
+        .onChange(of: glossary) { saved = false }
+    }
+
+    private var qualityForm: some View {
+        Form {
+            Section {
+                Picker("译文风格", selection: $style) {
+                    ForEach(styles, id: \.id) { Text($0.name).tag($0.id) }
+                }
+            } header: {
+                Text("质量")
+            } footer: {
+                Text((styles.first { $0.id == style }?.note ?? "") + "改风格后会重新翻译，原有进度不会被覆盖。")
+                    .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            Section {
+                TextEditor(text: $glossary)
+                    .font(.system(.callout, design: .monospaced))
+                    .frame(height: 96).scrollContentBackground(.hidden)
+                    .overlay(alignment: .topLeading) {
+                        if glossary.isEmpty {
+                            Text("Hari Seldon -> 哈里·谢顿\nPsychohistory -> 心理史学\n# 以 # 开头的行是备注")
+                                .font(.system(.callout, design: .monospaced)).foregroundStyle(.tertiary)
+                                .padding(.leading, 5).allowsHitTesting(false)
+                        }
+                    }
+            } header: {
+                Text("术语表")
+            } footer: {
+                Text("每行一条「原文 -> 译名」，人名、地名、专有名词全书统一。只有出现这些词的段落才会带上术语，不增加其他段落的费用。")
+                    .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            Section {
+                Picker("同时翻译", selection: $workers) {
+                    Text("1 章（最稳）").tag(1)
+                    Text("2 章").tag(2)
+                    Text("3 章（推荐）").tag(3)
+                    Text("4 章（最快）").tag(4)
+                }
+            } header: {
+                Text("速度")
+            } footer: {
+                Text("多章并行可快 2–4 倍，费用不变。服务限流或频繁失败时调低；并行时点停止需要等当前各章收尾。")
+                    .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    private var serviceForm: some View {
         Form {
             Section {
                 TextField("服务地址", text: $base, prompt: Text("https://api.deepseek.com"))
@@ -43,31 +137,8 @@ struct TranslationSettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .safeAreaInset(edge: .bottom) {
-            HStack(spacing: 10) {
-                if saved {
-                    Label("已保存", systemImage: "checkmark").foregroundStyle(.green).transition(.opacity)
-                } else if !message.isEmpty {
-                    Text(message).foregroundStyle(.secondary).textSelection(.enabled).lineLimit(2)
-                }
-                Spacer()
-                Button("保存") { Task { await save() } }
-                    .buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction)
-                    .disabled(working || base.isEmpty || model.isEmpty)
-            }
-            .font(.callout).padding(.horizontal, 20).padding(.bottom, 16)
-        }
-        .frame(width: 500)
-        .fixedSize(horizontal: false, vertical: true)
-        .task {
-            let response = await Bridge.call(["translation-settings"])
-            base = response.base ?? ""; model = response.model ?? ""
-            ready = response.runtimeReady ?? false
-            if !response.ok { message = response.message ?? "无法读取配置。" }
-        }
-        .onChange(of: base) { saved = false }
-        .onChange(of: model) { saved = false }
     }
+
 
     private func install() async {
         working = true; message = "正在下载并安装，首次可能需要几分钟…"
@@ -104,7 +175,7 @@ struct TranslationSettingsView: View {
             }
             key = ""
         }
-        let response = await Bridge.call(["translation-save", normalized, model])
+        let response = await Bridge.call(["translation-save", normalized, model, String(workers), style, glossary])
         working = false
         if response.ok {
             message = ""

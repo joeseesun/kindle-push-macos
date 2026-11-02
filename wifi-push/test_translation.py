@@ -58,6 +58,18 @@ class TranslationTests(unittest.TestCase):
         (folder / '.book.temp.bin').write_bytes(b'checkpoint')
         self.assertIn('--resume', tr.command(folder, tr.settings(), False))
         self.assertIn('--test', tr.command(folder, tr.settings(), True))
+
+    def test_speed_and_quality_options(self):
+        config = {**tr.settings(), 'workers': 4, 'style': 'literary', 'glossary': 'Hari Seldon -> 哈里·谢顿'}
+        args = tr.command(self.root, config, False)
+        self.assertEqual(args[args.index('--parallel-workers') + 1], '4')
+        prompt = json.loads(Path(args[args.index('--prompt') + 1]).read_text())
+        self.assertIn('{text}', prompt['user']); self.assertIn('文学', prompt['system'])
+        self.assertIn('哈里·谢顿', Path(args[args.index('--glossary') + 1]).read_text())
+        preview = tr.command(self.root, {**config, 'workers': 1, 'style': 'natural', 'glossary': ''}, True)
+        self.assertNotIn('--parallel-workers', preview); self.assertNotIn('--prompt', preview)
+        with self.assertRaisesRegex(ValueError, '->'):
+            tr.glossary_lines('no arrow here')
         self.assertIn('--no-thinking', args)
 
     def test_preview_and_full_use_separate_jobs_and_original_is_untouched(self):
