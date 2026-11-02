@@ -15,6 +15,12 @@ final class PushStore: ObservableObject {
     @Published var showManual = false
     @Published var completed = 0
     @Published var total = 0
+    @Published var translateBooks = UserDefaults.standard.bool(forKey: "translateBooks") {
+        didSet { UserDefaults.standard.set(translateBooks, forKey: "translateBooks") }
+    }
+    @Published var showTranslationSettings = false
+    @Published var currentJob: String?
+    private var stopRequested = false
     private var started = false
 
     init() {
@@ -22,13 +28,14 @@ final class PushStore: ObservableObject {
            let saved = try? JSONDecoder().decode([Article].self, from: data) {
             articles = saved.map { item in
                 var item = item
-                if item.status == "发送中" { item.status = "等待发送" }
+                if ["发送中", "翻译中", "试译中"].contains(item.status) { item.status = "等待继续" }
                 return item
             }
         }
     }
 
     var pendingCount: Int { articles.filter { $0.status != "已发送" }.count }
+    var previewAvailable: Bool { articles.contains { $0.format == "EPUB" && $0.status != "已发送" } }
 
     func save() {
         if let data = try? JSONEncoder().encode(articles) { UserDefaults.standard.set(data, forKey: "articles") }
@@ -45,6 +52,7 @@ final class PushStore: ObservableObject {
             if let index = articles.firstIndex(where: { $0.path == path }) {
                 articles[index].status = "等待发送"
                 articles[index].details = ""
+                articles[index].output = nil; articles[index].bilingual = false
             } else { articles.append(Article(path: path)) }
         }
         if rejected > 0 { notice = "已略过 \(rejected) 个不支持的文件。请选择 Markdown 或 EPUB。"; isError = true }
@@ -95,7 +103,11 @@ final class PushStore: ObservableObject {
 
     func send() async {
         guard !busy, pendingCount > 0 else { return }
+        if translateBooks && articles.contains(where: { $0.status != "已发送" && $0.format != "EPUB" }) {
+            notice = "中文对照翻译仅支持 EPUB。请移除 Markdown，或切换为直接发送。"; isError = true; return
+        }
         busy = true; notice = ""; isError = false; completed = 0
+        stopRequested = false
         let ids = articles.filter { $0.status != "已发送" }.map(\.id)
         total = ids.count
         // Revalidate every time; recover automatically after a Wi-Fi change.
@@ -103,10 +115,19 @@ final class PushStore: ObservableObject {
         guard connected else { busy = false; return }
         var failures = 0
         for id in ids {
+            if stopRequested { break }
             guard let index = articles.firstIndex(where: { $0.id == id }) else { continue }
+            var source = articles[index].path
+            if translateBooks {
+                guard let output = await translate(index: index, preview: false) else {
+                    failures += 1; completed += 1; save(); continue
+                }
+                source = output
+            }
+            if stopRequested { break }
             articles[index].status = "发送中"
             activity = "正在发送 \(completed + 1) / \(total)：\(articles[index].title)"
-            let response = await Bridge.call(["send", host, articles[index].path])
+            let response = await Bridge.call(["send", host, source])
             articles[index].status = response.ok ? "已发送" : "失败"
             articles[index].details = response.ok ? (response.details?.contains("提示：") == true ? response.details! : "已读回文件，校验一致") : (response.message ?? "发送失败")
             articles[index].output = response.output
@@ -114,9 +135,49 @@ final class PushStore: ObservableObject {
             completed += 1; save()
         }
         isError = failures > 0
-        notice = failures == 0 ? "\(total) 篇文章已送达。Kindle → 文件浏览器 → documents → 我的文章。" : "\(total - failures) 篇已送达，\(failures) 篇未完成。可以重试未完成的文章。"
-        activity = failures == 0 ? "发送完成" : "部分文章未完成"
+        notice = stopRequested ? "已停止。已完成的翻译保留，未完成的书籍没有发送。" : failures == 0 ? "\(total) 篇文章已送达。Kindle → 文件浏览器 → documents → 我的文章。" : "\(total - failures) 篇已送达，\(failures) 篇未完成。可以重试未完成的文章。"
+        activity = stopRequested ? "已停止" : failures == 0 ? "发送完成" : "部分文章未完成"
         busy = false
+    }
+
+    private func translate(index: Int, preview: Bool) async -> String? {
+        articles[index].status = preview ? "试译中" : "翻译中"
+        articles[index].details = "正在准备中文对照版…"
+        activity = "正在\(preview ? "试译" : "翻译")：\(articles[index].title)"; save()
+        var response = await Bridge.call(["translation-start", articles[index].path, preview ? "preview" : "full"])
+        currentJob = response.job
+        while let job = currentJob, response.ok, ["queued", "running"].contains(response.state ?? "") {
+            if stopRequested { _ = await Bridge.call(["translation-cancel", job]) }
+            articles[index].details = response.message ?? "正在翻译…"
+            try? await Task.sleep(for: .seconds(1))
+            response = await Bridge.call(["translation-progress", job])
+        }
+        currentJob = nil
+        guard response.ok, response.state == "done", let output = response.output, !stopRequested else {
+            articles[index].status = stopRequested || response.state == "cancelled" ? "已停止" : "失败"
+            articles[index].details = response.message ?? "翻译未完成，请检查翻译设置。"; save()
+            return nil
+        }
+        articles[index].status = preview ? "试译完成" : "翻译完成"
+        articles[index].details = preview ? "已生成 3 段试译，整本翻译会单独处理。" : "中文对照版已生成，正在准备发送。"
+        if !preview { articles[index].bilingual = true }
+        save()
+        return output
+    }
+
+    func preview() async {
+        guard !busy, let index = articles.firstIndex(where: { $0.format == "EPUB" && $0.status != "已发送" }) else { return }
+        busy = true; stopRequested = false; notice = ""; isError = false
+        if let output = await translate(index: index, preview: true) {
+            NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: output)])
+            notice = "试译完成，仅生成样本，没有发送到 Kindle。请检查译文后再翻译整本。"
+        } else { notice = articles[index].details; isError = !stopRequested }
+        busy = false
+    }
+
+    func stopTranslation() {
+        stopRequested = true
+        if let job = currentJob { Task { _ = await Bridge.call(["translation-cancel", job]) } }
     }
 
     func revealOutput() {

@@ -1,6 +1,6 @@
 # 开发与打包
 
-SwiftPM 工程位于 `mac-app/`。SwiftUI 负责窗口、文件导入和队列；Python bridge 负责转换、设备发现、SSH 传输。无需 Python 第三方依赖，Pandoc 独立安装。
+SwiftPM 工程位于 `mac-app/`。SwiftUI 负责窗口、文件导入和队列；Python bridge 负责转换、设备发现、SSH 传输。直接发送无需 Python 第三方依赖，Pandoc 独立安装。可选 EPUB 翻译使用隔离环境中的 `bbook_maker==1.3.2`，详见 [TRANSLATION.md](TRANSLATION.md)。
 
 ```text
 mac-app/Sources/KindlePush/

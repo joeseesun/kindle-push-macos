@@ -28,6 +28,10 @@ struct KindlePushApp: App {
                 Button("添加文章…") { store.showPicker = true }
                     .keyboardShortcut("o").disabled(store.busy)
             }
+            CommandGroup(replacing: .appSettings) {
+                Button("翻译设置…") { store.showTranslationSettings = true }
+                    .keyboardShortcut(",").disabled(store.busy)
+            }
             CommandMenu("Kindle") {
                 Button("自动寻找") { Task { await store.connect() } }.disabled(store.busy)
                 Button("发送文章") { Task { await store.send() } }.disabled(store.busy || store.pendingCount == 0)

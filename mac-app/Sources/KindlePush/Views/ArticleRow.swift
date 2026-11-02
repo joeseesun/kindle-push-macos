@@ -15,7 +15,7 @@ struct ArticleRow: View {
                     .lineLimit(2).help(article.details)
             }
             Spacer()
-            if article.status == "发送中" { ProgressView().controlSize(.small) }
+            if ["发送中", "翻译中", "试译中"].contains(article.status) { ProgressView().controlSize(.small) }
             else { Text(article.status).font(.caption).foregroundStyle(.secondary) }
             Button { store.remove(article.id) } label: { Image(systemName: "xmark").font(.caption) }
                 .buttonStyle(.borderless).help("从列表移除，不删除原文").disabled(store.busy)

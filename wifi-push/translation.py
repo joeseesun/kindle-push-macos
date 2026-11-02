@@ -1,0 +1,260 @@
+"""Private, resumable bilingual_book_maker jobs. No book or key enters argv."""
+import fcntl
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import signal
+import subprocess
+import sys
+import time
+from urllib.parse import urlsplit
+
+import kindle_push as kp
+
+VERSION = '1.3.2'
+DATA = kp.DATA
+RUNTIME = DATA / 'translation-runtime'
+SETTINGS = DATA / 'translation.json'
+JOBS = DATA / 'translations'
+KEY_SERVICE = 'local.chase.KindlePush.translation'
+
+
+def atomic_json(path, value):
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    temp = path.with_suffix('.tmp')
+    temp.write_text(json.dumps(value, ensure_ascii=False))
+    temp.chmod(0o600)
+    temp.replace(path)
+
+
+def endpoint(value):
+    value = value.strip().rstrip('/')
+    parts = urlsplit(value)
+    if parts.username or parts.password or parts.query or parts.fragment or not parts.hostname:
+        raise ValueError('服务地址不能包含密码、查询参数或片段。')
+    if parts.scheme != 'https' and not (parts.scheme == 'http' and parts.hostname in {'localhost', '127.0.0.1', '::1'}):
+        raise ValueError('云端服务必须使用 HTTPS；本机服务可以使用 HTTP。')
+    return value
+
+
+def own_account(base):
+    return hashlib.sha256(base.encode()).hexdigest()
+
+
+def settings():
+    if SETTINGS.exists():
+        return json.loads(SETTINGS.read_text())
+    # Reuse only the named, non-secret Flash route, with its existing Keychain item.
+    registry = Path.home() / '.config/qiaomu-llm/registry.json'
+    if registry.exists():
+        route = json.loads(registry.read_text()).get('providers', {}).get('magpie-openai', {})
+        ref = route.get('secret_ref', '')
+        if not route.get('disabled') and ref.startswith('keychain:') and '/' in ref[9:]:
+            service, account = ref[9:].split('/', 1)
+            return {'base': endpoint(route['base_url']), 'model': 'deepseek/deepseek-flash',
+                    'service': service, 'account': account}
+    base = 'https://api.deepseek.com/v1'
+    return {'base': base, 'model': 'deepseek-flash', 'service': KEY_SERVICE, 'account': own_account(base)}
+
+
+def public_settings():
+    config = settings()
+    return {'ok': True, 'base': config['base'], 'model': config['model'],
+            'runtimeReady': (RUNTIME / 'bin/bbook_maker').is_file()}
+
+
+def save_settings(base, model):
+    base = endpoint(base)
+    model = model.strip()
+    if not model or len(model) > 200:
+        raise ValueError('请填写服务支持的模型名称。')
+    old = settings()
+    config = {'base': base, 'model': model, 'service': KEY_SERVICE, 'account': own_account(base)}
+    # Preserve a borrowed credential only for its original address and when no app key exists.
+    probe = subprocess.run(['/usr/bin/security', 'find-generic-password', '-s', KEY_SERVICE,
+                            '-a', own_account(base)], capture_output=True)
+    if probe.returncode and base == old['base']:
+        config.update(service=old['service'], account=old['account'])
+    atomic_json(SETTINGS, config)
+    return public_settings()
+
+
+def read_key(config):
+    result = subprocess.run(['/usr/bin/security', 'find-generic-password', '-s', config['service'],
+                             '-a', config['account'], '-w'], capture_output=True, text=True)
+    if result.returncode or not result.stdout.strip():
+        raise ValueError('无法读取翻译 API Key，请在翻译设置中保存，或解锁 macOS 钥匙串。')
+    return result.stdout.rstrip('\n')
+
+
+def install():
+    DATA.mkdir(parents=True, exist_ok=True, mode=0o700)
+    log = DATA / 'translation-install.log'
+    with log.open('w') as out:
+        log.chmod(0o600)
+        subprocess.run([sys.executable, '-m', 'venv', str(RUNTIME)], check=True, stdout=out, stderr=out, timeout=60)
+        result = subprocess.run([str(RUNTIME / 'bin/python3'), '-m', 'pip', 'install',
+                                 'bbook_maker==' + VERSION], stdout=out, stderr=out, timeout=600)
+    if result.returncode:
+        raise ValueError('翻译组件安装失败，请检查网络后重试。原有传书不受影响。')
+    return public_settings()
+
+
+def job_dir(job):
+    if not re.fullmatch('[0-9a-f]{24}', job):
+        raise ValueError('无效的翻译任务。')
+    return JOBS / job
+
+
+def process_alive(state):
+    pid = state.get('pid')
+    if not pid:
+        return False
+    result = subprocess.run(['/bin/ps', '-p', str(pid), '-o', 'lstart='], capture_output=True, text=True)
+    return result.returncode == 0 and result.stdout.strip() == state.get('birth')
+
+
+def progress(job):
+    folder = job_dir(job)
+    state = json.loads((folder / 'state.json').read_text())
+    if state['state'] in {'queued', 'running'} and not process_alive(state):
+        state.update(state='failed', message='翻译已中断。再次点击可从已保存的进度继续。')
+    if state['state'] == 'running':
+        log = folder / 'engine.log'
+        if log.exists():
+            with log.open('rb') as file:
+                file.seek(max(0, log.stat().st_size - 8192))
+                matches = re.findall(rb'(\d{1,3})%\|', file.read())
+            if matches:
+                state['message'] = '正在翻译 · ' + str(min(99, int(matches[-1]))) + '%'
+    return {'ok': state['state'] != 'failed', 'job': job, **state}
+
+
+def start(source, preview=False):
+    source = Path(source).expanduser().resolve(strict=True)
+    if source.suffix.lower() != '.epub':
+        raise ValueError('中文对照翻译仅支持 EPUB。Markdown 可以直接发送。')
+    if source.stat().st_size > 100 * 1024 * 1024:
+        raise ValueError('EPUB 超过 100 MB，请先缩小图片。')
+    kp.validate_epub(source)
+    if not (RUNTIME / 'bin/bbook_maker').is_file():
+        raise ValueError('请先打开翻译设置，安装翻译组件。')
+    config = settings()
+    # Check before starting a background job; never persist or pass the secret.
+    read_key(config)
+    digest = hashlib.sha256(source.read_bytes()).hexdigest()
+    identity = json.dumps([digest, config, preview, VERSION, 'pipeline-2'], sort_keys=True).encode()
+    job = hashlib.sha256(identity).hexdigest()[:24]
+    folder = job_dir(job)
+    folder.mkdir(parents=True, exist_ok=True, mode=0o700)
+    with (folder / 'lock').open('w') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if (folder / 'state.json').exists():
+            state = progress(job)
+            if state['state'] in {'queued', 'running'}:
+                return state
+            if state['state'] == 'done' and Path(state.get('output', '')).is_file():
+                kp.validate_epub(Path(state['output']))
+                if hashlib.sha256(Path(state['output']).read_bytes()).hexdigest() == state.get('sha256'):
+                    return state
+        snapshot = folder / 'book.epub'
+        if not snapshot.exists():
+            shutil.copyfile(source, snapshot)
+            snapshot.chmod(0o600)
+        if hashlib.sha256(snapshot.read_bytes()).hexdigest() != digest:
+            raise ValueError('任务副本校验失败，原书未修改。')
+        (folder / 'cancel').unlink(missing_ok=True)
+        atomic_json(folder / 'request.json', {'config': config, 'preview': preview, 'title': source.stem})
+        with (folder / 'worker.log').open('a') as log:
+            child = subprocess.Popen([sys.executable, '-B', str(Path(__file__).resolve()), 'worker', job],
+                                     stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True)
+        birth = subprocess.run(['/bin/ps', '-p', str(child.pid), '-o', 'lstart='], capture_output=True, text=True).stdout.strip()
+        atomic_json(folder / 'state.json', {'state': 'queued', 'pid': child.pid, 'birth': birth,
+                                           'message': '正在准备翻译…'})
+    return {'ok': True, 'job': job, 'state': 'queued', 'message': '正在准备翻译…'}
+
+
+def cancel(job):
+    folder = job_dir(job)
+    (folder / 'cancel').touch(mode=0o600)
+    return {'ok': True, 'job': job, 'message': '正在停止，保留已完成进度…'}
+
+
+def command(folder, config, preview):
+    args = [str(RUNTIME / 'bin/bbook_maker'), '--book_name', str(folder / 'book.epub'),
+            '--api_format', 'openai', '--api_base', config['base'], '--model', config['model'],
+            '--language', 'zh-hans', '--no-thinking']
+    if (folder / '.book.temp.bin').is_file():
+        args += ['--resume']
+    if preview:
+        args += ['--translate-tags', 'p', '--test', '--test_num', '3']
+    else:
+        args += ['--plan-classify', 'all', '--use_context', 'window']
+    return args
+
+
+def worker(job):
+    os.umask(0o077)
+    folder = job_dir(job)
+    # Parent releases this after recording PID and birth time.
+    with (folder / 'lock').open('a') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        state = json.loads((folder / 'state.json').read_text())
+    child = None
+    try:
+        request = json.loads((folder / 'request.json').read_text())
+        config = request['config']
+        env = {k: v for k, v in os.environ.items() if not any(s in k.upper() for s in ('API_KEY', 'TOKEN', 'SECRET'))}
+        env.update(BBM_API_KEY=read_key(config), PYTHONUNBUFFERED='1', PYTHONIOENCODING='utf-8')
+        state.update(state='running', message='正在翻译，首次分析可能需要几分钟…')
+        atomic_json(folder / 'state.json', state)
+        # A previous failed run must never leave a stale final book eligible for delivery.
+        result = folder / 'book_bilingual.epub'
+        result.unlink(missing_ok=True)
+        with (folder / 'engine.log').open('w') as log:
+            child = subprocess.Popen(command(folder, config, request['preview']), cwd=folder,
+                                     env=env, stdin=subprocess.DEVNULL, stdout=log, stderr=log,
+                                     start_new_session=True)
+            env.pop('BBM_API_KEY', None)
+            deadline = time.monotonic() + 24 * 3600
+            while child.poll() is None:
+                if (folder / 'cancel').exists() or time.monotonic() > deadline:
+                    os.killpg(child.pid, signal.SIGINT)
+                    try:
+                        child.wait(timeout=10)
+                    except subprocess.TimeoutExpired:
+                        os.killpg(child.pid, signal.SIGTERM)
+                        child.wait(timeout=10)
+                    state.update(state='cancelled', message='翻译已停止，再次开始会继续已保存的进度。')
+                    atomic_json(folder / 'state.json', state)
+                    return
+                time.sleep(0.5)
+        if child.returncode or not result.is_file():
+            raise ValueError('翻译未完成，请检查模型设置、余额和网络后重试；已完成的进度会保留。')
+        kp.validate_epub(result)
+        kp.OUT.mkdir(parents=True, exist_ok=True)
+        title = re.sub(r'[\x00-\x1f/\\:]', '-', request['title'])[:60] or '书籍'
+        label = '试译3段' if request['preview'] else '中文对照'
+        output = kp.OUT / f'{title}-{label}-{job[:8]}.epub'
+        temp = output.with_suffix('.tmp')
+        shutil.copyfile(result, temp)
+        temp.chmod(0o600)
+        temp.replace(output)
+        state.update(state='done', message='试译完成，可先检查译文。' if request['preview'] else '中文对照版已生成。',
+                     output=str(output), sha256=hashlib.sha256(output.read_bytes()).hexdigest())
+    except Exception as error:
+        # No raw provider response, book contents or secret in UI/state files.
+        message = str(error) if isinstance(error, ValueError) else '翻译组件运行失败，请检查设置后继续。'
+        state.update(state='failed', message=message)
+    finally:
+        if child and child.poll() is None:
+            os.killpg(child.pid, signal.SIGTERM)
+        atomic_json(folder / 'state.json', state)
+
+
+if __name__ == '__main__':
+    if len(sys.argv) == 3 and sys.argv[1] == 'worker':
+        worker(sys.argv[2])
