@@ -1,134 +1,90 @@
-// Draws the app icon: warm paper tile, graphite e-ink reader, a paper plane leaving the page.
-// Usage: swift make_icon.swift <out.png> [blue|vermilion]
+// Draws the app icon: Vercel-style black tile, Lucide "tablet" and "send" glyphs in white.
+// Lucide (ISC license, https://lucide.dev): 24-unit grid, 2-unit stroke, round caps and joins.
+// Usage: swift make_icon.swift <out.png>
 import AppKit
 
 let out = CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : "AppIcon-source.png"
-let variant = CommandLine.arguments.count > 2 ? CommandLine.arguments[2] : "vermilion"
 let size: CGFloat = 1024
 
-func rgb(_ hex: UInt32, _ a: CGFloat = 1) -> CGColor {
-    CGColor(srgbRed: CGFloat((hex >> 16) & 0xff) / 255, green: CGFloat((hex >> 8) & 0xff) / 255,
-            blue: CGFloat(hex & 0xff) / 255, alpha: a)
+func gray(_ white: CGFloat, _ a: CGFloat = 1) -> CGColor { CGColor(gray: white, alpha: a) }
+func gradient(_ colors: [CGColor]) -> CGGradient {
+    CGGradient(colorsSpace: CGColorSpace(name: CGColorSpace.sRGB), colors: colors as CFArray, locations: nil)!
 }
-func gradient(_ colors: [CGColor], _ locations: [CGFloat]? = nil) -> CGGradient {
-    CGGradient(colorsSpace: CGColorSpace(name: CGColorSpace.sRGB), colors: colors as CFArray, locations: locations)!
-}
-/// Continuous-corner rounded rect, close to Apple's squircle.
-func squircle(_ r: CGRect, _ radius: CGFloat) -> CGPath {
-    CGPath(roundedRect: r, cornerWidth: radius, cornerHeight: radius, transform: nil)
-}
-
-let accent: (CGColor, CGColor, CGColor) = variant == "vermilion"
-    ? (rgb(0xF0674A), rgb(0xD9452B), rgb(0xA8301C))
-    : (rgb(0x4C8DFF), rgb(0x2463EB), rgb(0x1745B8))
 
 let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size), pixelsHigh: Int(size), bitsPerSample: 8,
                            samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
                            bytesPerRow: 0, bitsPerPixel: 0)!
 NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
 let c = NSGraphicsContext.current!.cgContext
-c.setShouldAntialias(true)
-c.interpolationQuality = .high
+c.translateBy(x: 0, y: size); c.scaleBy(x: 1, y: -1)   // top-left origin, like SVG
 
-// Flip to a top-left origin, which is easier to reason about.
-c.translateBy(x: 0, y: size); c.scaleBy(x: 1, y: -1)
-
-// MARK: Tile — Apple grid: 824pt body, 100pt margin, ~185pt radius.
+// MARK: Tile — Apple grid: 824 body, 100 margin, ~186 radius.
 let tile = CGRect(x: 100, y: 92, width: 824, height: 824)
-let tilePath = squircle(tile, 186)
+let tilePath = CGPath(roundedRect: tile, cornerWidth: 186, cornerHeight: 186, transform: nil)
 c.saveGState()
-c.setShadow(offset: CGSize(width: 0, height: 14), blur: 30, color: rgb(0x000000, 0.28))
-c.addPath(tilePath); c.setFillColor(rgb(0xF4EDE0)); c.fillPath()
+c.setShadow(offset: CGSize(width: 0, height: 14), blur: 30, color: gray(0, 0.35))
+c.addPath(tilePath); c.setFillColor(gray(0)); c.fillPath()
 c.restoreGState()
 c.saveGState()
 c.addPath(tilePath); c.clip()
-c.drawLinearGradient(gradient([rgb(0xFBF6EC), rgb(0xF1E8D6), rgb(0xE6DAC3)], [0, 0.55, 1]),
+c.drawLinearGradient(gradient([gray(0.13), gray(0.02)]),
                      start: CGPoint(x: 0, y: tile.minY), end: CGPoint(x: 0, y: tile.maxY), options: [])
-// Soft light from the top left, like a page under a lamp.
-c.drawRadialGradient(gradient([rgb(0xFFFFFF, 0.55), rgb(0xFFFFFF, 0)]),
-                     startCenter: CGPoint(x: 330, y: 230), startRadius: 0,
-                     endCenter: CGPoint(x: 330, y: 230), endRadius: 560, options: [])
-// Faint paper grain lines.
-c.setStrokeColor(rgb(0x8A6F45, 0.014)); c.setLineWidth(2)
-for y in stride(from: tile.minY + 18, to: tile.maxY, by: 22) {
-    c.move(to: CGPoint(x: tile.minX, y: y)); c.addLine(to: CGPoint(x: tile.maxX, y: y + 6))
+c.restoreGState()
+// Vercel-like hairline: brighter at the top edge.
+c.saveGState()
+c.addPath(CGPath(roundedRect: tile.insetBy(dx: 2, dy: 2), cornerWidth: 184, cornerHeight: 184, transform: nil))
+c.setLineWidth(4); c.replacePathWithStrokedPath(); c.clip()
+c.drawLinearGradient(gradient([gray(1, 0.28), gray(1, 0.04)]),
+                     start: CGPoint(x: 0, y: tile.minY), end: CGPoint(x: 0, y: tile.midY), options: [])
+c.restoreGState()
+
+// MARK: Glyphs on Lucide's 24-unit grid, mapped onto the tile.
+let unit: CGFloat = 24            // 24 units ≈ 576 px
+let weight: CGFloat = 1.75        // Lucide stroke-width
+let origin = CGPoint(x: 512 - 12 * unit, y: 504 - 12 * unit)
+func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: origin.x + x * unit, y: origin.y + y * unit) }
+func stroke(_ path: CGPath, width: CGFloat = weight, color: CGColor) {
+    c.addPath(path); c.setLineWidth(width * unit); c.setLineCap(.round); c.setLineJoin(.round)
+    c.setStrokeColor(color); c.strokePath()
 }
-c.strokePath()
-c.restoreGState()
-// Hairline rim.
-c.addPath(squircle(tile.insetBy(dx: 1.5, dy: 1.5), 185)); c.setStrokeColor(rgb(0xFFFFFF, 0.7)); c.setLineWidth(3); c.strokePath()
+let white = gray(0.98)
 
-// MARK: Reader
-let device = CGRect(x: 250, y: 232, width: 432, height: 590)
-let devicePath = squircle(device, 64)
-c.saveGState()
-c.setShadow(offset: CGSize(width: 0, height: 26), blur: 44, color: rgb(0x3B2A12, 0.32))
-c.addPath(devicePath); c.setFillColor(rgb(0x2A2E35)); c.fillPath()
-c.restoreGState()
-c.saveGState()
-c.addPath(devicePath); c.clip()
-c.drawLinearGradient(gradient([rgb(0x41464F), rgb(0x2A2E35), rgb(0x1D2025)], [0, 0.45, 1]),
-                     start: CGPoint(x: device.minX, y: device.minY), end: CGPoint(x: device.maxX, y: device.maxY), options: [])
-c.restoreGState()
-// Bezel highlight.
-c.addPath(squircle(device.insetBy(dx: 2, dy: 2), 62)); c.setStrokeColor(rgb(0xFFFFFF, 0.16)); c.setLineWidth(4); c.strokePath()
-
-// E-ink screen.
-let screen = CGRect(x: device.minX + 44, y: device.minY + 52, width: device.width - 88, height: device.height - 150)
-let screenPath = squircle(screen, 14)
-c.saveGState()
-c.addPath(screenPath); c.clip()
-c.drawLinearGradient(gradient([rgb(0xF2EEE4), rgb(0xE4DFD3)]),
-                     start: CGPoint(x: screen.minX, y: screen.minY), end: CGPoint(x: screen.maxX, y: screen.maxY), options: [])
-// Inner shadow under the bezel.
-c.setShadow(offset: CGSize(width: 0, height: 6), blur: 10, color: rgb(0x000000, 0.35))
-c.addRect(screen.insetBy(dx: -30, dy: -30)); c.addPath(screenPath); c.setFillColor(rgb(0x000000)); c.fillPath(using: .evenOdd)
-c.restoreGState()
-
-// Page: a title and two paragraphs of text.
-let ink = rgb(0x2E2B27, 0.82), soft = rgb(0x2E2B27, 0.34)
-func bar(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat, _ color: CGColor) {
-    c.addPath(squircle(CGRect(x: x, y: y, width: w, height: h), h / 2)); c.setFillColor(color); c.fillPath()
+// Lucide "tablet": rect x=4 y=2 w=16 h=20 rx=2, home dot at (12,18). Shifted left to leave room for the plane.
+let dx: CGFloat = -1.6, dy: CGFloat = 0.6
+let tablet = CGPath(roundedRect: CGRect(origin: p(4 + dx, 2 + dy), size: CGSize(width: 16 * unit, height: 20 * unit)),
+                    cornerWidth: 2 * unit, cornerHeight: 2 * unit, transform: nil)
+stroke(tablet, color: white)
+let dot = CGMutablePath(); dot.move(to: p(12 + dx, 18 + dy)); dot.addLine(to: p(12.01 + dx, 18 + dy))
+stroke(dot, color: white)
+// Reading lines, as in Lucide "book-open-text".
+let lines = CGMutablePath()
+for (y, w) in [(7.5, 3.5), (11.0, 8.0), (14.5, 5.5)] as [(CGFloat, CGFloat)] {
+    lines.move(to: p(8 + dx, y + dy)); lines.addLine(to: p(8 + dx + w, y + dy))
 }
-let left = screen.minX + 42
-bar(left, screen.minY + 52, 170, 20, ink)
-var y = screen.minY + 112
-for w in [258.0, 244, 258, 150] { bar(left, y, w, 11, soft); y += 34 }
-y += 26
-for w in [258.0, 230, 182] { bar(left, y, w, 11, soft); y += 34 }
+stroke(lines, width: 1.5, color: gray(0.98, 0.5))
 
-// Home button.
-bar(device.midX - 42, device.maxY - 58, 84, 14, rgb(0xFFFFFF, 0.14))
-
-// MARK: Trail — a dashed arc from the page out to the plane.
+// Lucide "send", scaled and moved so it flies out of the tablet's top-right corner.
+// Path: M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5
+//       a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z  M21.854 2.147 10.914 13.086
+let s: CGFloat = 0.6, sx: CGFloat = 10.4, sy: CGFloat = -0.6
+func q(_ x: CGFloat, _ y: CGFloat) -> CGPoint { p(sx + x * s, sy + y * s) }
+let plane = CGMutablePath()
+plane.move(to: q(15.0, 21.75))
+plane.addLine(to: q(21.86, 2.14))
+plane.addLine(to: q(2.25, 8.95))
+plane.addLine(to: q(10.25, 12.65))
+plane.addQuadCurve(to: q(11.36, 13.76), control: q(11.0, 12.95))
+plane.closeSubpath()
+let crease = CGMutablePath(); crease.move(to: q(21.854, 2.147)); crease.addLine(to: q(10.914, 13.086))
+// Knockout: repaint the tile gradient under and around the plane, so it reads as cut out.
 c.saveGState()
-let trail = CGMutablePath()
-trail.move(to: CGPoint(x: 760, y: 700))
-trail.addCurve(to: CGPoint(x: 700, y: 430), control1: CGPoint(x: 820, y: 600), control2: CGPoint(x: 800, y: 500))
-c.addPath(trail)
-c.setLineWidth(13); c.setLineCap(.round); c.setLineDash(phase: 0, lengths: [1, 32])
-c.setStrokeColor(accent.1.copy(alpha: 0.75)!); c.strokePath()
+c.addPath(plane); c.setLineWidth((weight + 2.4) * unit); c.setLineJoin(.round)
+c.replacePathWithStrokedPath(); c.addPath(plane); c.clip()
+c.drawLinearGradient(gradient([gray(0.13), gray(0.02)]),
+                     start: CGPoint(x: 0, y: tile.minY), end: CGPoint(x: 0, y: tile.maxY), options: [])
 c.restoreGState()
-
-// MARK: Paper plane — three facets, nose to the upper right.
-func poly(_ points: [CGPoint], _ fill: CGColor) {
-    c.move(to: points[0]); points.dropFirst().forEach { c.addLine(to: $0) }; c.closePath()
-    c.setFillColor(fill); c.fillPath()
-}
-let nose = CGPoint(x: 862, y: 190), tail = CGPoint(x: 590, y: 336), fold = CGPoint(x: 700, y: 362),
-    keel = CGPoint(x: 736, y: 480), wing = CGPoint(x: 664, y: 406)
-c.saveGState()
-c.setShadow(offset: CGSize(width: 6, height: 18), blur: 14, color: rgb(0x3B2A12, 0.30))
-poly([nose, tail, wing, keel], accent.1)
-c.restoreGState()
-c.saveGState()
-poly([nose, tail, fold], accent.0)
-c.restoreGState()
-poly([nose, fold, keel], accent.1)              // right wing, in shade
-poly([fold, wing, keel], accent.2)              // keel fold, darkest
-poly([nose, tail, fold], accent.0)              // top wing, lit
-// Crease highlight.
-c.move(to: nose); c.addLine(to: fold); c.setStrokeColor(rgb(0xFFFFFF, 0.55)); c.setLineWidth(4); c.setLineCap(.round); c.strokePath()
+stroke(plane, color: white)
+stroke(crease, color: white)
 
 NSGraphicsContext.current = nil
 try! rep.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: out))

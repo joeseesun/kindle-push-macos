@@ -93,18 +93,18 @@ struct FooterBar: View {
     private var sendButton: some View {
         Button { Task { await store.send() } } label: {
             HStack(spacing: 7) {
-                if store.busy { ProgressView().controlSize(.small).tint(.white) }
+                if store.busy { ProgressView().controlSize(.small).tint(Color.onInk) }
                 else { Image(systemName: "paperplane.fill") }
                 Text(store.busy ? "正在处理…" : store.translateBooks ? "翻译并发送" : "发送到 Kindle")
                 if !store.busy && store.pendingCount > 0 {
                     Text("\(store.pendingCount)").font(.callout.weight(.semibold)).monospacedDigit()
                         .padding(.horizontal, 6).padding(.vertical, 1)
-                        .background(.white.opacity(0.22), in: Capsule())
+                        .background(Color.onInk.opacity(0.2), in: Capsule())
                 }
             }
             .padding(.horizontal, 6)
         }
-        .buttonStyle(.borderedProminent).controlSize(.large)
+        .buttonStyle(.ink).controlSize(.large)
         .disabled(sendDisabled)
         .help("⌘↩")
     }

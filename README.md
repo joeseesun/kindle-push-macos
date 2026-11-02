@@ -4,7 +4,7 @@
 
 <p align="center">把文章和电子书变成适合阅读的版本，翻译成中文对照，再通过 Wi-Fi 发到 Kindle，或只保存在本机。</p>
 
-<p align="center"><a href="https://github.com/joeseesun/kindle-push-macos/releases/latest">下载 v1.2.0</a> · <a href="docs/SETUP.md">首次配置</a> · <a href="docs/TRANSLATION.md">双语翻译</a> · <a href="docs/FORMATS.md">格式支持</a> · <a href="docs/TROUBLESHOOTING.md">常见问题</a></p>
+<p align="center"><a href="https://github.com/joeseesun/kindle-push-macos/releases/latest">下载最新版</a> · <a href="docs/SETUP.md">首次配置</a> · <a href="docs/TRANSLATION.md">双语翻译</a> · <a href="docs/FORMATS.md">格式支持</a> · <a href="docs/TROUBLESHOOTING.md">常见问题</a></p>
 
 本分支基于 [chasepal/kindle-push-macos](https://github.com/chasepal/kindle-push-macos)，由乔木增加 EPUB 中文对照翻译。原项目作者、许可和传输协议保留；翻译引擎为 MIT 开源的 [bilingual_book_maker](https://github.com/yihong0618/bilingual_book_maker)。
 

@@ -24,6 +24,7 @@ struct KindlePushApp: App {
     var body: some Scene {
         Window("Kindle 推送", id: "main") {
             ContentView(store: store)
+                .tint(.ink)
                 .onAppear { appDelegate.open = { store.add($0) } }
         }
         .defaultSize(width: 660, height: 640)
@@ -60,7 +61,7 @@ struct KindlePushApp: App {
             }
         }
         Settings {
-            TranslationSettingsView(store: store)
+            TranslationSettingsView(store: store).tint(.ink)
         }
     }
 }

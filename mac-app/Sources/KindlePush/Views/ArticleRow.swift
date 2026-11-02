@@ -13,9 +13,9 @@ struct ArticleRow: View {
                 HStack(spacing: 6) {
                     Text(article.title).font(.body.weight(.medium)).lineLimit(1).truncationMode(.middle)
                     if article.bilingual == true {
-                        Text("中英对照").font(.caption2.weight(.medium)).foregroundStyle(Color.accentColor)
+                        Text("中英对照").font(.caption2.weight(.medium)).foregroundStyle(Color.ink)
                             .padding(.horizontal, 5).padding(.vertical, 1)
-                            .background(Color.accentColor.opacity(0.12), in: Capsule())
+                            .background(Color.ink.opacity(0.12), in: Capsule())
                     }
                 }
                 Text(subtitle).font(.caption)
@@ -122,7 +122,7 @@ private struct StatusChip: View {
     private var tint: Color {
         switch article.phase {
         case .done: .green
-        case .working, .ready: .accentColor
+        case .working, .ready: .primary
         case .failed: .orange
         case .waiting, .stopped: .secondary
         }

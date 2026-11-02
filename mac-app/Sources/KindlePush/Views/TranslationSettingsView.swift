@@ -37,7 +37,7 @@ struct TranslationSettingsView: View {
                 }
                 Spacer()
                 Button("保存") { Task { await save() } }
-                    .buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction)
+                    .buttonStyle(.ink).keyboardShortcut(.defaultAction)
                     .disabled(working || base.isEmpty || model.isEmpty)
             }
             .font(.callout).padding(.horizontal, 20).padding(.bottom, 16)

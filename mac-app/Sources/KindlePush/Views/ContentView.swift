@@ -81,11 +81,11 @@ struct ContentView: View {
 private struct DropOverlay: View {
     var body: some View {
         RoundedRectangle(cornerRadius: 14, style: .continuous)
-            .fill(Color.accentColor.opacity(0.07))
-            .strokeBorder(Color.accentColor.opacity(0.6), style: StrokeStyle(lineWidth: 1.5, dash: [7, 5]))
+            .fill(Color.ink.opacity(0.07))
+            .strokeBorder(Color.ink.opacity(0.6), style: StrokeStyle(lineWidth: 1.5, dash: [7, 5]))
             .overlay {
                 Label("松手，加入发送列表", systemImage: "arrow.down.doc")
-                    .font(.headline).foregroundStyle(Color.accentColor)
+                    .font(.headline).foregroundStyle(Color.ink)
                     .padding(.horizontal, 16).padding(.vertical, 9)
                     .background(.regularMaterial, in: Capsule())
             }
@@ -110,7 +110,7 @@ private struct EmptyStateView: View {
             Text("EPUB · PDF · MOBI · AZW3 · FB2 · DjVu · CBZ · TXT · Word · HTML · Markdown")
                 .help("KOReader 能打开的格式都支持：EPUB、PDF、XPS、DjVu、CBZ/CBR/CBT、MOBI/AZW/AZW3/PRC/PDB、FB2/FB3、CHM、DOC/DOCX/ODT/RTF、TXT、HTML、Markdown、图片")
                 .font(.caption).foregroundStyle(.tertiary).padding(.top, 6)
-            Button("选择文件…") { store.showPicker = true }
+            Button("选择文件…") { store.showPicker = true }.buttonStyle(.ink)
                 .controlSize(.large).padding(.top, 22).disabled(store.busy)
             Spacer(minLength: 24)
             HStack(spacing: 10) {
@@ -125,8 +125,8 @@ private struct EmptyStateView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(targeted ? Color.accentColor.opacity(0.06) : Color.clear)
-                .strokeBorder(targeted ? Color.accentColor.opacity(0.6) : Color.secondary.opacity(0.18),
+                .fill(targeted ? Color.ink.opacity(0.06) : Color.clear)
+                .strokeBorder(targeted ? Color.ink.opacity(0.6) : Color.secondary.opacity(0.18),
                               style: StrokeStyle(lineWidth: 1.5, dash: [7, 5]))
                 .padding(16)
         }
@@ -171,7 +171,7 @@ private struct ReaderGlyph: View {
         .frame(width: 86, height: 114)
         .overlay(alignment: .topTrailing) {
             Image(systemName: "paperplane.fill")
-                .font(.system(size: 22, weight: .medium)).foregroundStyle(Color.accentColor)
+                .font(.system(size: 22, weight: .medium)).foregroundStyle(Color.ink)
                 .rotationEffect(.degrees(lifted ? -8 : 0))
                 .offset(x: lifted ? 30 : 22, y: lifted ? -22 : -14)
         }

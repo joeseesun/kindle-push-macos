@@ -33,7 +33,7 @@ private struct ConnectionPopover: View {
             HStack(spacing: 12) {
                 Image(systemName: "ipad.gen1")
                     .font(.system(size: 30, weight: .light))
-                    .foregroundStyle(store.connected ? Color.accentColor : Color.secondary)
+                    .foregroundStyle(store.connected ? Color.ink : Color.secondary)
                     .frame(width: 36)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(store.connectionTitle).font(.headline)
