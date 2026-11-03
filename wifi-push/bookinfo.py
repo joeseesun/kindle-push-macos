@@ -38,7 +38,13 @@ def epub_info(source):
         cover = next((i for i in items.values() if 'cover-image' in (i.get('properties') or '').split()), None)
         if cover is None:
             meta = opf.find(".//opf:metadata/opf:meta[@name='cover']", NS)
-            cover = items.get(meta.get('content')) if meta is not None else None
+            if meta is not None:
+                # Often the item id; in hand-made books sometimes the image's file name instead.
+                name = meta.get('content') or ''
+                cover = items.get(name) or next((i for i in items.values()
+                                                 if posixpath.basename(i.get('href', '')) == name), None)
+        if cover is None:
+            cover = guide_cover(book, opf, opf_path, items)
         if cover is None:
             cover = next((i for i in items.values() if (i.get('media-type') or '').startswith('image/')
                           and 'cover' in (i.get('id', '') + i.get('href', '')).lower()), None)
@@ -55,6 +61,25 @@ def epub_info(source):
                         target.write_bytes(data)
                 cover_file = str(target) if target.exists() else None
     return {'title': title, 'author': author, 'cover': cover_file}
+
+
+def guide_cover(book, opf, opf_path, items):
+    """The first image on the page the guide marks as the cover."""
+    reference = opf.find(".//opf:guide/opf:reference[@type='cover']", NS)
+    if reference is None:
+        return None
+    page = posixpath.normpath(posixpath.join(posixpath.dirname(opf_path), reference.get('href', '').split('#')[0]))
+    try:
+        html = book.read(page).decode('utf-8', 'replace')
+    except KeyError:
+        return None
+    found = re.search(r'<(?:img[^>]+src|image[^>]+href)\s*=\s*["\']([^"\']+)', html, re.I)
+    if not found:
+        return None
+    target = posixpath.normpath(posixpath.join(posixpath.dirname(page), found.group(1)))
+    base = posixpath.dirname(opf_path)
+    return next((i for i in items.values()
+                 if posixpath.normpath(posixpath.join(base, i.get('href', ''))) == target), None)
 
 
 def markdown_info(source):

@@ -6,6 +6,8 @@
 
 <p align="center"><a href="https://github.com/joeseesun/kindle-push-macos/releases/latest">下载最新版</a> · <a href="docs/SETUP.md">首次配置</a> · <a href="docs/TRANSLATION.md">双语翻译</a> · <a href="docs/FORMATS.md">格式支持</a> · <a href="docs/TROUBLESHOOTING.md">常见问题</a></p>
 
+<p align="center"><img src="docs/assets/screenshot-main.png" width="720" alt="乔木 Kindle 助手主窗口：翻译中的书显示封面和进度"></p>
+
 本分支基于 [chasepal/kindle-push-macos](https://github.com/chasepal/kindle-push-macos)，由乔木增加 EPUB 中文对照翻译。原项目作者、许可和传输协议保留；翻译引擎为 MIT 开源的 [bilingual_book_maker](https://github.com/yihong0618/bilingual_book_maker)。
 
 原作者看了乔木的 Kindle / KOReader 分享后，做了这个 Mac 端配套小工具。文章在 Obsidian 或本地文件夹里写好，拖进应用、点发送，就能拿到 Kindle 上慢慢读。直接发送不需要云端中转；主动选择中文对照翻译时，正文会提交给配置的模型服务。

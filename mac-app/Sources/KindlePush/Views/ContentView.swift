@@ -23,7 +23,7 @@ struct ContentView: View {
                     Button("在访达中显示") { store.reveal(ids) }
                     Button("再次发送") { ids.forEach(store.retry) }.disabled(store.busy)
                     Divider()
-                    Button("从列表移除") { store.remove(ids) }.disabled(store.busy)
+                    Button("从列表移除") { store.remove(ids) }
                 } primaryAction: { store.reveal($0) }
                 .onDeleteCommand { store.remove(selection); selection.removeAll() }
             }
@@ -33,8 +33,8 @@ struct ContentView: View {
         .overlay { if targeted && !store.articles.isEmpty { DropOverlay() } }
         .animation(.easeOut(duration: 0.15), value: targeted)
         .dropDestination(for: URL.self) { urls, _ in
-            guard !store.busy else { return false }; store.add(urls); return true
-        } isTargeted: { targeted = $0 && !store.busy }
+            store.add(urls); return true
+        } isTargeted: { targeted = $0 }
         .frame(minWidth: 560, minHeight: 480)
         .navigationTitle("乔木 Kindle 助手")
         .navigationSubtitle(subtitle)
@@ -42,7 +42,7 @@ struct ContentView: View {
             ToolbarItemGroup(placement: .primaryAction) {
                 ConnectionButton(store: store)
                 Button { store.showPicker = true } label: { Label("添加文章", systemImage: "plus") }
-                    .help("添加文章或电子书（⌘O）").disabled(store.busy)
+                    .help("添加文章或电子书（⌘O）")
                 SettingsLink { Label("翻译设置", systemImage: "gearshape") }.help("翻译设置（⌘,）")
             }
         }
@@ -114,7 +114,7 @@ private struct EmptyStateView: View {
                 .help("KOReader 能打开的格式都支持：EPUB、PDF、XPS、DjVu、CBZ/CBR/CBT、MOBI/AZW/AZW3/PRC/PDB、FB2/FB3、CHM、DOC/DOCX/ODT/RTF、TXT、HTML、Markdown、图片")
                 .font(.caption).foregroundStyle(.tertiary).padding(.top, 6)
             Button("选择文件…") { store.showPicker = true }.buttonStyle(.ink)
-                .controlSize(.large).padding(.top, 22).disabled(store.busy)
+                .controlSize(.large).padding(.top, 22)
             Spacer(minLength: 24)
             HStack(spacing: 10) {
                 Step(number: 1, text: "拖入文章")

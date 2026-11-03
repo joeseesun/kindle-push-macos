@@ -93,8 +93,8 @@ final class PushStore: ObservableObject {
         }
     }
 
+    /// Always allowed: a long translation must not lock the list. New items join the next batch.
     func add(_ urls: [URL]) {
-        guard !busy else { return }
         var rejected = 0
         for url in urls {
             guard url.isFileURL, Article.isSupported(url) else {
@@ -102,7 +102,9 @@ final class PushStore: ObservableObject {
             }
             let path = url.standardizedFileURL.path
             if let index = articles.firstIndex(where: { $0.path == path }) {
-                articles[index].status = "等待发送"
+                // Leave a book alone while a batch may be working on it; otherwise adding again means "send again".
+                guard !busy else { continue }
+                articles[index].status = "等待发送"; articles[index].bookTitle = nil
                 articles[index].details = ""
                 articles[index].output = nil; articles[index].bilingual = false
             } else { articles.append(Article(path: path)) }
@@ -114,7 +116,10 @@ final class PushStore: ObservableObject {
     }
 
     func remove(_ id: UUID) { remove([id]) }
-    func remove(_ ids: Set<UUID>) { guard !busy else { return }; articles.removeAll { ids.contains($0.id) }; save() }
+    /// The book being worked on stays; anything else can go, even mid-batch (the batch skips missing items).
+    func remove(_ ids: Set<UUID>) {
+        articles.removeAll { ids.contains($0.id) && !(busy && $0.phase == .working) }; save()
+    }
     func reveal(_ ids: Set<UUID>) {
         let urls = articles.filter { ids.contains($0.id) }.map { URL(fileURLWithPath: $0.path) }
         if !urls.isEmpty { NSWorkspace.shared.activateFileViewerSelecting(urls) }

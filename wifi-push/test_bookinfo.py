@@ -33,6 +33,17 @@ class BookInfoTests(unittest.TestCase):
         self.assertEqual((result['title'], result['author']), ('钻石年代', 'Neal Stephenson'))
         self.assertEqual(Path(result['cover']).read_bytes(), PNG)
 
+    def test_cover_from_guide_page_when_metadata_is_broken(self):
+        book = self.root / 'guide.epub'
+        opf = OPF.replace('<meta name="cover" content="c"/>', '<meta name="cover" content="missing.jpg"/>') \
+                 .replace('</manifest>', '</manifest><guide><reference href="Text/cover.xhtml" type="cover"/></guide>') \
+                 .replace('id="c"', 'id="pic"')
+        with zipfile.ZipFile(book, 'w') as z:
+            z.writestr('META-INF/container.xml', '<container xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf"/></rootfiles></container>')
+            z.writestr('OEBPS/content.opf', opf); z.writestr('OEBPS/img/cover.png', PNG)
+            z.writestr('OEBPS/Text/cover.xhtml', '<html><body><img src="../img/cover.png"/></body></html>')
+        self.assertEqual(Path(bookinfo.info(book)['cover']).read_bytes(), PNG)
+
     def test_fallbacks_clean_shadow_library_names(self):
         broken = self.root / 'Diamond Age (Stephenson Neal) (z-library.sk, 1lib.sk, z-lib.sk).epub'
         broken.write_text('not a zip')

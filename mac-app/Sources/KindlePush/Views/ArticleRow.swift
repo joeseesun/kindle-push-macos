@@ -40,7 +40,7 @@ struct ArticleRow: View {
                 }
                 iconButton("xmark", help: "从列表移除（不删除原文）") { store.remove(article.id) }
             }
-            .opacity(hovering && !store.busy ? 1 : 0)
+            .opacity(hovering && !(store.busy && article.phase == .working) ? 1 : 0)
             StatusChip(article: article)
         }
         .padding(.vertical, 8).padding(.horizontal, 4)

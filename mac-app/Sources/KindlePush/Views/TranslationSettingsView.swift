@@ -276,9 +276,15 @@ struct TranslationSettingsView: View {
 
     private var serviceNote: String {
         switch service.group {
-        case .account: "用 ChatGPT 套餐额度翻译，不按 API 计费，受套餐的 5 小时用量限制；一次翻译一章。书籍正文会发给 OpenAI。"
-        case .local: "模型跑在这台 Mac 上，正文不出本机。先在 \(service.name) 里下载并运行模型。"
-        default: "书籍正文会发给\(service.name == "自定义服务" ? "这个服务" : service.name)，按用量计费。API Key 存在 macOS 钥匙串里，换服务要填对应的 Key。"
+        case .account:
+            return "用 ChatGPT 套餐额度翻译，不按 API 计费，受套餐的 5 小时用量限制；一次翻译一章。书籍正文会发给 OpenAI。"
+        case .local:
+            return "模型跑在这台 Mac 上，正文不出本机。先在 \(service.name) 里下载并运行模型。"
+        default:
+            // A space between Chinese and a Latin name (发给 DeepSeek), none before a Chinese one (发给硅基流动).
+            let name = service.name == "自定义服务" ? "这个服务" : service.name
+            let gap = name.first?.isASCII == true ? " " : ""
+            return "书籍正文会发给\(gap)\(name)，按用量计费。API Key 存在 macOS 钥匙串里，换服务要填对应的 Key。"
         }
     }
 
