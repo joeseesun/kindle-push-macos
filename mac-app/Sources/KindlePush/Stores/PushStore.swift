@@ -13,6 +13,8 @@ final class PushStore: ObservableObject {
     @Published var isError = false
     @Published var showPicker = false
     @Published var showConnection = false
+    /// Books shown in the rename sheet; empty when it is closed.
+    @Published var renameIDs: [UUID] = []
     @Published var searching = false
     @Published var connectionIssue = ""
     @Published var setupNeeded = false
@@ -124,6 +126,45 @@ final class PushStore: ObservableObject {
         let urls = articles.filter { ids.contains($0.id) }.map { URL(fileURLWithPath: $0.path) }
         if !urls.isEmpty { NSWorkspace.shared.activateFileViewerSelecting(urls) }
     }
+    /// Opens the rename sheet for these books, or for every book when none are chosen.
+    func tidyNames(_ ids: Set<UUID> = []) {
+        // Books only: notes keep their names, or links to them (Obsidian, Markdown) would break.
+        let chosen = articles.filter { (ids.isEmpty || ids.contains($0.id)) && $0.isBook }
+        renameIDs = chosen.filter { !(busy && $0.phase == .working) }.map(\.id)
+        if renameIDs.isEmpty { announce("没有可整理的电子书文件名。笔记和文档保留原名。", error: false) }
+    }
+
+    /// Renames the original files. A taken name gets " 2"; the book being worked on is left alone.
+    /// Returns the names that could not be changed.
+    func rename(_ changes: [UUID: String]) -> [String] {
+        var failed: [String] = []
+        for (id, name) in changes {
+            guard let index = articles.firstIndex(where: { $0.id == id }),
+                  !(busy && articles[index].phase == .working) else { continue }
+            let old = URL(fileURLWithPath: articles[index].path)
+            let folder = old.deletingLastPathComponent()
+            let suffix = Article.fileExtension(of: old.path)
+            let stem = name.replacingOccurrences(of: "/", with: " ").replacingOccurrences(of: ":", with: " - ")
+                .trimmingCharacters(in: .whitespaces)
+            guard !stem.isEmpty, stem + "." + suffix != old.lastPathComponent else { continue }
+            var target = folder.appendingPathComponent(stem + "." + suffix)
+            var number = 2
+            // Only a case change of the same file may reuse its own name.
+            while FileManager.default.fileExists(atPath: target.path),
+                  target.path.lowercased() != old.path.lowercased() {
+                target = folder.appendingPathComponent("\(stem) \(number).\(suffix)"); number += 1
+            }
+            do {
+                try FileManager.default.moveItem(at: old, to: target)
+                // Reread the title: without metadata it came from the old file name.
+                articles[index].path = target.standardizedFileURL.path; articles[index].bookTitle = nil
+            } catch { failed.append(old.lastPathComponent) }
+        }
+        save()
+        Task { await loadBookInfo() }
+        return failed
+    }
+
     func clearSent() { guard !busy else { return }; articles.removeAll { $0.status == "已发送" }; save() }
     func retry(_ id: UUID) {
         guard !busy, let index = articles.firstIndex(where: { $0.id == id }) else { return }

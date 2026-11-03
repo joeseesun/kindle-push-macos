@@ -7,19 +7,12 @@ from pathlib import Path
 from xml.etree import ElementTree
 
 import kindle_push as kp
+import names
 
 COVERS = kp.DATA / 'covers'
 NS = {'opf': 'http://www.idpf.org/2007/opf', 'dc': 'http://purl.org/dc/elements/1.1/',
       'c': 'urn:oasis:names:tc:opendocument:xmlns:container'}
 IMAGE = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
-# Shadow-library suffixes such as "(z-library.sk, 1lib.sk, z-lib.sk)".
-NOISE = re.compile(r'\s*\((?:[^()]*\b(?:z-?lib|1lib|libgen|annas?-archive)[^()]*)\)\s*', re.I)
-
-
-def clean_name(stem):
-    return NOISE.sub(' ', stem).strip() or stem
-
-
 def cache_path(source, suffix):
     stat = source.stat()
     key = hashlib.sha1(f'{source}|{stat.st_mtime_ns}|{stat.st_size}'.encode()).hexdigest()[:20]
@@ -105,5 +98,5 @@ def info(path):
     except (zipfile.BadZipFile, KeyError, ElementTree.ParseError, OSError, AttributeError, TypeError):
         pass  # Fall back to the cleaned file name; a broken book is reported when it is sent.
     stem = source.name[:-len(suffix)] if source.name.lower().endswith(suffix) else source.stem
-    result['title'] = result['title'] or clean_name(stem)
+    result['title'] = result['title'] or names.tidy(stem, smart=False)
     return {'ok': True, **result}

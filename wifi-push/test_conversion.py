@@ -152,10 +152,19 @@ lang: zh-CN
         book = self.root / '小说.fb2.zip'
         with zipfile.ZipFile(book, 'w') as archive: archive.writestr('a.fb2', '<FictionBook/>')
         output = kp.convert(book)
-        self.assertTrue(output.name.startswith('小说-')); self.assertTrue(output.name.endswith('.fb2.zip'))
+        self.assertEqual(output.name, '小说.fb2.zip')
         (self.root / 'bad.cbz').write_text('x')
         with self.assertRaisesRegex(ValueError, '压缩包'):
             kp.convert(self.root / 'bad.cbz')
+
+    def test_output_names_are_clean_and_do_not_collide(self):
+        first = self.root / 'a' / 'Diamond_Age (z-library.sk, 1lib.sk, z-lib.sk).pdf'
+        second = self.root / 'b' / 'Diamond Age.pdf'
+        for book in (first, second):
+            book.parent.mkdir(); book.write_bytes(b'%PDF-1.7\n%%EOF')
+        self.assertEqual(kp.convert(first).name, 'Diamond Age.pdf')
+        self.assertEqual(kp.convert(second).name, 'Diamond Age 2.pdf')
+        self.assertEqual(kp.convert(first).name, 'Diamond Age.pdf')  # resending replaces its own file
 
     def test_receiver_and_converter_agree_on_formats(self):
         receiver = Path(kp.__file__).with_name('kindle-receive.sh').read_text()

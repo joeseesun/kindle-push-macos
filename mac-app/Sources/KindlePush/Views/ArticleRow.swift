@@ -68,7 +68,7 @@ struct ArticleRow: View {
 }
 
 /// The book's own cover when there is one, else the format badge, sized like a small book.
-private struct BookCover: View {
+struct BookCover: View {
     let article: Article
     private static var cache: [String: NSImage] = [:]
 

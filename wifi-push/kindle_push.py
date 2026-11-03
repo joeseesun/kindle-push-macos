@@ -15,6 +15,7 @@ import tempfile
 import zipfile
 from html import escape
 from markdown_support import prepare_markdown, vault_root
+import names
 from urllib.parse import quote, unquote
 
 DATA = Path.home() / 'Library/Application Support/KindlePush'
@@ -171,12 +172,10 @@ def convert(source):
             content = epub.read_bytes()
     else:
         raise ValueError('暂不支持这种格式：' + source.name)
-    # Stable per-source name: repeated sends replace that article, without clutter.
-    stem = source.name[:-len(extension(source))] if source.name.lower().endswith(extension(source)) else source.stem
-    title = re.sub(r'[\x00-\x1f/\\:]', '-', stem).strip('. ')[:60] or '文章'
-    identity = hashlib.sha256(str(source).encode()).hexdigest()[:8]
+    # A clean, stable per-source name: repeated sends replace that article, without clutter.
+    title = names.tidy(names.file_stem(source, extension(source)), smart=False)[:60].strip() or '文章'
     # KOReader registers KF8 books as .azw only; the bytes are the same.
-    output = OUT / (f'{title}-{identity}' + ('.azw' if suffix == '.azw3' else suffix))
+    output = names.unique_output(OUT, title, '.azw' if suffix == '.azw3' else suffix, str(source))
     if len(content) > 100 * 1024 * 1024:
         raise ValueError('文件超过 100 MB，请压缩后再发送。')
     with tempfile.NamedTemporaryFile(dir=OUT, suffix=suffix, delete=False) as handle:

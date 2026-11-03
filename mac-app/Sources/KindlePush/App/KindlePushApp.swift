@@ -38,6 +38,8 @@ struct KindlePushApp: App {
             CommandGroup(replacing: .newItem) {
                 Button("添加文章…") { store.showPicker = true }
                     .keyboardShortcut("o")
+                Button("整理文件名…") { store.tidyNames() }
+                    .keyboardShortcut("e").disabled(store.articles.isEmpty)
             }
             CommandMenu("Kindle") {
                 Button("重新寻找 Kindle") { Task { await store.connect() } }

@@ -13,6 +13,7 @@ import time
 from urllib.parse import urlsplit
 
 import kindle_push as kp
+import names
 
 VERSION = '1.3.2'
 DATA = kp.DATA
@@ -374,10 +375,10 @@ def worker(job):
             raise ValueError('翻译未完成，请检查模型设置、余额和网络后重试；已完成的进度会保留。')
         kp.validate_epub(result)
         kp.OUT.mkdir(parents=True, exist_ok=True)
-        title = re.sub(r'[\x00-\x1f/\\:]', '-', request['title'])[:60] or '书籍'
+        title = names.tidy(request['title'], smart=False)[:60].strip() or '书籍'
         chinese = request.get('mode') == 'chinese'
-        label = '试译3段' if request['preview'] else '中文' if chinese else '中文对照'
-        output = kp.OUT / f'{title}-{label}-{job[:8]}.epub'
+        label = '试译3段' if request['preview'] else '中文' if chinese else '中英对照'
+        output = names.unique_output(kp.OUT, f'{title}（{label}）', '.epub', job)
         temp = output.with_suffix('.tmp')
         shutil.copyfile(result, temp)
         temp.chmod(0o600)

@@ -22,6 +22,7 @@ struct ContentView: View {
                 .contextMenu(forSelectionType: UUID.self) { ids in
                     Button("在访达中显示") { store.reveal(ids) }
                     Button("再次发送") { ids.forEach(store.retry) }.disabled(store.busy)
+                    Button("整理文件名…") { store.tidyNames(ids) }
                     Divider()
                     Button("从列表移除") { store.remove(ids) }
                 } primaryAction: { store.reveal($0) }
@@ -54,6 +55,9 @@ struct ContentView: View {
             case .failure(let error): store.notice = error.localizedDescription; store.isError = true
             }
         }
+        .sheet(isPresented: Binding(get: { !store.renameIDs.isEmpty }, set: { if !$0 { store.renameIDs = [] } })) {
+            RenameSheet(store: store, ids: store.renameIDs)
+        }
         .task { await store.start() }
     }
 
@@ -72,6 +76,9 @@ struct ContentView: View {
             Text("待发送 \(store.pendingCount) · 已送达 \(store.sentCount)")
                 .font(.callout).foregroundStyle(.secondary).monospacedDigit()
             Spacer()
+            Button(selection.count > 1 ? "整理 \(selection.count) 个文件名…" : "整理文件名…") { store.tidyNames(selection) }
+                .buttonStyle(.borderless).controlSize(.small)
+                .help("去掉来源标记、杂乱分隔符和版本后缀，预览后再重命名原文件")
             if store.sentCount > 0 {
                 Button("清除已送达") { store.clearSent() }
                     .buttonStyle(.borderless).controlSize(.small).disabled(store.busy)

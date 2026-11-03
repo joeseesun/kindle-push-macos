@@ -141,6 +141,13 @@ def handle(args):
         if command == 'translation-find': return tr.find(args[1])
         if command == 'translation-cancel': return tr.cancel(args[1])
         raise ValueError('未知翻译操作。')
+    if command == 'tidy-names':
+        # stdin: {"items": [{"path", "title", "author"}], "smart": bool, "author": bool}
+        import names
+        request = json.loads(sys.stdin.read())
+        return {'ok': True, 'names': [names.suggest(i['path'], i.get('title') or '', i.get('author') or '',
+                                                    request.get('smart', True), request.get('author', False))
+                                      for i in request['items']]}
     if command == 'book-info':
         import bookinfo
         return bookinfo.info(args[1])

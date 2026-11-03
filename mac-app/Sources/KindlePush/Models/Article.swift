@@ -64,6 +64,7 @@ struct BridgeResponse: Decodable, Sendable {
     var percent: Int?
     var mode: String?
     var remaining: Int?
+    var names: [String]?
 }
 
 enum ArticlePhase { case waiting, working, ready, done, failed, stopped }
@@ -78,6 +79,11 @@ extension Article {
         case "已停止": .stopped
         default: .waiting
         }
+    }
+    /// Ebooks, comics and PDFs: files named after a book, worth tidying. Notes and documents are not.
+    var isBook: Bool {
+        !["md", "markdown", "txt", "html", "htm", "xhtml", "docx", "odt", "rtf", "doc", "docm",
+          "png", "jpg", "jpeg", "gif", "webp", "tif", "tiff"].contains(format.lowercased())
     }
     var folder: String { URL(fileURLWithPath: path).deletingLastPathComponent().lastPathComponent }
 }

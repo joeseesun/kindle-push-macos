@@ -19,7 +19,7 @@ mkdir -p "$CONTENTS/MacOS" "$CONTENTS/Resources"
 rm -rf "$CONTENTS/Resources/__pycache__"
 cp "$BUILD_DIR/KindlePush" "$CONTENTS/MacOS/KindlePush"
 cp "$ROOT_DIR/wifi-push/kindle_push.py" "$ROOT_DIR/wifi-push/app_bridge.py" "$ROOT_DIR/wifi-push/markdown_support.py" "$ROOT_DIR/wifi-push/ebook.css" "$CONTENTS/Resources/"
-cp "$ROOT_DIR/wifi-push/translation.py" "$ROOT_DIR/wifi-push/accounts.py" "$ROOT_DIR/wifi-push/bookinfo.py" "$CONTENTS/Resources/"
+cp "$ROOT_DIR/wifi-push/translation.py" "$ROOT_DIR/wifi-push/accounts.py" "$ROOT_DIR/wifi-push/bookinfo.py" "$ROOT_DIR/wifi-push/names.py" "$CONTENTS/Resources/"
 cp "$ROOT_DIR/mac-app/Assets/AppIcon.icns" "$CONTENTS/Resources/AppIcon.icns"
 # Ink accent (no system blue). Compiled from mac-app/Assets/Colors.xcassets by script/make_assets.sh.
 cp "$ROOT_DIR/mac-app/Assets/Assets.car" "$CONTENTS/Resources/Assets.car"
@@ -34,8 +34,8 @@ cat > "$CONTENTS/Info.plist" <<'PLIST'
 <key>CFBundleName</key><string>乔木 Kindle 助手</string>
 <key>CFBundleDisplayName</key><string>乔木 Kindle 助手</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>1.8.0</string>
-<key>CFBundleVersion</key><string>10</string>
+<key>CFBundleShortVersionString</key><string>1.9.0</string>
+<key>CFBundleVersion</key><string>11</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>NSAccentColorName</key><string>AccentColor</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
