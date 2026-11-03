@@ -22,7 +22,7 @@ struct KindlePushApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var store = PushStore()
     var body: some Scene {
-        Window("Kindle 推送", id: "main") {
+        Window("乔木 Kindle 助手", id: "main") {
             ContentView(store: store)
                 .tint(.ink)
                 .onAppear { appDelegate.open = { store.add($0) } }
@@ -31,8 +31,8 @@ struct KindlePushApp: App {
         .windowToolbarStyle(.unified(showsTitle: true))
         .commands {
             CommandGroup(replacing: .appInfo) {
-                Button("关于 Kindle 推送") {
-                    NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "Kindle 推送"])
+                Button("关于 乔木 Kindle 助手") {
+                    NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "乔木 Kindle 助手"])
                 }
             }
             CommandGroup(replacing: .newItem) {
@@ -48,7 +48,7 @@ struct KindlePushApp: App {
                 Button("发送到 Kindle") { Task { await store.send() } }
                     .keyboardShortcut(.return, modifiers: .command)
                     .disabled(store.busy || store.pendingCount == 0)
-                Button(store.translateBooks ? "只翻译，保存到本机" : "只转换，保存到本机") { Task { await store.saveLocally() } }
+                Button(store.translateBooks ? "翻译并保存到本机" : "保存到本机") { Task { await store.saveLocally() } }
                     .keyboardShortcut(.return, modifiers: [.command, .option])
                     .disabled(store.busy || store.pendingCount == 0)
                 Button("先试译 3 段") { Task { await store.preview() } }

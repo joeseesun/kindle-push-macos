@@ -7,6 +7,8 @@ struct Article: Identifiable, Codable {
     var details = ""
     var output: String?
     var bilingual: Bool? = false
+    /// A translation without the original text beside it.
+    var chineseOnly: Bool?
     /// From the book's own metadata (bridge `book-info`); the cleaned file name until then.
     var bookTitle: String?
     var author: String?
@@ -60,6 +62,7 @@ struct BridgeResponse: Decodable, Sendable {
     var author: String?
     var cover: String?
     var percent: Int?
+    var mode: String?
     var remaining: Int?
 }
 
@@ -83,4 +86,24 @@ struct RemoteModel: Decodable, Sendable, Hashable, Identifiable {
     var id: String
     var name: String
     var `default`: Bool?
+}
+
+/// What the Kindle gets: the book as it is, or a translation in one of two layouts.
+enum OutputMode: String, CaseIterable {
+    case original, bilingual, chinese
+
+    var title: String {
+        switch self {
+        case .original: "原文"
+        case .bilingual: "中英对照"
+        case .chinese: "仅中文"
+        }
+    }
+    var engineMode: String { self == .chinese ? "chinese" : "bilingual" }
+
+    /// The last choice; older versions stored a yes/no for translation.
+    static var saved: OutputMode {
+        if let raw = UserDefaults.standard.string(forKey: "outputMode"), let mode = OutputMode(rawValue: raw) { return mode }
+        return UserDefaults.standard.bool(forKey: "translateBooks") ? .bilingual : .original
+    }
 }

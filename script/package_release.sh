@@ -3,7 +3,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 KINDLE_BUILD_CONFIGURATION=release ./script/build_and_run.sh --build-only
-APP="$ROOT_DIR/mac-app/dist/Kindle 推送.app"
+APP="$ROOT_DIR/mac-app/dist/乔木 Kindle 助手.app"
 VERSION=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$APP/Contents/Info.plist")
 ARCH=$(/usr/bin/uname -m)
 mkdir -p "$ROOT_DIR/release"

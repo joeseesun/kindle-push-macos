@@ -1,5 +1,5 @@
 version = 1
-name = "Kindle 推送"
+name = "乔木 Kindle 助手"
 [setup]
 script = ""
 [[actions]]

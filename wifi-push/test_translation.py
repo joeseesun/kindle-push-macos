@@ -96,6 +96,16 @@ class TranslationTests(unittest.TestCase):
         tr.atomic_json(folder / 'state.json', {'state': 'done', 'output': str(self.root / 'missing.epub')})
         self.assertEqual(tr.find(self.source)['state'], 'none')
 
+    def test_chinese_only_is_its_own_job_and_flag(self):
+        digest = 'd' * 64
+        bilingual = tr.job_id(digest, tr.settings(), False)
+        self.assertEqual(bilingual, tr.job_id(digest, tr.settings(), False, 'bilingual'))
+        self.assertNotEqual(bilingual, tr.job_id(digest, tr.settings(), False, 'chinese'))
+        self.assertIn('--single_translate', tr.command(self.root, tr.settings(), False, 'chinese'))
+        self.assertNotIn('--single_translate', tr.command(self.root, tr.settings(), False))
+        with self.assertRaisesRegex(ValueError, '版本'):
+            tr.start(self.source, False, 'french')
+
     def test_speed_and_quality_options(self):
         config = {**tr.settings(), 'workers': 4, 'style': 'literary', 'glossary': 'Hari Seldon -> 哈里·谢顿'}
         args = tr.command(self.root, config, False)

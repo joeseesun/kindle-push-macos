@@ -1,6 +1,6 @@
-<p align="center"><img src="mac-app/Assets/AppIcon-source.png" width="144" alt="Kindle 推送图标"></p>
+<p align="center"><img src="mac-app/Assets/AppIcon-source.png" width="144" alt="乔木 Kindle 助手图标"></p>
 
-<h1 align="center">Kindle 推送 · macOS</h1>
+<h1 align="center">乔木 Kindle 助手</h1>
 
 <p align="center">把文章和电子书变成适合阅读的版本，翻译成中文对照，再通过 Wi-Fi 发到 Kindle，或只保存在本机。</p>
 
@@ -19,11 +19,11 @@
 - **Markdown → EPUB**：保留标题、作者、目录、列表、表格、代码和脚注，加入适合小屏阅读的样式。
 - **Obsidian 支持**：双链转为显示文字，图片打包到 EPUB，支持整篇笔记嵌入和提示块。
 - **拖放与批量发送**：整个窗口都能拖入，记录发送结果，失败可重试。
-- **只保存到本机**：不连 Kindle 也能用，「保存到本机」只转换，「翻译整本，只保存到本机」只翻译，结果在访达中选中。
+- **只保存到本机**：不连 Kindle 也能用，「保存到本机」只转换，「翻译并保存」只翻译，结果在访达中选中。
 - **换 Wi-Fi 后寻找设备**：先尝试上次地址，再寻找已配对的 Kindle；也可手动填写 IP。
 - **发送后校验**：读回远端 EPUB，比较 SHA-256，确认传输一致。
 - **原文不改动**：只读选择的文章及其引用附件，转换副本保存在本机。
-- **EPUB 中文对照翻译**：先试译 3 段正文，再翻译整本并发送；原文与简体中文逐段对照，保留图片与目录。支持取消、恢复检查点和复用已完成译本；失败或取消的译本不自动发送。
+- **EPUB 中文翻译**：可选「中英对照」（原文与简体中文逐段对照）或「仅中文」；先试译 3 段正文，再翻译整本，发送或保存到本机；保留图片与目录。支持取消、恢复检查点和复用已完成译本；失败或取消的译本不自动发送。
 - **简单的模型设置**：选服务、填 Key（或登录），再从自动读取的模型列表里选；支持 ChatGPT 账号登录、OpenRouter 和词元跳动浏览器授权。
 - **更快、更好的译文**：默认 3 章并行（可选 1–4），费用不变；四种译文风格（自然流畅、忠实准确、文学润色、技术学术）；术语表让人名、地名全书统一。
 
@@ -44,7 +44,7 @@
 1. 安装转换组件：`brew install python pandoc`。
 2. 从 [Releases](https://github.com/joeseesun/kindle-push-macos/releases/latest) 下载应用 ZIP，解压后放入“应用程序”。
 3. 按 [首次配置](docs/SETUP.md) 完成 USB 接收端安装与设备配对。发布包不包含任何人的密钥，不能跳过这一步。
-4. 打开 **Kindle 推送**，拖入文章，点 **发送到 Kindle**。
+4. 打开 **乔木 Kindle 助手**，拖入文章，点 **发送到 Kindle**。
 5. 在 KOReader 文件浏览器进入 `documents/我的文章` 阅读。
 
 应用目前使用本地 ad-hoc 签名，没有 Apple Developer ID 公证。macOS 可能提示无法验证开发者；是否打开由你自行决定，也可以从源码构建。不会要求全局关闭 Gatekeeper。
@@ -52,7 +52,7 @@
 ## 把英文 EPUB 翻译成中文对照
 
 1. 打开齿轮「翻译设置」，安装翻译组件，选一个翻译服务：可以**用 ChatGPT 账号登录**（用套餐额度，不按 API 计费），也可以选 DeepSeek、OpenAI、Gemini、Kimi、通义千问、豆包、OpenRouter、词元跳动等，或本机的 Ollama / LM Studio。填好 Key 后从列表里选模型。API Key 保存在 macOS 钥匙串。
-2. 拖入 EPUB，选择「中文对照版」，点击「先试译 3 段」检查正文译文。试译不会发送；整本与试译的缓存分开。
+2. 拖入 EPUB，在底部选「中英对照」或「仅中文」，点击「先试译 3 段」检查正文译文。试译不会发送；整本与试译的缓存分开。
 3. 点击「翻译并发送」。完成后在 Kindle 的 `documents/我的文章` 阅读；本机副本在「查看已转换文件」。
 
 在「翻译设置 › 质量与速度」里可以选译文风格、填术语表（每行 `原文 -> 译名`）、设置同时翻译几章。
@@ -97,7 +97,7 @@ brew install python pandoc
 ./script/build_and_run.sh --verify
 ```
 
-产物为 `mac-app/dist/Kindle 推送.app`。只编译不启动：`./script/build_and_run.sh --build-only`。
+产物为 `mac-app/dist/乔木 Kindle 助手.app`。只编译不启动：`./script/build_and_run.sh --build-only`。
 
 ```sh
 python3 -m unittest discover -s wifi-push -p 'test_*.py' -v

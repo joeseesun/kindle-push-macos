@@ -109,11 +109,11 @@ def pair_host(host):
             known.unlink(missing_ok=True)
         raise
     kp.get_config(str(ip))
-    print('配对成功。现在可以打开 Kindle 推送.app，之后换 Wi-Fi 不需要重新插 USB。')
+    print('配对成功。现在可以打开 乔木 Kindle 助手.app，之后换 Wi-Fi 不需要重新插 USB。')
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Kindle 推送首次配置')
+    parser = argparse.ArgumentParser(description='乔木 Kindle 助手首次配置')
     sub = parser.add_subparsers(dest='command', required=True)
     usb = sub.add_parser('usb-install')
     usb.add_argument('--mount', type=Path, default=Path('/Volumes/Kindle'))

@@ -32,3 +32,31 @@ struct InkButtonStyle: ButtonStyle {
 extension ButtonStyle where Self == InkButtonStyle {
     static var ink: InkButtonStyle { InkButtonStyle() }
 }
+
+/// Text link in ink, underlined on hover: replaces the system blue `.link` style.
+struct InkLinkStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var enabled
+    @State private var hovering = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .fontWeight(.medium)
+            .foregroundStyle(Color.ink.opacity(enabled ? (configuration.isPressed ? 0.6 : 1) : 0.35))
+            .underline(hovering && enabled)
+            .contentShape(Rectangle())
+            .onHover { hovering = $0 }
+    }
+}
+
+extension ButtonStyle where Self == InkLinkStyle {
+    static var inkLink: InkLinkStyle { InkLinkStyle() }
+}
+
+/// A web link in the ink style, opened in the default browser.
+struct InkLink<Label: View>: View {
+    let url: URL
+    @ViewBuilder let label: Label
+    var body: some View {
+        Button { NSWorkspace.shared.open(url) } label: { label }.buttonStyle(.inkLink)
+    }
+}

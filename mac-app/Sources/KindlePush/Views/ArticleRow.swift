@@ -14,7 +14,7 @@ struct ArticleRow: View {
                     Text(article.title).font(.body.weight(.semibold)).lineLimit(1).truncationMode(.tail)
                         .help(article.path)
                     if article.bilingual == true {
-                        Text("中英对照").font(.caption2.weight(.semibold)).foregroundStyle(Color.ink)
+                        Text(article.chineseOnly == true ? "中文译本" : "中英对照").font(.caption2.weight(.semibold)).foregroundStyle(Color.ink)
                             .padding(.horizontal, 6).padding(.vertical, 1.5)
                             .background(Color.ink.opacity(0.08), in: Capsule())
                     }

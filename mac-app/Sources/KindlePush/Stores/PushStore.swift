@@ -20,9 +20,10 @@ final class PushStore: ObservableObject {
     @Published var translationProvider = ""
     @Published var completed = 0
     @Published var total = 0
-    @Published var translateBooks = UserDefaults.standard.bool(forKey: "translateBooks") {
-        didSet { UserDefaults.standard.set(translateBooks, forKey: "translateBooks") }
+    @Published var outputMode: OutputMode = OutputMode.saved {
+        didSet { UserDefaults.standard.set(outputMode.rawValue, forKey: "outputMode") }
     }
+    var translateBooks: Bool { outputMode != .original }
     @Published var currentJob: String?
     private var stopRequested = false
     private var started = false
@@ -149,6 +150,7 @@ final class PushStore: ObservableObject {
                 guard !busy else { continue }
                 busy = true; stopRequested = false; completed = 0; total = 1
                 articles[index].status = "翻译中"
+                articles[index].chineseOnly = found.mode == "chinese"
                 activity = "正在翻译：\(article.title)"
                 let output = await follow(article.id, from: found, preview: false)
                 if output != nil { translationFinished(article.id) }
@@ -158,6 +160,7 @@ final class PushStore: ObservableObject {
                 busy = false; total = 0
             case "done":
                 articles[index].output = found.output; articles[index].bilingual = true
+                articles[index].chineseOnly = found.mode == "chinese"
                 articles[index].status = "翻译完成"
                 translationFinished(article.id)
             default:
@@ -276,7 +279,7 @@ final class PushStore: ObservableObject {
         articles[index].status = preview ? "试译中" : "翻译中"
         articles[index].details = "正在准备中文对照版…"
         activity = "正在\(preview ? "试译" : "翻译")：\(articles[index].title)"; save()
-        let response = await Bridge.call(["translation-start", articles[index].path, preview ? "preview" : "full"])
+        let response = await Bridge.call(["translation-start", articles[index].path, preview ? "preview" : "full", outputMode.engineMode])
         return await follow(articles[index].id, from: response, preview: preview)
     }
 
@@ -302,7 +305,7 @@ final class PushStore: ObservableObject {
         }
         articles[index].status = preview ? "试译完成" : "翻译完成"
         articles[index].details = preview ? "已生成 3 段试译，整本翻译会单独处理。" : "中文对照版已生成，正在准备发送。"
-        if !preview { articles[index].bilingual = true }
+        if !preview { articles[index].bilingual = true; articles[index].chineseOnly = outputMode == .chinese }
         save()
         return output
     }

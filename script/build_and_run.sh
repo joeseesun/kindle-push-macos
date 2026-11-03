@@ -2,7 +2,7 @@
 set -euo pipefail
 MODE="${1:-run}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-APP_BUNDLE="$ROOT_DIR/mac-app/dist/Kindle 推送.app"
+APP_BUNDLE="$ROOT_DIR/mac-app/dist/乔木 Kindle 助手.app"
 CONTENTS="$APP_BUNDLE/Contents"
 if [ "$MODE" != "--build-only" ]; then /usr/bin/pkill -x KindlePush >/dev/null 2>&1 || true; fi
 cd "$ROOT_DIR/mac-app"
@@ -29,11 +29,11 @@ cat > "$CONTENTS/Info.plist" <<'PLIST'
 <key>CFBundleIdentifier</key><string>local.chase.KindlePush</string>
 <key>CFBundleDevelopmentRegion</key><string>zh_CN</string>
 <key>CFBundleLocalizations</key><array><string>zh-Hans</string></array>
-<key>CFBundleName</key><string>Kindle 推送</string>
-<key>CFBundleDisplayName</key><string>Kindle 推送</string>
+<key>CFBundleName</key><string>乔木 Kindle 助手</string>
+<key>CFBundleDisplayName</key><string>乔木 Kindle 助手</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>1.6.0</string>
-<key>CFBundleVersion</key><string>8</string>
+<key>CFBundleShortVersionString</key><string>1.7.0</string>
+<key>CFBundleVersion</key><string>9</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>NSPrincipalClass</key><string>NSApplication</string>

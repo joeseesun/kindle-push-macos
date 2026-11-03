@@ -14,7 +14,7 @@ cd kindle-push-macos
 
 也可以下载仓库源代码 ZIP，解压后在终端进入该目录。下面的命令都在仓库根目录运行。Python 需要 3.10+，Pandoc 需要 3.8+；版本较旧时先 `brew upgrade python pandoc`。
 
-从 Releases 下载应用 ZIP，解压并把 `Kindle 推送.app` 放入 `/Applications`。应用运行时会查找 `/opt/homebrew/bin` 或 `/usr/local/bin` 中的 Python 和 Pandoc；不要删除这些组件。
+从 Releases 下载应用 ZIP，解压并把 `乔木 Kindle 助手.app` 放入 `/Applications`。应用运行时会查找 `/opt/homebrew/bin` 或 `/usr/local/bin` 中的 Python 和 Pandoc；不要删除这些组件。
 
 ## 2. 用 USB 安装接收配置
 

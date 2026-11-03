@@ -42,7 +42,7 @@ private struct ConnectionPopover: View {
                 }
             }
             if store.setupNeeded {
-                Link(destination: URL(string: "https://github.com/joeseesun/kindle-push-macos/blob/main/docs/SETUP.md")!) {
+                InkLink(url: URL(string: "https://github.com/joeseesun/kindle-push-macos/blob/main/docs/SETUP.md")!) {
                     Label("查看首次配置指南", systemImage: "book")
                 }
             } else {

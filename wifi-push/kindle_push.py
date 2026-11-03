@@ -241,7 +241,7 @@ def main():
     parser.add_argument('--interactive', action='store_true')
     args = parser.parse_args()
     if args.interactive:
-        print('Kindle 推送：两台设备连接同一 Wi-Fi，Kindle 打开 KOReader。\n')
+        print('乔木 Kindle 助手：两台设备连接同一 Wi-Fi，Kindle 打开 KOReader。\n')
         if not args.files:
             raw = input('把文章或电子书拖进这个窗口，然后按回车：\n').strip()
             args.files = [Path(p) for p in shlex.split(raw)]

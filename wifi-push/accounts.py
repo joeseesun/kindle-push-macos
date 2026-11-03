@@ -30,7 +30,7 @@ SIGN_IN = {
                    'exchange': 'https://tokendance.space/portal/api/v1/auth/keys', 'host': '127.0.0.1'},
 }
 APP_URL = 'https://github.com/joeseesun/kindle-push-macos'
-DONE_PAGE = ('<!doctype html><meta charset="utf-8"><title>Kindle 推送</title>'
+DONE_PAGE = ('<!doctype html><meta charset="utf-8"><title>乔木 Kindle 助手</title>'
              '<body style="font:16px -apple-system;display:grid;place-items:center;height:90vh;margin:0">'
              '<div style="text-align:center"><h2>{0}</h2><p style="color:#666">{1}</p></div>')
 
@@ -180,7 +180,7 @@ def sign_in_key(provider):
             ok = 'code' in query and (provider != 'openrouter' or query.get('state', [''])[0] == state)
             if ok:
                 found['code'] = query['code'][0]
-            page = DONE_PAGE.format('授权完成' if ok else '授权没有完成', '可以回到 Kindle 推送了。' if ok else '请回到 Kindle 推送重试。')
+            page = DONE_PAGE.format('授权完成' if ok else '授权没有完成', '可以回到 乔木 Kindle 助手了。' if ok else '请回到 乔木 Kindle 助手重试。')
             self.send_response(200); self.send_header('Content-Type', 'text/html; charset=utf-8'); self.end_headers()
             self.wfile.write(page.encode())
             done.set()
@@ -201,7 +201,7 @@ def sign_in_key(provider):
         params = {'callback_url': callback, 'code_challenge': challenge, 'code_challenge_method': 'S256', 'state': state}
     else:
         params = {'callback_url': callback, 'code_challenge': challenge, 'code_challenge_method': 'S256',
-                  'app_url': APP_URL, 'key_name': 'Kindle 推送'}
+                  'app_url': APP_URL, 'key_name': '乔木 Kindle 助手'}
     threads = [threading.Thread(target=s.serve_forever, daemon=True) for s in servers]
     for thread in threads:
         thread.start()

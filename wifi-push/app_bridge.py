@@ -136,7 +136,7 @@ def handle(args):
         if command == 'translation-settings': return tr.public_settings()
         if command == 'translation-save': return tr.save_settings(**json.loads(args[1]))
         if command == 'translation-install': return tr.install()
-        if command == 'translation-start': return tr.start(args[1], len(args) > 2 and args[2] == 'preview')
+        if command == 'translation-start': return tr.start(args[1], len(args) > 2 and args[2] == 'preview', args[3] if len(args) > 3 else 'bilingual')
         if command == 'translation-progress': return tr.progress(args[1])
         if command == 'translation-find': return tr.find(args[1])
         if command == 'translation-cancel': return tr.cancel(args[1])

@@ -36,7 +36,7 @@ struct ContentView: View {
             guard !store.busy else { return false }; store.add(urls); return true
         } isTargeted: { targeted = $0 && !store.busy }
         .frame(minWidth: 560, minHeight: 480)
-        .navigationTitle("Kindle 推送")
+        .navigationTitle("乔木 Kindle 助手")
         .navigationSubtitle(subtitle)
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {

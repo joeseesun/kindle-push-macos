@@ -29,9 +29,8 @@ struct FooterBar: View {
 
     private var modePicker: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Picker("发送版本", selection: $store.translateBooks) {
-                Text("原文").tag(false)
-                Text("中英对照").tag(true)
+            Picker("版本", selection: $store.outputMode) {
+                ForEach(OutputMode.allCases, id: \.self) { Text($0.title).tag($0) }
             }
             .pickerStyle(.segmented).labelsHidden().fixedSize().disabled(store.busy)
             caption
@@ -45,15 +44,23 @@ struct FooterBar: View {
         } else if store.translationReady == false {
             HStack(spacing: 4) {
                 Label("还没安装翻译组件", systemImage: "exclamationmark.triangle")
-                SettingsLink { Text("去设置") }.buttonStyle(.link)
+                SettingsLink { Text("去设置") }.buttonStyle(.inkLink)
             }
             .font(.caption).foregroundStyle(.orange)
         } else if store.nonEpubPending {
-            Label("中英对照只支持 EPUB，请移除其他格式或切回原文", systemImage: "exclamationmark.triangle")
+            Label("翻译只支持 EPUB，请移除其他格式或切回原文", systemImage: "exclamationmark.triangle")
                 .font(.caption).foregroundStyle(.orange)
         } else {
-            Label(store.translationProvider == "chatgpt" ? "仅 EPUB · 用 ChatGPT 套餐额度翻译" : "仅 EPUB · 正文发给翻译模型，按用量计费", systemImage: "globe")
-                .font(.caption).foregroundStyle(.secondary)
+            HStack(spacing: 6) {
+                Label(store.translationProvider == "chatgpt" ? "用 ChatGPT 套餐额度翻译" : "正文发给翻译模型，按用量计费", systemImage: "globe")
+                    .foregroundStyle(.secondary)
+                Text("·").foregroundStyle(.tertiary)
+                // A one-off check before a long run: a link, not a third button.
+                Button("先试译 3 段") { Task { await store.preview() } }
+                    .buttonStyle(.inkLink).disabled(store.busy || !store.previewAvailable)
+                    .help("只翻译 3 段正文，在访达里打开给你检查；不发送")
+            }
+            .font(.caption).fixedSize()
         }
     }
 
@@ -65,24 +72,13 @@ struct FooterBar: View {
         }
     }
 
-    /// Work that stays on this Mac: no Kindle needed.
-    @ViewBuilder private var secondaryButton: some View {
-        if store.translateBooks {
-            Menu("先试译 3 段") {
-                Button("先试译 3 段") { Task { await store.preview() } }
-                    .disabled(!store.previewAvailable)
-                Divider()
-                Button("翻译整本，只保存到本机") { Task { await store.saveLocally() } }
-                    .disabled(sendDisabled)
-            } primaryAction: { Task { await store.preview() } }
-            .controlSize(.large).fixedSize()
-            .disabled(!store.previewAvailable || store.translationReady == false)
-            .help("只翻译 3 段正文给你检查，不发送。点箭头可翻译整本并只保存到本机（⌥⌘↩）")
-        } else {
-            Button("保存到本机") { Task { await store.saveLocally() } }
-                .controlSize(.large).disabled(sendDisabled)
-                .help("只转换排版，保存到本机，不需要 Kindle（⌥⌘↩）")
+    /// Saving is as common as sending, so it is a button of its own, not a menu item. No Kindle needed.
+    private var secondaryButton: some View {
+        Button { Task { await store.saveLocally() } } label: {
+            Label(store.translateBooks ? "翻译并保存" : "保存到本机", systemImage: "square.and.arrow.down")
         }
+        .controlSize(.large).disabled(sendDisabled)
+        .help("保存到本机，完成后在访达中选中；不需要连接 Kindle（⌥⌘↩）")
     }
 
     private var sendDisabled: Bool {

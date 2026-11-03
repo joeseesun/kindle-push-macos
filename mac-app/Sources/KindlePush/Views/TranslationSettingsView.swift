@@ -155,13 +155,13 @@ struct TranslationSettingsView: View {
                         if service.keyURL != nil || service.signIn == .key {
                         HStack(spacing: 14) {
                             if let url = service.keyURL.flatMap(URL.init(string:)) {
-                                Link(destination: url) { Label("获取 API Key", systemImage: "arrow.up.right.square") }
+                                InkLink(url: url) { Label("获取 API Key", systemImage: "arrow.up.right.square") }
                             }
                             if service.signIn == .key {
                                 Button { Task { await signInForKey() } } label: {
                                     Label(signingIn ? "正在等待浏览器授权…" : "登录\(service.name)，自动填入 Key", systemImage: "person.badge.key")
                                 }
-                                .buttonStyle(.link).disabled(signingIn)
+                                .buttonStyle(.inkLink).disabled(signingIn)
                             }
                             Spacer()
                         }
@@ -204,7 +204,7 @@ struct TranslationSettingsView: View {
                     }
                     Spacer()
                     if !modelChoices.isEmpty {
-                        Button(manualModel ? "从列表选择" : "手动填写") { manualModel.toggle() }.buttonStyle(.link)
+                        Button(manualModel ? "从列表选择" : "手动填写") { manualModel.toggle() }.buttonStyle(.inkLink)
                     }
                 }
                 .font(.caption)

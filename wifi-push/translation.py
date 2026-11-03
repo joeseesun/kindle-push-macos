@@ -212,28 +212,44 @@ def progress(job):
     return {'ok': state['state'] != 'failed', 'job': job, **state}
 
 
-def job_id(digest, config, preview):
+MODES = ('bilingual', 'chinese')   # side by side, or the translation alone (--single_translate)
+
+
+def job_id(digest, config, preview, mode='bilingual'):
     # Speed does not change the translation, so a run can resume at another worker count.
     # 'provider' only matters for the ChatGPT route; elsewhere base and model already identify the service.
     quality = {k: v for k, v in config.items() if k != 'workers' and (k not in {'style', 'glossary', 'provider'} or v not in {'', 'natural'})
                and not (k == 'provider' and v != 'chatgpt')}
-    identity = json.dumps([digest, quality, preview, VERSION, 'pipeline-2'], sort_keys=True).encode()
+    # Bilingual identities predate modes and stay as they were, so their checkpoints still resume.
+    parts = [digest, quality, preview, VERSION, 'pipeline-2'] + ([mode] if mode != 'bilingual' else [])
+    identity = json.dumps(parts, sort_keys=True).encode()
     return hashlib.sha256(identity).hexdigest()[:24]
 
 
 def find(source):
     """The whole-book job this EPUB already has under the current settings, without starting one."""
     source = Path(source).expanduser().resolve(strict=True)
-    job = job_id(hashlib.sha256(source.read_bytes()).hexdigest(), settings(), False)
-    if not (job_dir(job) / 'state.json').exists():
-        return {'ok': True, 'state': 'none'}
-    state = progress(job)
-    if state.get('state') == 'done' and not Path(state.get('output', '')).is_file():
-        return {'ok': True, 'state': 'none'}
-    return {**state, 'ok': True}
+    digest = hashlib.sha256(source.read_bytes()).hexdigest()
+    found = {'ok': True, 'state': 'none'}
+    for mode in MODES:
+        job = job_id(digest, settings(), False, mode)
+        if not (job_dir(job) / 'state.json').exists():
+            continue
+        state = progress(job)
+        if state.get('state') == 'done' and not Path(state.get('output', '')).is_file():
+            continue
+        state = {**state, 'ok': True, 'mode': mode}
+        # A running job wins; otherwise the first one with a result.
+        if state['state'] in {'queued', 'running'}:
+            return state
+        if found['state'] == 'none':
+            found = state
+    return found
 
 
-def start(source, preview=False):
+def start(source, preview=False, mode='bilingual'):
+    if mode not in MODES:
+        raise ValueError('未知的译文版本。')
     source = Path(source).expanduser().resolve(strict=True)
     if source.suffix.lower() != '.epub':
         raise ValueError('中文对照翻译仅支持 EPUB。其他格式可以直接发送。')
@@ -251,7 +267,7 @@ def start(source, preview=False):
         # Check before starting a background job; never persist or pass the secret.
         read_key(config)
     digest = hashlib.sha256(source.read_bytes()).hexdigest()
-    job = job_id(digest, config, preview)
+    job = job_id(digest, config, preview, mode)
     folder = job_dir(job)
     folder.mkdir(parents=True, exist_ok=True, mode=0o700)
     with (folder / 'lock').open('w') as lock:
@@ -271,7 +287,7 @@ def start(source, preview=False):
         if hashlib.sha256(snapshot.read_bytes()).hexdigest() != digest:
             raise ValueError('任务副本校验失败，原书未修改。')
         (folder / 'cancel').unlink(missing_ok=True)
-        atomic_json(folder / 'request.json', {'config': config, 'preview': preview, 'title': source.stem})
+        atomic_json(folder / 'request.json', {'config': config, 'preview': preview, 'mode': mode, 'title': source.stem})
         with (folder / 'worker.log').open('a') as log:
             child = subprocess.Popen([sys.executable, '-B', str(Path(__file__).resolve()), 'worker', job],
                                      stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True)
@@ -287,7 +303,7 @@ def cancel(job):
     return {'ok': True, 'job': job, 'message': '正在停止，保留已完成进度…'}
 
 
-def command(folder, config, preview):
+def command(folder, config, preview, mode='bilingual'):
     codex = config.get('provider') == 'chatgpt'
     args = [str(RUNTIME / 'bin/bbook_maker'), '--book_name', str(folder / 'book.epub'), '--language', 'zh-hans']
     args += (['--api_format', 'codex', '--model', config['model']] if codex else
@@ -301,6 +317,8 @@ def command(folder, config, preview):
     if config.get('glossary'):
         (folder / 'glossary.txt').write_text(config['glossary'] + '\n')
         args += ['--glossary', str(folder / 'glossary.txt')]
+    if mode == 'chinese':
+        args += ['--single_translate']
     if preview:
         args += ['--translate-tags', 'p', '--test', '--test_num', '3']
     else:
@@ -335,7 +353,7 @@ def worker(job):
         result = folder / 'book_bilingual.epub'
         result.unlink(missing_ok=True)
         with (folder / 'engine.log').open('w') as log:
-            child = subprocess.Popen(command(folder, config, request['preview']), cwd=folder,
+            child = subprocess.Popen(command(folder, config, request['preview'], request.get('mode', 'bilingual')), cwd=folder,
                                      env=env, stdin=subprocess.DEVNULL, stdout=log, stderr=log,
                                      start_new_session=True)
             env.pop('BBM_API_KEY', None)
@@ -357,13 +375,14 @@ def worker(job):
         kp.validate_epub(result)
         kp.OUT.mkdir(parents=True, exist_ok=True)
         title = re.sub(r'[\x00-\x1f/\\:]', '-', request['title'])[:60] or '书籍'
-        label = '试译3段' if request['preview'] else '中文对照'
+        chinese = request.get('mode') == 'chinese'
+        label = '试译3段' if request['preview'] else '中文' if chinese else '中文对照'
         output = kp.OUT / f'{title}-{label}-{job[:8]}.epub'
         temp = output.with_suffix('.tmp')
         shutil.copyfile(result, temp)
         temp.chmod(0o600)
         temp.replace(output)
-        state.update(state='done', message='试译完成，可先检查译文。' if request['preview'] else '中文对照版已生成。',
+        state.update(state='done', message='试译完成，可先检查译文。' if request['preview'] else '中文版已生成。' if chinese else '中文对照版已生成。',
                      output=str(output), sha256=hashlib.sha256(output.read_bytes()).hexdigest())
     except Exception as error:
         # No raw provider response, book contents or secret in UI/state files.
