@@ -21,7 +21,7 @@ struct ContentView: View {
                 .scrollContentBackground(.hidden)
                 .contextMenu(forSelectionType: UUID.self) { ids in
                     Button("在访达中显示") { store.reveal(ids) }
-                    Button("再次发送") { ids.forEach(store.retry) }.disabled(store.busy)
+                    Button("再次发送") { ids.forEach(store.retry) }
                     Button("整理文件名…") { store.tidyNames(ids) }
                     Divider()
                     Button("从列表移除") { store.remove(ids) }
@@ -62,10 +62,15 @@ struct ContentView: View {
     }
 
     private var subtitle: String {
-        if store.busy && store.total == 1, let working = store.articles.first(where: { $0.phase == .working }) {
-            return working.progress.map { "正在翻译 · \(Int(($0 * 100).rounded()))%" } ?? "正在处理"
+        var parts: [String] = []
+        if store.translation.running {
+            let working = store.articles.first { $0.status == "翻译中" }
+            parts.append(store.translation.total <= 1
+                ? working?.progress.map { "正在翻译 · \(Int(($0 * 100).rounded()))%" } ?? "正在翻译"
+                : "翻译 \(store.translation.completed) / \(store.translation.total)")
         }
-        if store.busy && store.total > 0 { return "\(store.completed) / \(store.total) 已完成" }
+        if store.quick.running { parts.append("发送 \(store.quick.completed) / \(store.quick.total)") }
+        if !parts.isEmpty { return parts.joined(separator: " · ") }
         if store.pendingCount > 0 { return "\(store.pendingCount) 篇待发送" }
         return store.articles.isEmpty ? "" : "全部已送达"
     }
@@ -81,7 +86,7 @@ struct ContentView: View {
                 .help("去掉来源标记、杂乱分隔符和版本后缀，预览后再重命名原文件")
             if store.sentCount > 0 {
                 Button("清除已送达") { store.clearSent() }
-                    .buttonStyle(.borderless).controlSize(.small).disabled(store.busy)
+                    .buttonStyle(.borderless).controlSize(.small)
             }
         }
         .padding(.horizontal, 20).padding(.top, 14).padding(.bottom, 4)

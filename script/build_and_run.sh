@@ -34,8 +34,8 @@ cat > "$CONTENTS/Info.plist" <<'PLIST'
 <key>CFBundleName</key><string>乔木 Kindle 助手</string>
 <key>CFBundleDisplayName</key><string>乔木 Kindle 助手</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>1.9.0</string>
-<key>CFBundleVersion</key><string>11</string>
+<key>CFBundleShortVersionString</key><string>1.10.0</string>
+<key>CFBundleVersion</key><string>12</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>NSAccentColorName</key><string>AccentColor</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>

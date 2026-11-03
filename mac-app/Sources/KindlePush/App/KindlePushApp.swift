@@ -43,18 +43,18 @@ struct KindlePushApp: App {
             }
             CommandMenu("Kindle") {
                 Button("重新寻找 Kindle") { Task { await store.connect() } }
-                    .keyboardShortcut("r").disabled(store.busy)
+                    .keyboardShortcut("r").disabled(store.searching)
                 Button("连接设置…") { store.showConnection = true }
                     .keyboardShortcut("k")
                 Divider()
                 Button("发送到 Kindle") { Task { await store.send() } }
                     .keyboardShortcut(.return, modifiers: .command)
-                    .disabled(store.busy || store.pendingCount == 0)
+                    .disabled(store.queueable.isEmpty)
                 Button(store.translateBooks ? "翻译并保存到本机" : "保存到本机") { Task { await store.saveLocally() } }
                     .keyboardShortcut(.return, modifiers: [.command, .option])
-                    .disabled(store.busy || store.pendingCount == 0)
+                    .disabled(store.queueable.isEmpty)
                 Button("先试译 3 段") { Task { await store.preview() } }
-                    .disabled(store.busy || !store.translateBooks || !store.previewAvailable)
+                    .disabled(store.translation.running || !store.translateBooks || !store.previewAvailable)
                 Button("停止翻译") { store.stopTranslation() }
                     .keyboardShortcut(".").disabled(store.currentJob == nil)
                 Divider()

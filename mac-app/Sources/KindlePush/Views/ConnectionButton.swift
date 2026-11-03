@@ -50,7 +50,7 @@ private struct ConnectionPopover: View {
                     Label(store.searching ? "正在寻找…" : "重新寻找", systemImage: "arrow.clockwise")
                         .frame(maxWidth: .infinity)
                 }
-                .controlSize(.large).disabled(store.busy || store.searching)
+                .controlSize(.large).disabled(store.searching)
             }
             Divider()
             VStack(alignment: .leading, spacing: 8) {
@@ -62,7 +62,7 @@ private struct ConnectionPopover: View {
                     Button("连接") { Task { await store.connect(manual: true) } }
                         .disabled(store.manualHost.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
-                .disabled(store.busy || store.searching)
+                .disabled(store.searching)
                 Text("IP 在 KOReader › 网络 › 网络信息 里。换 Wi‑Fi 后先试重新寻找；访客网络会隔离设备。")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
