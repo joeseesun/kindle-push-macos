@@ -58,6 +58,9 @@ struct ContentView: View {
     }
 
     private var subtitle: String {
+        if store.busy && store.total == 1, let working = store.articles.first(where: { $0.phase == .working }) {
+            return working.progress.map { "正在翻译 · \(Int(($0 * 100).rounded()))%" } ?? "正在处理"
+        }
         if store.busy && store.total > 0 { return "\(store.completed) / \(store.total) 已完成" }
         if store.pendingCount > 0 { return "\(store.pendingCount) 篇待发送" }
         return store.articles.isEmpty ? "" : "全部已送达"

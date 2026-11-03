@@ -212,6 +212,27 @@ def progress(job):
     return {'ok': state['state'] != 'failed', 'job': job, **state}
 
 
+def job_id(digest, config, preview):
+    # Speed does not change the translation, so a run can resume at another worker count.
+    # 'provider' only matters for the ChatGPT route; elsewhere base and model already identify the service.
+    quality = {k: v for k, v in config.items() if k != 'workers' and (k not in {'style', 'glossary', 'provider'} or v not in {'', 'natural'})
+               and not (k == 'provider' and v != 'chatgpt')}
+    identity = json.dumps([digest, quality, preview, VERSION, 'pipeline-2'], sort_keys=True).encode()
+    return hashlib.sha256(identity).hexdigest()[:24]
+
+
+def find(source):
+    """The whole-book job this EPUB already has under the current settings, without starting one."""
+    source = Path(source).expanduser().resolve(strict=True)
+    job = job_id(hashlib.sha256(source.read_bytes()).hexdigest(), settings(), False)
+    if not (job_dir(job) / 'state.json').exists():
+        return {'ok': True, 'state': 'none'}
+    state = progress(job)
+    if state.get('state') == 'done' and not Path(state.get('output', '')).is_file():
+        return {'ok': True, 'state': 'none'}
+    return {**state, 'ok': True}
+
+
 def start(source, preview=False):
     source = Path(source).expanduser().resolve(strict=True)
     if source.suffix.lower() != '.epub':
@@ -230,12 +251,7 @@ def start(source, preview=False):
         # Check before starting a background job; never persist or pass the secret.
         read_key(config)
     digest = hashlib.sha256(source.read_bytes()).hexdigest()
-    # Speed does not change the translation, so a run can resume at another worker count.
-    # 'provider' only matters for the ChatGPT route; elsewhere base and model already identify the service.
-    quality = {k: v for k, v in config.items() if k != 'workers' and (k not in {'style', 'glossary', 'provider'} or v not in {'', 'natural'})
-               and not (k == 'provider' and v != 'chatgpt')}
-    identity = json.dumps([digest, quality, preview, VERSION, 'pipeline-2'], sort_keys=True).encode()
-    job = hashlib.sha256(identity).hexdigest()[:24]
+    job = job_id(digest, config, preview)
     folder = job_dir(job)
     folder.mkdir(parents=True, exist_ok=True, mode=0o700)
     with (folder / 'lock').open('w') as lock:

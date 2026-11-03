@@ -86,6 +86,16 @@ class TranslationTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, '模型'):
                 tr.save_settings(base='https://api.deepseek.com/v1', model=' ', provider='deepseek')
 
+    def test_find_reports_existing_job_without_starting_one(self):
+        self.assertEqual(tr.find(self.source)['state'], 'none')
+        self.assertFalse(tr.JOBS.exists() and any(tr.JOBS.iterdir()))
+        digest = hashlib.sha256(self.source.read_bytes()).hexdigest()
+        folder = tr.job_dir(tr.job_id(digest, tr.settings(), False)); folder.mkdir(parents=True)
+        tr.atomic_json(folder / 'state.json', {'state': 'cancelled', 'message': '翻译已停止'})
+        self.assertEqual(tr.find(self.source)['state'], 'cancelled')
+        tr.atomic_json(folder / 'state.json', {'state': 'done', 'output': str(self.root / 'missing.epub')})
+        self.assertEqual(tr.find(self.source)['state'], 'none')
+
     def test_speed_and_quality_options(self):
         config = {**tr.settings(), 'workers': 4, 'style': 'literary', 'glossary': 'Hari Seldon -> 哈里·谢顿'}
         args = tr.command(self.root, config, False)

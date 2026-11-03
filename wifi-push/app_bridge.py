@@ -138,6 +138,7 @@ def handle(args):
         if command == 'translation-install': return tr.install()
         if command == 'translation-start': return tr.start(args[1], len(args) > 2 and args[2] == 'preview')
         if command == 'translation-progress': return tr.progress(args[1])
+        if command == 'translation-find': return tr.find(args[1])
         if command == 'translation-cancel': return tr.cancel(args[1])
         raise ValueError('未知翻译操作。')
     if command == 'book-info':

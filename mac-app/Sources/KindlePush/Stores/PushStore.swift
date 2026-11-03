@@ -127,15 +127,51 @@ final class PushStore: ObservableObject {
     func start() async {
         guard !started else { return }; started = true
         await refreshTranslationStatus()
+        Task { await resumeTranslations() }
         let status = await Bridge.call(["status"])
         if status.ok {
             host = status.host ?? ""; manualHost = host
-            await findConnection(manual: false)
+            await findConnection(manual: false, report: false)
         } else {
             setupNeeded = true
             connectionIssue = status.message ?? "还没完成首次配置。"
             activity = "需要首次配置"
         }
+    }
+
+    /// Translations that kept running, or finished, while the app was closed: show them again.
+    private func resumeTranslations() async {
+        for article in articles where article.format == "EPUB" && ["等待继续", "翻译中"].contains(article.status) {
+            let found = await Bridge.call(["translation-find", article.path])
+            guard found.ok, let index = articles.firstIndex(where: { $0.id == article.id }) else { continue }
+            switch found.state {
+            case "queued", "running":
+                guard !busy else { continue }
+                busy = true; stopRequested = false; completed = 0; total = 1
+                articles[index].status = "翻译中"
+                activity = "正在翻译：\(article.title)"
+                let output = await follow(article.id, from: found, preview: false)
+                if output != nil { translationFinished(article.id) }
+                else if !stopRequested, let failed = articles.first(where: { $0.id == article.id }) {
+                    notice = failed.details; isError = true
+                }
+                busy = false; total = 0
+            case "done":
+                articles[index].output = found.output; articles[index].bilingual = true
+                articles[index].status = "翻译完成"
+                translationFinished(article.id)
+            default:
+                break
+            }
+        }
+    }
+
+    private func translationFinished(_ id: UUID) {
+        guard let index = articles.firstIndex(where: { $0.id == id }) else { return }
+        articles[index].details = "中文对照版已生成 · 点「翻译并发送」送到 Kindle"
+        save()
+        announce("《\(articles[index].title)》翻译完成。点「翻译并发送」会直接用这份译本。", error: false)
+        if !NSApp.isActive { NSApp.requestUserAttention(.informationalRequest) }
     }
 
     func refreshTranslationStatus() async {
@@ -150,18 +186,20 @@ final class PushStore: ObservableObject {
         if connected && isError { dismissNotice() }
     }
 
-    private func findConnection(manual: Bool) async {
+    /// `report`: show the search in the footer. Off for the background search at launch,
+    /// which must not overwrite a translation's status there.
+    private func findConnection(manual: Bool, report: Bool = true) async {
         connected = false; searching = true
         defer { searching = false }
-        activity = manual ? "正在连接 Kindle…" : "正在寻找你的 Kindle…"
+        if report { activity = manual ? "正在连接 Kindle…" : "正在寻找你的 Kindle…" }
         let response = await Bridge.call(manual ? ["connect", manualHost.trimmingCharacters(in: .whitespacesAndNewlines)] : ["discover"])
         if response.ok {
             host = response.host ?? ""; manualHost = host; connected = true
             setupNeeded = false; connectionIssue = ""
-            activity = "Kindle 已连接"
+            if report { activity = "Kindle 已连接" }
         } else {
             connectionIssue = response.message ?? "没有找到 Kindle，请重试。"
-            activity = "Kindle 尚未连接"
+            if report { activity = "Kindle 尚未连接" }
         }
     }
 
@@ -238,7 +276,15 @@ final class PushStore: ObservableObject {
         articles[index].status = preview ? "试译中" : "翻译中"
         articles[index].details = "正在准备中文对照版…"
         activity = "正在\(preview ? "试译" : "翻译")：\(articles[index].title)"; save()
-        var response = await Bridge.call(["translation-start", articles[index].path, preview ? "preview" : "full"])
+        let response = await Bridge.call(["translation-start", articles[index].path, preview ? "preview" : "full"])
+        return await follow(articles[index].id, from: response, preview: preview)
+    }
+
+    /// Polls a translation job until it ends; shared by new runs and by jobs found at launch.
+    private func follow(_ id: UUID, from first: BridgeResponse, preview: Bool) async -> String? {
+        guard articles.contains(where: { $0.id == id }) else { return nil }
+        var index: Int { articles.firstIndex { $0.id == id } ?? 0 }
+        var response = first
         currentJob = response.job
         while let job = currentJob, response.ok, ["queued", "running"].contains(response.state ?? "") {
             if stopRequested { _ = await Bridge.call(["translation-cancel", job]) }
