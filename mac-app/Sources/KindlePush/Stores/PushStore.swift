@@ -37,10 +37,33 @@ final class PushStore: ObservableObject {
             }
         }
         updateBadge()
+        Task { await loadBookInfo() }
+    }
+
+    /// Titles, authors and covers for items that do not have them yet.
+    func loadBookInfo() async {
+        for article in articles where article.bookTitle == nil {
+            let response = await Bridge.call(["book-info", article.path])
+            guard let index = articles.firstIndex(where: { $0.id == article.id }) else { continue }
+            if response.ok {
+                articles[index].bookTitle = response.title ?? ""
+                articles[index].author = response.author
+                articles[index].cover = response.cover
+            } else { articles[index].bookTitle = "" }
+            if articles[index].format == "PDF", articles[index].cover == nil {
+                articles[index].cover = await Covers.pdf(articles[index].path)
+            }
+        }
+        save()
     }
 
     var pendingCount: Int { articles.filter { $0.status != "已发送" }.count }
     var previewAvailable: Bool { articles.contains { $0.format == "EPUB" && $0.status != "已发送" } }
+    /// Whole batch, including how far the current book's translation has got.
+    var overallProgress: Double {
+        let current = articles.first { $0.phase == .working }?.progress ?? 0
+        return min(1, (Double(completed) + current) / Double(max(total, 1)))
+    }
     var sentCount: Int { articles.count - pendingCount }
     var nonEpubPending: Bool { articles.contains { $0.status != "已发送" && $0.format != "EPUB" } }
     var connectionTitle: String {
@@ -83,6 +106,7 @@ final class PushStore: ObservableObject {
                 articles[index].output = nil; articles[index].bilingual = false
             } else { articles.append(Article(path: path)) }
         }
+        Task { await loadBookInfo() }
         if rejected > 0 { notice = "已略过 \(rejected) 个不支持的文件。支持 KOReader 能打开的电子书、漫画、文档，以及 Markdown。"; isError = true }
         else if isError { dismissNotice() }
         save()
@@ -102,7 +126,7 @@ final class PushStore: ObservableObject {
 
     func start() async {
         guard !started else { return }; started = true
-        busy = true
+        await refreshTranslationStatus()
         let status = await Bridge.call(["status"])
         if status.ok {
             host = status.host ?? ""; manualHost = host
@@ -112,8 +136,6 @@ final class PushStore: ObservableObject {
             connectionIssue = status.message ?? "还没完成首次配置。"
             activity = "需要首次配置"
         }
-        busy = false
-        await refreshTranslationStatus()
     }
 
     func refreshTranslationStatus() async {
@@ -123,11 +145,9 @@ final class PushStore: ObservableObject {
     }
 
     func connect(manual: Bool = false) async {
-        guard !busy else { return }
-        busy = true
+        guard !busy, !searching else { return }
         await findConnection(manual: manual)
         if connected && isError { dismissNotice() }
-        busy = false
     }
 
     private func findConnection(manual: Bool) async {
@@ -223,10 +243,12 @@ final class PushStore: ObservableObject {
         while let job = currentJob, response.ok, ["queued", "running"].contains(response.state ?? "") {
             if stopRequested { _ = await Bridge.call(["translation-cancel", job]) }
             articles[index].details = response.message ?? "正在翻译…"
+            if let percent = response.percent { articles[index].progress = Double(percent) / 100 }
             try? await Task.sleep(for: .seconds(1))
             response = await Bridge.call(["translation-progress", job])
         }
         currentJob = nil
+        articles[index].progress = nil
         guard response.ok, response.state == "done", let output = response.output, !stopRequested else {
             articles[index].status = stopRequested || response.state == "cancelled" ? "已停止" : "失败"
             articles[index].details = response.message ?? "翻译未完成，请检查翻译设置。"; save()

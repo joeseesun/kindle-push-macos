@@ -7,7 +7,14 @@ struct Article: Identifiable, Codable {
     var details = ""
     var output: String?
     var bilingual: Bool? = false
+    /// From the book's own metadata (bridge `book-info`); the cleaned file name until then.
+    var bookTitle: String?
+    var author: String?
+    var cover: String?
+    /// Translation progress, 0...1, while a translation runs.
+    var progress: Double?
     var title: String {
+        if let bookTitle, !bookTitle.isEmpty { return bookTitle }
         let name = URL(fileURLWithPath: path).lastPathComponent
         return String(name.dropLast(Article.fileExtension(of: name).count + 1))
     }
@@ -49,6 +56,11 @@ struct BridgeResponse: Decodable, Sendable {
     var loggedIn: Bool?
     var plan: String?
     var email: String?
+    var title: String?
+    var author: String?
+    var cover: String?
+    var percent: Int?
+    var remaining: Int?
 }
 
 enum ArticlePhase { case waiting, working, ready, done, failed, stopped }

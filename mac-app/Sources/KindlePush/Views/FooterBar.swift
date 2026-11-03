@@ -59,7 +59,7 @@ struct FooterBar: View {
 
     private var progress: some View {
         VStack(alignment: .leading, spacing: 6) {
-            ProgressView(value: Double(store.completed), total: Double(max(store.total, 1)))
+            ProgressView(value: store.overallProgress).tint(.ink)
                 .progressViewStyle(.linear).frame(maxWidth: 260)
             Text(store.activity).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
         }

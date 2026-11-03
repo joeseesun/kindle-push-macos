@@ -1,5 +1,30 @@
 import Foundation
 
+import PDFKit
+import AppKit
+import CryptoKit
+
+/// PDF covers: the first page, rendered once into the covers cache.
+enum Covers {
+    static func pdf(_ path: String) async -> String? {
+        await Task.detached(priority: .utility) {
+            let url = URL(fileURLWithPath: path)
+            guard let values = try? url.resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey]),
+                  let page = PDFDocument(url: url)?.page(at: 0) else { return nil }
+            let folder = FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent("Library/Application Support/KindlePush/covers")
+            let key = "\(path)|\(values.contentModificationDate?.timeIntervalSince1970 ?? 0)|\(values.fileSize ?? 0)"
+            let digest = SHA256.hash(data: Data(key.utf8)).prefix(10).map { String(format: "%02x", $0) }.joined()
+            let target = folder.appendingPathComponent(digest + ".png")
+            if FileManager.default.fileExists(atPath: target.path) { return target.path }
+            let image = page.thumbnail(of: NSSize(width: 240, height: 320), for: .cropBox)
+            guard let tiff = image.tiffRepresentation, let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) else { return nil }
+            try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            return (try? png.write(to: target)) != nil ? target.path : nil
+        }.value
+    }
+}
+
 enum Bridge {
     /// `input` goes to stdin, so secrets never appear in the process list.
     static func call(_ arguments: [String], input: String? = nil) async -> BridgeResponse {

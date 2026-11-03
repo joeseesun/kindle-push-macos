@@ -7,20 +7,28 @@ struct ArticleRow: View {
     @State private var hovering = false
 
     var body: some View {
-        HStack(spacing: 12) {
-            FileBadge(format: article.format, sent: article.phase == .done)
+        HStack(spacing: 14) {
+            BookCover(article: article)
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
-                    Text(article.title).font(.body.weight(.medium)).lineLimit(1).truncationMode(.middle)
+                    Text(article.title).font(.body.weight(.semibold)).lineLimit(1).truncationMode(.tail)
+                        .help(article.path)
                     if article.bilingual == true {
-                        Text("中英对照").font(.caption2.weight(.medium)).foregroundStyle(Color.ink)
-                            .padding(.horizontal, 5).padding(.vertical, 1)
-                            .background(Color.ink.opacity(0.12), in: Capsule())
+                        Text("中英对照").font(.caption2.weight(.semibold)).foregroundStyle(Color.ink)
+                            .padding(.horizontal, 6).padding(.vertical, 1.5)
+                            .background(Color.ink.opacity(0.08), in: Capsule())
                     }
                 }
-                Text(subtitle).font(.caption)
-                    .foregroundStyle(article.phase == .failed ? Color.orange : Color.secondary)
-                    .lineLimit(2).help(article.details.isEmpty ? article.path : article.details)
+                Text(metaLine).font(.callout).foregroundStyle(.secondary).lineLimit(1)
+                if article.phase == .working, let progress = article.progress {
+                    ProgressView(value: progress).progressViewStyle(.linear).tint(.ink)
+                        .frame(maxWidth: 240).padding(.top, 3)
+                }
+                if !article.details.isEmpty {
+                    Text(article.details).font(.caption)
+                        .foregroundStyle(article.phase == .failed ? Color.orange : Color.secondary)
+                        .lineLimit(2).help(article.details)
+                }
             }
             Spacer(minLength: 8)
             HStack(spacing: 2) {
@@ -35,24 +43,62 @@ struct ArticleRow: View {
             .opacity(hovering && !store.busy ? 1 : 0)
             StatusChip(article: article)
         }
-        .padding(.vertical, 6).padding(.horizontal, 4)
+        .padding(.vertical, 8).padding(.horizontal, 4)
         .contentShape(Rectangle())
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.12), value: hovering)
+        .animation(.easeOut(duration: 0.3), value: article.progress)
     }
 
-    private var subtitle: String {
-        if !article.details.isEmpty { return article.details }
-        return article.folder.isEmpty ? article.format : "\(article.format) · \(article.folder)"
+    /// Author, format and folder: what tells two books apart at a glance.
+    private var metaLine: String {
+        let label = FileBadge(format: article.format, sent: false).label
+        return [article.author, label, article.author == nil || article.author?.isEmpty == true ? article.folder : nil]
+            .compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
     }
 
     private func iconButton(_ symbol: String, help: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol).font(.system(size: 11, weight: .semibold))
-                .frame(width: 22, height: 22).contentShape(Rectangle())
+                .frame(width: 24, height: 24).contentShape(Rectangle())
         }
         .buttonStyle(.borderless).foregroundStyle(.secondary).help(help)
         .accessibilityLabel(help)
+    }
+}
+
+/// The book's own cover when there is one, else the format badge, sized like a small book.
+private struct BookCover: View {
+    let article: Article
+    private static var cache: [String: NSImage] = [:]
+
+    private var image: NSImage? {
+        guard let path = article.cover else { return nil }
+        if let hit = Self.cache[path] { return hit }
+        let loaded = NSImage(contentsOfFile: path)
+        Self.cache[path] = loaded
+        return loaded
+    }
+
+    var body: some View {
+        Group {
+            if let image {
+                Image(nsImage: image).resizable().aspectRatio(contentMode: .fill)
+                    .frame(width: 40, height: 56).clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.18), radius: 2, y: 1)
+            } else {
+                FileBadge(format: article.format, sent: false)
+            }
+        }
+        .overlay(alignment: .bottomTrailing) {
+            if article.phase == .done {
+                Image(systemName: "checkmark.circle.fill").font(.system(size: 14))
+                    .foregroundStyle(.white, .green)
+                    .background(Circle().fill(Color(nsColor: .textBackgroundColor)).padding(-1.5))
+                    .offset(x: 6, y: 5)
+            }
+        }
     }
 }
 
@@ -66,17 +112,10 @@ private struct FileBadge: View {
                 .lineLimit(1).minimumScaleFactor(0.7)
         }
         .foregroundStyle(.secondary)
-        .frame(width: 32, height: 40)
+        .frame(width: 40, height: 56)
         .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Color.primary.opacity(0.08)))
-        .overlay(alignment: .bottomTrailing) {
-            if sent {
-                Image(systemName: "checkmark.circle.fill").font(.system(size: 13))
-                    .foregroundStyle(.white, .green)
-                    .background(Circle().fill(Color(nsColor: .textBackgroundColor)).padding(-1.5))
-                    .offset(x: 7, y: 7)
-            }
-        }
+
     }
 }
 

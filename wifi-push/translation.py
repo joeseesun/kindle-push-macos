@@ -171,6 +171,25 @@ def process_alive(state):
     return result.returncode == 0 and result.stdout.strip() == state.get('birth')
 
 
+def remaining_seconds(text):
+    parts = text.split(':')
+    if not all(p.isdigit() for p in parts) or not 1 <= len(parts) <= 3:
+        return None
+    seconds = 0
+    for part in parts:
+        seconds = seconds * 60 + int(part)
+    return seconds
+
+
+def remaining_text(seconds):
+    if seconds < 90:
+        return '马上完成'
+    if seconds < 3600:
+        return f'还剩约 {round(seconds / 60)} 分钟'
+    hours = seconds / 3600
+    return f'还剩约 {hours:.1f} 小时'.replace('.0 小时', ' 小时')
+
+
 def progress(job):
     folder = job_dir(job)
     state = json.loads((folder / 'state.json').read_text())
@@ -181,9 +200,15 @@ def progress(job):
         if log.exists():
             with log.open('rb') as file:
                 file.seek(max(0, log.stat().st_size - 8192))
-                matches = re.findall(rb'(\d{1,3})%\|', file.read())
+                matches = re.findall(rb'(\d{1,3})%\|[^\[\n\r]*\[[0-9:]+<([0-9:]+|\?)', file.read())
             if matches:
-                state['message'] = '正在翻译 · ' + str(min(99, int(matches[-1]))) + '%'
+                percent = min(99, int(matches[-1][0]))
+                state['percent'] = percent
+                state['message'] = '正在翻译 · ' + str(percent) + '%'
+                left = remaining_seconds(matches[-1][1].decode())
+                if left is not None:
+                    state['remaining'] = left
+                    state['message'] += ' · ' + remaining_text(left)
     return {'ok': state['state'] != 'failed', 'job': job, **state}
 
 

@@ -126,8 +126,9 @@ def handle(args):
                 import translation as tr
                 base = tr.endpoint(args[1])
                 saved = tr.settings()
-                config = saved if saved.get('base') == base and saved.get('service') else {'base': base, 'service': tr.KEY_SERVICE, 'account': tr.own_account(base)}
-                if tr.has_key(config): key = tr.read_key(config)
+                # Not named `config`: that would shadow the module's config() for all of handle().
+                route = saved if saved.get('base') == base and saved.get('service') else {'base': base, 'service': tr.KEY_SERVICE, 'account': tr.own_account(base)}
+                if tr.has_key(route): key = tr.read_key(route)
             return accounts.list_models(args[1], key)
         return accounts.sign_in_key(args[1])
     if command.startswith('translation-'):
@@ -139,6 +140,9 @@ def handle(args):
         if command == 'translation-progress': return tr.progress(args[1])
         if command == 'translation-cancel': return tr.cancel(args[1])
         raise ValueError('未知翻译操作。')
+    if command == 'book-info':
+        import bookinfo
+        return bookinfo.info(args[1])
     if command == 'status':
         missing = [str(p) for p in [Path(kp.PANDOC), kp.DATA / 'id_ed25519', kp.DATA / 'known_hosts'] if not p.exists()]
         if missing:

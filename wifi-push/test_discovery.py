@@ -5,6 +5,17 @@ import app_bridge as bridge
 
 
 class DiscoveryTests(unittest.TestCase):
+    def test_status_reads_saved_host(self):
+        # Regression: a local named `config` in handle() shadowed config() and broke every status call.
+        with patch.object(bridge, 'config', return_value={'host': '192.168.1.42'}), \
+             patch.object(bridge.Path, 'exists', return_value=True):
+            self.assertEqual(bridge.handle(['status'])['host'], '192.168.1.42')
+
+    def test_handle_has_no_local_shadowing_module_functions(self):
+        local_names = bridge.handle.__code__.co_varnames
+        for name in ['config', 'valid_host', 'trusted_key', 'reachable', 'verify', 'discover']:
+            self.assertNotIn(name, local_names)
+
     def test_both_receiver_versions_are_accepted(self):
         for version in [b'kindle-push-v1\n', b'kindle-push-v2\n']:
             with patch.object(bridge, 'reachable', return_value=True), \
