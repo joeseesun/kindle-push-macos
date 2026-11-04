@@ -4,6 +4,7 @@ import AppKit
 struct ArticleRow: View {
     let article: Article
     @ObservedObject var store: PushStore
+    var selected = false
     @State private var hovering = false
 
     var body: some View {
@@ -17,6 +18,7 @@ struct ArticleRow: View {
                         Text(article.chineseOnly == true ? "中文译本" : "中英对照").font(.caption2.weight(.semibold)).foregroundStyle(Color.ink)
                             .padding(.horizontal, 6).padding(.vertical, 1.5)
                             .background(Color.ink.opacity(0.08), in: Capsule())
+                            .fixedSize()
                     }
                 }
                 Text(metaLine).font(.callout).foregroundStyle(.secondary).lineLimit(1)
@@ -24,10 +26,10 @@ struct ArticleRow: View {
                     ProgressView(value: progress).progressViewStyle(.linear).tint(.ink)
                         .frame(maxWidth: 240).padding(.top, 3)
                 }
-                if !article.details.isEmpty {
-                    Text(article.details).font(.caption)
+                if let detail {
+                    Text(detail).font(.caption)
                         .foregroundStyle(article.phase == .failed ? Color.orange : Color.secondary)
-                        .lineLimit(2).help(article.details)
+                        .lineLimit(2).truncationMode(.middle).help(detail)
                 }
             }
             Spacer(minLength: 8)
@@ -35,12 +37,20 @@ struct ArticleRow: View {
                 if [.failed, .stopped].contains(article.phase) {
                     iconButton("arrow.clockwise", help: "再次发送") { store.retry(article.id) }
                 }
-                iconButton("magnifyingglass", help: "在访达中显示") {
-                    NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: article.path)])
+                // Always there: the way back to the file is the most common next step.
+                iconButton("folder", help: revealHelp) { store.reveal([article.id]) }
+                    .opacity(hovering || selected ? 1 : 0.55)
+                Menu {
+                    ArticleActions(store: store, ids: [article.id])
+                } label: {
+                    Image(systemName: "ellipsis").font(.system(size: 12, weight: .semibold))
+                        .frame(width: 24, height: 24).contentShape(Rectangle())
                 }
-                iconButton("xmark", help: "从列表移除（不删除原文）") { store.remove(article.id) }
+                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+                .foregroundStyle(.secondary).help("更多操作：打开、再次发送、从列表移除…")
+                .accessibilityLabel("更多操作")
+                .opacity(hovering || selected ? 1 : 0)
             }
-            .opacity(hovering && !(store.busy && article.phase == .working) ? 1 : 0)
             StatusChip(article: article)
         }
         .padding(.vertical, 8).padding(.horizontal, 4)
@@ -48,6 +58,25 @@ struct ArticleRow: View {
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.12), value: hovering)
         .animation(.easeOut(duration: 0.3), value: article.progress)
+    }
+
+    private var revealHelp: String {
+        article.madeFile != nil ? "在访达中显示\(article.madeFileLabel)（双击行用默认程序打开）"
+            : "在访达中显示（双击行用默认程序打开）"
+    }
+
+    /// Something the status chip does not already say: where the file went, a hint, or why it failed.
+    private var detail: String? {
+        switch article.phase {
+        case .done:
+            if article.details.contains("提示：") { return article.details }
+            return "Kindle › 我的文章 › " + article.preferredURL.lastPathComponent
+        case .ready where article.status == "已保存":
+            let url = article.preferredURL
+            return "本机 › " + url.deletingLastPathComponent().lastPathComponent + " › " + url.lastPathComponent
+        default:
+            return article.details.isEmpty ? nil : article.details
+        }
     }
 
     /// Author, format and folder: what tells two books apart at a glance.
@@ -59,11 +88,37 @@ struct ArticleRow: View {
 
     private func iconButton(_ symbol: String, help: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: symbol).font(.system(size: 11, weight: .semibold))
+            Image(systemName: symbol).font(.system(size: 12, weight: .medium))
                 .frame(width: 24, height: 24).contentShape(Rectangle())
         }
         .buttonStyle(.borderless).foregroundStyle(.secondary).help(help)
         .accessibilityLabel(help)
+    }
+}
+
+/// One set of actions for a book, used by the row's ⋯ menu and the list's right-click menu.
+struct ArticleActions: View {
+    @ObservedObject var store: PushStore
+    let ids: Set<UUID>
+
+    private var items: [Article] { store.articles.filter { ids.contains($0.id) } }
+    private var single: Article? { items.count == 1 ? items.first : nil }
+
+    var body: some View {
+        Button("打开") { store.open(ids) }
+        if let single, single.madeFile != nil {
+            Button("在访达中显示\(single.madeFileLabel)") { store.reveal(ids) }
+            Button("在访达中显示原文件") { store.revealOriginal(ids) }
+        } else {
+            Button("在访达中显示") { store.reveal(ids) }
+        }
+        Divider()
+        Button("放回待发送") { ids.forEach(store.retry) }
+            .disabled(items.allSatisfy { $0.phase == .working || $0.status == "排队中" })
+        Button("整理文件名…") { store.tidyNames(ids) }
+        Divider()
+        Button("从列表移除（不删除文件）") { store.remove(ids) }
+            .disabled(items.allSatisfy { store.busy && $0.phase == .working })
     }
 }
 
@@ -89,14 +144,6 @@ struct BookCover: View {
                     .shadow(color: .black.opacity(0.18), radius: 2, y: 1)
             } else {
                 FileBadge(format: article.format, sent: false)
-            }
-        }
-        .overlay(alignment: .bottomTrailing) {
-            if article.phase == .done {
-                Image(systemName: "checkmark.circle.fill").font(.system(size: 14))
-                    .foregroundStyle(.white, .green)
-                    .background(Circle().fill(Color(nsColor: .textBackgroundColor)).padding(-1.5))
-                    .offset(x: 6, y: 5)
             }
         }
     }
@@ -154,9 +201,16 @@ private struct StatusChip: View {
         .padding(.horizontal, 8).padding(.vertical, 3)
         .background(tint.opacity(article.phase == .waiting ? 0.08 : 0.12), in: Capsule())
         .fixedSize()
+        .help(article.phase == .done ? "已读回 Kindle 上的文件，校验一致" : article.details)
     }
 
-    private var label: String { article.status == "等待发送" ? "待发送" : article.status }
+    private var label: String {
+        switch article.status {
+        case "等待发送": "待发送"
+        case "已发送": "已送达"
+        default: article.status
+        }
+    }
 
     private var tint: Color {
         switch article.phase {

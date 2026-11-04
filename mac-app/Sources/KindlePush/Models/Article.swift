@@ -86,6 +86,16 @@ extension Article {
           "png", "jpg", "jpeg", "gif", "webp", "tif", "tiff"].contains(format.lowercased())
     }
     var folder: String { URL(fileURLWithPath: path).deletingLastPathComponent().lastPathComponent }
+
+    /// The file the app made from this book (translation or converted copy), if it is still on disk.
+    var madeFile: URL? {
+        guard let output, output != path, FileManager.default.fileExists(atPath: output) else { return nil }
+        return URL(fileURLWithPath: output)
+    }
+    /// What "show in Finder" and double-click use: the made file first, then the original.
+    var preferredURL: URL { madeFile ?? URL(fileURLWithPath: path) }
+    /// Names the made file in menus: a translation or a converted copy.
+    var madeFileLabel: String { bilingual == true ? "译本" : "转换后的文件" }
 }
 
 struct RemoteModel: Decodable, Sendable, Hashable, Identifiable {

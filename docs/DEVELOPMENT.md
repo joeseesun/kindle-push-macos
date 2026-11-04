@@ -34,7 +34,14 @@ python3 -m unittest discover -s wifi-push -p 'test_*.py' -v
 ./script/package_release.sh
 ```
 
-脚本执行 release 构建、将绝对编译路径重映射为相对路径、打包原生 `.app`、验证签名，最后生成带版本和 CPU 架构的 ZIP 与 SHA256SUMS。发布包不包含 Python、Pandoc、个人配对数据或文章。
+脚本执行 release 构建（Developer ID 签名、hardened runtime、安全时间戳，Sparkle 由内到外签名），把 `.app` 提交苹果公证并 staple，再生成：
+
+- `release/v<版本>/KindlePush-<版本>-macos-arm64.zip`：官网从 releases/latest 取这个名字，命名不要改；
+- `KindlePush-<版本>-macos-arm64.dmg` 和固定名 `KindlePush.dmg`（单独公证并 staple）；
+- `appcast.xml`：Sparkle 更新源，用钥匙串里的 EdDSA 私钥（`ed25519`）签名，公钥在 `mac-app/Assets/sparkle-public-key.txt`；
+- `SHA256SUMS`。
+
+这些文件全部上传到 GitHub release；`SUFeedURL` 指向 `releases/latest/download/appcast.xml`。公证用钥匙串配置 `notary`（`xcrun notarytool store-credentials notary`）。更新说明放在 `release/notes-v<版本>.md`（`## 中文 … ## English …`，中文部分进更新窗口）。`SKIP_NOTARIZE=1` 只做本地检查。发布包不包含 Python、Pandoc、个人配对数据或文章。
 
 版本定义在 `script/build_and_run.sh` 的 Info.plist 模板中：`CFBundleShortVersionString` 和 `CFBundleVersion`。主界面从 bundle 读取版本。
 
