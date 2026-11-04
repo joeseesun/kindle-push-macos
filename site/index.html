@@ -28,9 +28,9 @@
   "alternateName": "Kindle Push for macOS",
   "operatingSystem": "macOS 14+ (Apple Silicon)",
   "applicationCategory": "UtilitiesApplication",
-  "softwareVersion": "1.10.0",
+  "softwareVersion": "1.11.1",
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-  "downloadUrl": "https://github.com/joeseesun/kindle-push-macos/releases/download/v1.10.0/KindlePush-1.10.0-macos-arm64.zip",
+  "downloadUrl": "https://github.com/joeseesun/kindle-push-macos/releases/latest/download/KindlePush.dmg",
   "url": "https://kindle.qiaomu.ai/",
   "image": "https://kindle.qiaomu.ai/assets/og.png",
   "screenshot": "https://kindle.qiaomu.ai/assets/shots/main.webp",
@@ -95,14 +95,14 @@
 <!-- HERO -->
 <section class="hero">
   <div class="wrap hero-copy">
-    <a class="pill" href="https://github.com/joeseesun/kindle-push-macos/releases/latest"><span class="pill-dot"></span><span>1.10 新增：翻译时照常发送别的书</span><svg><use href="#i-arrow"/></svg></a>
+    <a class="pill" href="https://github.com/joeseesun/kindle-push-macos/releases/latest"><span class="pill-dot"></span><span>1.11 新增：在访达中显示 · 应用内自动更新</span><svg><use href="#i-arrow"/></svg></a>
     <h1>好文章，<br>留给 Kindle 慢读。</h1>
     <p class="lede">把文章和电子书拖进窗口，转成适合墨水屏的版本，<br class="br-lg">需要的话先译成中英对照，再经 Wi-Fi 送到 Kindle。</p>
     <div class="hero-actions">
-      <a class="btn btn-lg btn-primary" href="https://github.com/joeseesun/kindle-push-macos/releases/download/v1.10.0/KindlePush-1.10.0-macos-arm64.zip" data-dl><svg><use href="#i-apple"/></svg>下载 Mac 版</a>
+      <a class="btn btn-lg btn-primary" href="https://github.com/joeseesun/kindle-push-macos/releases/latest/download/KindlePush.dmg" data-dl><svg><use href="#i-apple"/></svg>下载 Mac 版</a>
       <a class="btn btn-lg btn-ghost" href="https://github.com/joeseesun/kindle-push-macos/blob/main/docs/SETUP.md">首次配置指南<svg><use href="#i-arrow"/></svg></a>
     </div>
-    <p class="hero-meta">免费 · MIT 开源 · <span data-ver>v1.10.0</span> · macOS 14+ · Apple 芯片</p>
+    <p class="hero-meta">免费 · MIT 开源 · <span data-ver>v1.11.1</span> · macOS 14+ · Apple 芯片</p>
   </div>
 
   <div class="wrap">
@@ -330,13 +330,13 @@ Diamond Age.epub</pre>
       <h2>好文章，留给 Kindle 慢读。</h2>
       <p>免费、开源，适用于 Apple 芯片的 Mac。</p>
       <div class="dl-grid">
-        <a class="dl-card primary" href="https://github.com/joeseesun/kindle-push-macos/releases/download/v1.10.0/KindlePush-1.10.0-macos-arm64.zip" data-dl>
+        <a class="dl-card primary" href="https://github.com/joeseesun/kindle-push-macos/releases/latest/download/KindlePush.dmg" data-dl>
           <svg class="dl-os"><use href="#i-apple"/></svg>
           <b>macOS</b>
-          <span><span data-ver>v1.10.0</span> · <span data-size>0.9 MB</span> · macOS 14+</span>
-          <span>Apple 芯片（arm64），解压后拖进「应用程序」</span>
-          <span class="dl-file" data-name>KindlePush-1.10.0-macos-arm64.zip</span>
-          <span class="dl-btn"><svg><use href="#i-download"/></svg>下载 .zip</span>
+          <span><span data-ver>v1.11.1</span> · <span data-size>2.3 MB</span> · macOS 14+</span>
+          <span>Apple 芯片（arm64），打开后拖进「应用程序」</span>
+          <span class="dl-file" data-name>KindlePush-1.11.1-macos-arm64.dmg</span>
+          <span class="dl-btn"><svg><use href="#i-download"/></svg>下载 .dmg</span>
         </a>
         <a class="dl-card" href="https://github.com/joeseesun/kindle-push-macos#从源码构建">
           <svg class="dl-os"><use href="#i-code"/></svg>
@@ -346,7 +346,7 @@ Diamond Age.epub</pre>
           <span class="dl-btn"><svg><use href="#i-gh"/></svg>查看构建说明</span>
         </a>
       </div>
-      <p class="hero-meta">应用使用 ad-hoc 签名，未经 Apple 公证，首次打开需要在「系统设置 › 隐私与安全性」里允许。<a href="https://github.com/joeseesun/kindle-push-macos/releases">全部版本与更新日志</a> · <a href="https://github.com/joeseesun/kindle-push-macos/releases/latest" data-sums>SHA256SUMS</a></p>
+      <p class="hero-meta">已用 Developer ID 签名并经 Apple 公证，下载后直接打开；装好后会在应用里提示新版本。也有 <a href="https://github.com/joeseesun/kindle-push-macos/releases/latest" data-zip>.zip 版</a>。<a href="https://github.com/joeseesun/kindle-push-macos/releases">全部版本与更新日志</a> · <a href="https://github.com/joeseesun/kindle-push-macos/releases/latest" data-sums>SHA256SUMS</a></p>
     </div>
   </div>
 </section>
@@ -360,7 +360,7 @@ Diamond Age.epub</pre>
     </div>
     <div class="faq">
       <details><summary>Kindle 一定要越狱吗？</summary><p>是的。应用通过 KOReader 的 SSH 服务传文件，需要已越狱、装好 KOReader 并启用 SSH / Dropbear 插件的 Kindle。应用本身不包含越狱工具，也不要求安装乔木 SimpleUI。</p></details>
-      <details><summary>打开时提示「无法验证开发者」怎么办？</summary><p>应用使用本地 ad-hoc 签名，没有 Apple Developer ID 公证。确认来源后，在「系统设置 › 隐私与安全性」里点「仍要打开」。应用不会要求你全局关闭 Gatekeeper；不放心也可以从源码自己构建。</p></details>
+      <details><summary>怎么更新到新版本？</summary><p>从 1.11 起，应用每天自动检查一次更新，有新版时弹窗显示更新内容，点「安装更新」即可；也可以随时点菜单「乔木 Kindle 助手 › 检查更新…」。1.10 及更早的版本没有自动更新，需要从这里下载一次新版。应用已用 Developer ID 签名并经 Apple 公证，打开时不会再提示「无法验证开发者」。</p></details>
       <details><summary>支持 Intel Mac 吗？</summary><p>目前只提供 Apple 芯片的预编译包。Intel Mac 可以从源码构建，但还没有实机验证。</p></details>
       <details><summary>翻译要花钱吗？</summary><p>直接发送完全免费。翻译需要模型服务：用 ChatGPT 账号登录走套餐额度；用 API Key 则按所选服务计费，整本的耗时和费用取决于书的长度、模型和限流。取消后再开始会复用已保存的检查点。</p></details>
       <details><summary>换了网络还能用吗？</summary><p>两台设备换到同一个新 Wi-Fi 后，应用会重新寻找设备，设备身份不随 IP 改变。常见家庭网络可以自动扫描，更大的网络可以手动填 IP。访客网络隔离、不同 Wi-Fi、跨互联网推送不在支持范围内。</p></details>
