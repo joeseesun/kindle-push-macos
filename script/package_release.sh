@@ -3,7 +3,8 @@
 # → Sparkle appcast. Upload everything in release/v$VERSION/ to the GitHub release.
 #   ./script/package_release.sh                 full release
 #   SKIP_NOTARIZE=1 ./script/package_release.sh  local check of the zip/DMG only
-# Asset names stay stable: the site picks the *-macos-arm64.zip from releases/latest.
+# Asset names stay stable: kindle.qiaomu.ai links releases/latest/download/KindlePush.dmg and
+# releases/latest/download/SHA256SUMS directly. Upload both under exactly these names every release.
 # NOTES_FILE (default release/notes-v$VERSION.md, "## 中文 … ## English …") becomes the update window's notes.
 set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

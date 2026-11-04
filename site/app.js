@@ -25,26 +25,20 @@
     d.addEventListener('click', e => { if (e.target === d) d.close(); });
   });
 
-  // 最新版：发布包文件名带版本号，静态链接指向当前版本，这里用 GitHub API 换成最新一版。
+  // 下载按钮固定指向 releases/latest/download/KindlePush.dmg（发版脚本每次都上传这个固定文件名），
+  // 这里不改链接，只补上最新版本号、DMG 大小和 zip 版地址。
   fetch('https://api.github.com/repos/joeseesun/kindle-push-macos/releases/latest', { headers: { Accept: 'application/vnd.github+json' } })
     .then(r => r.ok ? r.json() : Promise.reject(r.status))
     .then(rel => {
-      // Prefer the notarized DMG; older releases only have the zip.
       const assets = rel.assets || [];
-      const zip = assets.find(a => /macos-arm64\.dmg$/.test(a.name)) || assets.find(a => /macos-arm64\.zip$/.test(a.name));
-      if (!zip) return;
-      const z = assets.find(a => /macos-arm64\.zip$/.test(a.name));
-      if (z) document.querySelectorAll('[data-zip]').forEach(a => a.href = z.browser_download_url);
-      const v = rel.tag_name;
-      document.querySelectorAll('[data-dl]').forEach(a => a.href = zip.browser_download_url);
-      document.querySelectorAll('[data-dl] .dl-btn').forEach(b => b.lastChild && (b.lastChild.textContent = zip.name.endsWith('.dmg') ? '下载 .dmg' : '下载 .zip'));
-      document.querySelectorAll('[data-ver]').forEach(s => s.textContent = v);
-      document.querySelectorAll('[data-name]').forEach(s => s.textContent = zip.name);
-      document.querySelectorAll('[data-size]').forEach(s => s.textContent = (zip.size / 1048576).toFixed(1) + ' MB');
-      const sums = (rel.assets || []).find(a => a.name === 'SHA256SUMS');
-      if (sums) document.querySelectorAll('[data-sums]').forEach(a => a.href = sums.browser_download_url);
+      const dmg = assets.find(a => a.name === 'KindlePush.dmg');
+      const zip = assets.find(a => /macos-arm64\.zip$/.test(a.name));
+      document.querySelectorAll('[data-ver]').forEach(s => s.textContent = rel.tag_name);
+      if (dmg) document.querySelectorAll('[data-size]').forEach(s => s.textContent = (dmg.size / 1048576).toFixed(1) + ' MB');
+      if (zip) document.querySelectorAll('[data-zip]').forEach(a => a.href = zip.browser_download_url);
     })
     .catch(() => {});
+
   // 乔木 SimpleUI 只发测试版（pre-release），/releases/latest 取不到，改读列表里最新的非草稿版本。
   fetch('https://api.github.com/repos/joeseesun/qiaomu-simpleui/releases?per_page=5', { headers: { Accept: 'application/vnd.github+json' } })
     .then(r => r.ok ? r.json() : Promise.reject(r.status))
