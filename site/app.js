@@ -40,4 +40,15 @@
       if (sums) document.querySelectorAll('[data-sums]').forEach(a => a.href = sums.browser_download_url);
     })
     .catch(() => {});
+  // 乔木 SimpleUI 只发测试版（pre-release），/releases/latest 取不到，改读列表里最新的非草稿版本。
+  fetch('https://api.github.com/repos/joeseesun/qiaomu-simpleui/releases?per_page=5', { headers: { Accept: 'application/vnd.github+json' } })
+    .then(r => r.ok ? r.json() : Promise.reject(r.status))
+    .then(list => {
+      const rel = list.find(r => !r.draft && (r.assets || []).some(a => a.name === 'simpleui.koplugin.zip'));
+      if (!rel) return;
+      const zip = rel.assets.find(a => a.name === 'simpleui.koplugin.zip');
+      document.querySelectorAll('[data-sui-dl]').forEach(a => a.href = zip.browser_download_url);
+      document.querySelectorAll('[data-sui-ver]').forEach(s => s.textContent = rel.tag_name);
+    })
+    .catch(() => {});
 })();
