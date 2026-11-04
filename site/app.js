@@ -29,10 +29,15 @@
   fetch('https://api.github.com/repos/joeseesun/kindle-push-macos/releases/latest', { headers: { Accept: 'application/vnd.github+json' } })
     .then(r => r.ok ? r.json() : Promise.reject(r.status))
     .then(rel => {
-      const zip = (rel.assets || []).find(a => /macos-arm64\.zip$/.test(a.name));
+      // Prefer the notarized DMG; older releases only have the zip.
+      const assets = rel.assets || [];
+      const zip = assets.find(a => /macos-arm64\.dmg$/.test(a.name)) || assets.find(a => /macos-arm64\.zip$/.test(a.name));
       if (!zip) return;
+      const z = assets.find(a => /macos-arm64\.zip$/.test(a.name));
+      if (z) document.querySelectorAll('[data-zip]').forEach(a => a.href = z.browser_download_url);
       const v = rel.tag_name;
       document.querySelectorAll('[data-dl]').forEach(a => a.href = zip.browser_download_url);
+      document.querySelectorAll('[data-dl] .dl-btn').forEach(b => b.lastChild && (b.lastChild.textContent = zip.name.endsWith('.dmg') ? '下载 .dmg' : '下载 .zip'));
       document.querySelectorAll('[data-ver]').forEach(s => s.textContent = v);
       document.querySelectorAll('[data-name]').forEach(s => s.textContent = zip.name);
       document.querySelectorAll('[data-size]').forEach(s => s.textContent = (zip.size / 1048576).toFixed(1) + ' MB');
