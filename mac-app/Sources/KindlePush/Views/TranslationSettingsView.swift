@@ -13,7 +13,7 @@ struct TranslationSettingsView: View {
     @State private var ready = false
 
     @State private var saved = false
-    @State private var workers = 3
+    @State private var workers = 16
     @State private var style = "natural"
     @State private var glossary = ""
     @State private var serviceID = "deepseek"
@@ -31,7 +31,7 @@ struct TranslationSettingsView: View {
     @State private var codexEmail: String?
 
     private let styles: [(id: String, name: String, note: String)] = [
-        ("natural", "自然流畅", "翻译引擎默认风格，适合大多数书。"),
+        ("natural", "自然流畅", "地道流畅、避免翻译腔，适合大多数书。"),
         ("faithful", "忠实准确", "不增删信息，保留原文层次与语气，适合非虚构、历史、传记。"),
         ("literary", "文学润色", "更地道有文采，保留人物口吻，减少翻译腔，适合小说、散文。"),
         ("technical", "技术学术", "术语准确统一，首次出现保留英文原词，代码和公式不动。"),
@@ -71,7 +71,7 @@ struct TranslationSettingsView: View {
             base = response.base ?? ""; model = response.model ?? ""
             savedBase = base; savedHasKey = response.hasKey ?? false
             serviceID = ProviderCatalog.match(provider: response.provider ?? "", base: base).id
-            workers = response.workers ?? 3; style = response.style ?? "natural"; glossary = response.glossary ?? ""
+            workers = response.workers ?? 16; style = response.style ?? "natural"; glossary = response.glossary ?? ""
             ready = response.runtimeReady ?? false
             if !response.ok { message = response.message ?? "无法读取配置。" }
             await loadModels()
@@ -112,21 +112,26 @@ struct TranslationSettingsView: View {
             } header: {
                 Text("术语表")
             } footer: {
-                Text("每行一条「原文 -> 译名」，人名、地名、专有名词全书统一。只有出现这些词的段落才会带上术语，不增加其他段落的费用。")
+                Text("每行一条「原文 -> 译名」，优先于自动整理的译名。只有出现这些词的段落才会带上术语，不增加其他段落的费用。")
                     .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             Section {
-                Picker("同时翻译", selection: serviceID == "chatgpt" ? .constant(1) : $workers) {
-                    Text("1 章（最稳）").tag(1)
-                    Text("2 章").tag(2)
-                    Text("3 章（推荐）").tag(3)
-                    Text("4 章（最快）").tag(4)
+                LabeledContent("同时翻译") {
+                    HStack(spacing: 6) {
+                        TextField("", value: serviceID == "chatgpt" ? .constant(1) : $workers, format: .number)
+                            .multilineTextAlignment(.trailing).frame(width: 52).monospacedDigit()
+                            .disabled(serviceID == "chatgpt")
+                        Stepper("", value: serviceID == "chatgpt" ? .constant(1) : $workers, in: 1...64)
+                            .labelsHidden().disabled(serviceID == "chatgpt")
+                        Text("路").foregroundStyle(.secondary)
+                    }
                 }
+                .onChange(of: workers) { _, value in if value < 1 || value > 64 { workers = min(64, max(1, value)) } }
             } header: {
                 Text("速度")
             } footer: {
-                Text(serviceID == "chatgpt" ? "用 ChatGPT 账号翻译时一次只能翻一章。" : "多章并行可快 2–4 倍，费用不变。服务限流或频繁失败时调低；并行时点停止需要等当前各章收尾。")
+                Text(serviceID == "chatgpt" ? "用 ChatGPT 账号翻译时一次只能翻一章。" : "长章节会自动切成几段，和其他章一起并行翻译，译完再拼回原章；费用不变。默认 16 路，1–64 可调：服务商并发额度高（如 DeepSeek 官方）可以调大，频繁限流或失败时调低。并行时点停止需要等正在翻译的各段收尾。")
                     .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }

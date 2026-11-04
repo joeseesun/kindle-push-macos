@@ -114,7 +114,15 @@ class TranslationTests(unittest.TestCase):
         self.assertIn('{text}', prompt['user']); self.assertIn('文学', prompt['system'])
         self.assertIn('哈里·谢顿', Path(args[args.index('--glossary') + 1]).read_text())
         preview = tr.command(self.root, {**config, 'workers': 1, 'style': 'natural', 'glossary': ''}, True)
-        self.assertNotIn('--parallel-workers', preview); self.assertNotIn('--prompt', preview)
+        self.assertNotIn('--parallel-workers', preview)
+        natural = json.loads(Path(preview[preview.index('--prompt') + 1]).read_text())
+        self.assertIn('避免翻译腔', natural['system'])
+        self.assertEqual(args[args.index('--temperature') + 1], '0.3')
+        self.assertEqual(args[args.index('--max-batch-units') + 1], '10')   # deepseek-flash is a small model
+        big = tr.command(self.root, {**config, 'model': 'deepseek-v4-pro'}, False)
+        self.assertNotIn('--max-batch-units', big)
+        codex = tr.command(self.root, {**config, 'provider': 'chatgpt', 'model': 'gpt-6-luna'}, False)
+        self.assertNotIn('--temperature', codex)
         with self.assertRaisesRegex(ValueError, '->'):
             tr.glossary_lines('no arrow here')
         self.assertIn('--no-thinking', args)
@@ -192,3 +200,64 @@ class TranslationTests(unittest.TestCase):
 
 
 if __name__ == '__main__': unittest.main()
+
+
+class AutoGlossaryTests(unittest.TestCase):
+    TEXT = ('When Hari Seldon spoke, Gaal Dornick listened. Seldon smiled at Dornick. '
+            'The Encyclopedia Galactica waited on Terminus. ') * 4 + 'The end came. But then the sun rose. ' * 20
+
+    def test_candidates_skip_sentence_words(self):
+        found = {c['term'] for c in __import__('terms').candidates(self.TEXT)}
+        self.assertTrue({'Hari Seldon', 'Seldon', 'Dornick', 'Terminus'} <= found, found)
+        self.assertFalse(found & {'When', 'The', 'But'})
+
+    def test_parse_keeps_only_asked_chinese_terms(self):
+        import terms
+        reply = 'ok ```json {"terms": [{"en": "Seldon", "zh": "谢顿"}, {"en": "Invented", "zh": "发明"},'
+        reply += ' {"en": "Terminus", "zh": "Terminus"}, {"en": "Dornick", "zh": "多尼克 # x"}]} ```'
+        self.assertEqual(terms.parse(reply, ['Seldon', 'Terminus', 'Dornick']), ['Seldon -> 谢顿'])
+        self.assertEqual(terms.parse('not json', ['Seldon']), [])
+
+    def test_user_glossary_wins(self):
+        import terms
+        merged = terms.merge('Seldon -> 塞尔登', ['Seldon -> 谢顿', 'Terminus -> 端点星'])
+        self.assertIn('Seldon -> 塞尔登', merged); self.assertNotIn('谢顿', merged); self.assertIn('端点星', merged)
+        self.assertEqual(terms.merge('', []), '')
+
+    def test_command_uses_auto_glossary_and_failure_is_silent(self):
+        import terms
+        with tempfile.TemporaryDirectory() as root:
+            folder = Path(root)
+            (folder / 'glossary-auto.txt').write_text('Seldon -> 谢顿\n')
+            config = {'base': 'https://example.com/v1', 'model': 'm', 'glossary': ''}
+            args = tr.command(folder, config, False)
+            self.assertIn('谢顿', Path(args[args.index('--glossary') + 1]).read_text())
+            with patch.object(terms, 'ask', side_effect=OSError('offline')):
+                self.assertEqual(terms.build(folder / 'missing.epub', 'https://x', 'm', 'k'), [])
+
+
+class MigrationTests(unittest.TestCase):
+    def test_old_fast_choices_become_new_default(self):
+        with tempfile.TemporaryDirectory() as root, patch.object(tr, 'SETTINGS', Path(root) / 's.json'):
+            for old, new in ((3, 16), (4, 16), (1, 1), (2, 2)):
+                tr.SETTINGS.write_text(json.dumps({'base': 'https://x', 'model': 'm', 'workers': old}))
+                self.assertEqual(tr.settings()['workers'], new)
+            tr.SETTINGS.write_text(json.dumps({'base': 'https://x', 'model': 'm', 'workers': 3, 'partsEra': True}))
+            self.assertEqual(tr.settings()['workers'], 3)
+        base = {'base': 'https://x', 'model': 'm', 'service': 's', 'account': 'a'}
+        self.assertEqual(tr.job_id('d', base, False), tr.job_id('d', {**base, 'partsEra': True, 'workers': 16}, False))
+
+
+class GlossaryRequestTests(unittest.TestCase):
+    def test_stalled_request_is_sent_again(self):
+        import contextlib, terms
+        calls = []
+        def fake(request, timeout):
+            calls.append(json.loads(request.data))
+            if len(calls) == 1:
+                raise TimeoutError('held open')
+            return contextlib.nullcontext([b': keep-alive', b'data: {"choices":[{"delta":{"content":"{\\"terms\\": []}"}}]}', b'data: [DONE]'])
+        with patch('urllib.request.urlopen', fake):
+            self.assertEqual(terms.ask('https://x/v1', 'm', 'k', 't', 'a', [{'term': 'Seldon', 'count': 3, 'example': ''}]), '{"terms": []}')
+        self.assertEqual(len(calls), 2); self.assertTrue(calls[0]['stream'])
+
