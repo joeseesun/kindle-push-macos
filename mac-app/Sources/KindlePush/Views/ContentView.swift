@@ -14,18 +14,16 @@ struct ContentView: View {
                 listHeader
                 List(selection: $selection) {
                     ForEach(store.articles) { article in
-                        ArticleRow(article: article, store: store).tag(article.id)
+                        ArticleRow(article: article, store: store, selected: selection.contains(article.id)).tag(article.id)
                     }
+                    AddMoreRow(store: store)
+                        .listRowSeparator(.hidden).selectionDisabled()
                 }
                 .listStyle(.inset)
                 .scrollContentBackground(.hidden)
                 .contextMenu(forSelectionType: UUID.self) { ids in
-                    Button("在访达中显示") { store.reveal(ids) }
-                    Button("再次发送") { ids.forEach(store.retry) }
-                    Button("整理文件名…") { store.tidyNames(ids) }
-                    Divider()
-                    Button("从列表移除") { store.remove(ids) }
-                } primaryAction: { store.reveal($0) }
+                    if !ids.isEmpty { ArticleActions(store: store, ids: ids) }
+                } primaryAction: { store.open($0) }
                 .onDeleteCommand { store.remove(selection); selection.removeAll() }
             }
             FooterBar(store: store)
@@ -90,6 +88,32 @@ struct ContentView: View {
             }
         }
         .padding(.horizontal, 20).padding(.top, 14).padding(.bottom, 4)
+    }
+}
+
+/// The end of the list: where more books go, so a short list does not end in blank space.
+private struct AddMoreRow: View {
+    @ObservedObject var store: PushStore
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "plus").font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary)
+                .frame(width: 40)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("拖入更多文章或电子书").font(.callout.weight(.medium))
+                Text("拖到窗口任意位置，或用右上角 ＋（⌘O）。右键一本书可打开、在访达中显示或放回待发送。")
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 8)
+            Button("选择文件…") { store.showPicker = true }.buttonStyle(.inkLink).font(.callout)
+        }
+        .padding(.horizontal, 10).padding(.vertical, 12)
+        .background {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(Color.secondary.opacity(0.25), style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
+        }
+        .padding(.top, 8)
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2) { store.showPicker = true }
     }
 }
 

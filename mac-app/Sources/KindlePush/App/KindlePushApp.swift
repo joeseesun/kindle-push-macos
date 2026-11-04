@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
+        _ = Updater.shared
         NSApp.activate(ignoringOtherApps: true)
     }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
@@ -34,6 +35,7 @@ struct KindlePushApp: App {
                 Button("关于 乔木 Kindle 助手") {
                     NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "乔木 Kindle 助手"])
                 }
+                Button("检查更新…") { Updater.shared.checkForUpdates() }
             }
             CommandGroup(replacing: .newItem) {
                 Button("添加文章…") { store.showPicker = true }

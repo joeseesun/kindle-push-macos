@@ -38,7 +38,9 @@ struct FooterBar: View {
     }
 
     @ViewBuilder private var caption: some View {
-        if !store.translateBooks {
+        if !store.translateBooks, let reason = store.nothingToSendReason {
+            Label(reason, systemImage: "tray").font(.caption).foregroundStyle(.secondary)
+        } else if !store.translateBooks {
             Label("本机排版，经 Wi‑Fi 直传，不经过云端", systemImage: "lock")
                 .font(.caption).foregroundStyle(.secondary)
         } else if store.translationReady == false {
@@ -47,6 +49,9 @@ struct FooterBar: View {
                 SettingsLink { Text("去设置") }.buttonStyle(.inkLink)
             }
             .font(.caption).foregroundStyle(.orange)
+        } else if let reason = store.nothingToSendReason {
+            // The buttons are disabled; say why and what to do, instead of leaving them grey.
+            Label(reason, systemImage: "tray").font(.caption).foregroundStyle(.secondary)
         } else if store.nonEpubPending {
             Label("翻译只处理 EPUB，其他格式请切到「原文」发送", systemImage: "exclamationmark.triangle")
                 .font(.caption).foregroundStyle(.orange)
@@ -89,7 +94,7 @@ struct FooterBar: View {
             Label(store.translateBooks ? "翻译并保存" : "保存到本机", systemImage: "square.and.arrow.down")
         }
         .controlSize(.large).disabled(sendDisabled)
-        .help("保存到本机，完成后在访达中选中；不需要连接 Kindle（⌥⌘↩）")
+        .help(store.nothingToSendReason ?? "保存到本机，完成后在访达中选中；不需要连接 Kindle（⌥⌘↩）")
     }
 
     /// Enabled whenever there is something new to queue, even while another queue runs.
@@ -113,7 +118,7 @@ struct FooterBar: View {
         }
         .buttonStyle(.ink).controlSize(.large)
         .disabled(sendDisabled)
-        .help(laneRunning ? "加入正在进行的队列（⌘↩）" : "⌘↩")
+        .help(store.nothingToSendReason ?? (laneRunning ? "加入正在进行的队列（⌘↩）" : "⌘↩"))
     }
 }
 

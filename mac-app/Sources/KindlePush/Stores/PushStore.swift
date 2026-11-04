@@ -77,6 +77,15 @@ final class PushStore: ObservableObject {
             && (outputMode == .original || $0.format == "EPUB") }
     }
     var sentCount: Int { articles.count - pendingCount }
+    /// Why the send and save buttons are disabled, in words; nil when they are not.
+    var nothingToSendReason: String? {
+        guard queueable.isEmpty, !busy, !articles.isEmpty else { return nil }
+        if pendingCount == 0 { return "都已送达。拖入新的书，或右键一本书「放回待发送」再发一次" }
+        if translateBooks && !articles.contains(where: { $0.status != "已发送" && $0.format == "EPUB" }) {
+            return nil   // nonEpubPending explains this one
+        }
+        return "没有可发送的书"
+    }
     var nonEpubPending: Bool { articles.contains { $0.status != "已发送" && $0.format != "EPUB" } }
     var connectionTitle: String {
         if searching { return "正在寻找…" }
@@ -131,9 +140,25 @@ final class PushStore: ObservableObject {
     func remove(_ ids: Set<UUID>) {
         articles.removeAll { ids.contains($0.id) && !(busy && $0.phase == .working) }; save()
     }
+    /// Shows the file the app made (translation or converted copy) when it still exists, else the original.
     func reveal(_ ids: Set<UUID>) {
+        let urls = articles.filter { ids.contains($0.id) }.map(\.preferredURL)
+            .filter { FileManager.default.fileExists(atPath: $0.path) }
+        if urls.isEmpty { revealMissing() } else { NSWorkspace.shared.activateFileViewerSelecting(urls) }
+    }
+    func revealOriginal(_ ids: Set<UUID>) {
         let urls = articles.filter { ids.contains($0.id) }.map { URL(fileURLWithPath: $0.path) }
-        if !urls.isEmpty { NSWorkspace.shared.activateFileViewerSelecting(urls) }
+            .filter { FileManager.default.fileExists(atPath: $0.path) }
+        if urls.isEmpty { revealMissing() } else { NSWorkspace.shared.activateFileViewerSelecting(urls) }
+    }
+    /// Opens with the default app: the same file `reveal` would show.
+    func open(_ ids: Set<UUID>) {
+        let urls = articles.filter { ids.contains($0.id) }.map(\.preferredURL)
+            .filter { FileManager.default.fileExists(atPath: $0.path) }
+        if urls.isEmpty { revealMissing() } else { urls.forEach { NSWorkspace.shared.open($0) } }
+    }
+    private func revealMissing() {
+        notice = "找不到这个文件，可能已被移动或删除。重新拖入即可。"; isError = true
     }
     /// Opens the rename sheet for these books, or for every book when none are chosen.
     func tidyNames(_ ids: Set<UUID> = []) {

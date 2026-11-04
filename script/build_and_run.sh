@@ -18,6 +18,12 @@ BUILD_DIR="$(swift build -c "$BUILD_CONFIGURATION" --show-bin-path)"
 mkdir -p "$CONTENTS/MacOS" "$CONTENTS/Resources"
 rm -rf "$CONTENTS/Resources/__pycache__"
 cp "$BUILD_DIR/KindlePush" "$CONTENTS/MacOS/KindlePush"
+# Sparkle: embed the framework and let the binary find it.
+rm -rf "$CONTENTS/Frameworks"; mkdir -p "$CONTENTS/Frameworks"
+/usr/bin/ditto "$BUILD_DIR/Sparkle.framework" "$CONTENTS/Frameworks/Sparkle.framework"
+if ! /usr/bin/otool -l "$CONTENTS/MacOS/KindlePush" | grep -q "@executable_path/../Frameworks"; then
+  /usr/bin/install_name_tool -add_rpath "@executable_path/../Frameworks" "$CONTENTS/MacOS/KindlePush"
+fi
 cp "$ROOT_DIR/wifi-push/kindle_push.py" "$ROOT_DIR/wifi-push/app_bridge.py" "$ROOT_DIR/wifi-push/markdown_support.py" "$ROOT_DIR/wifi-push/ebook.css" "$CONTENTS/Resources/"
 cp "$ROOT_DIR/wifi-push/translation.py" "$ROOT_DIR/wifi-push/accounts.py" "$ROOT_DIR/wifi-push/bookinfo.py" "$ROOT_DIR/wifi-push/names.py" "$CONTENTS/Resources/"
 cp "$ROOT_DIR/mac-app/Assets/AppIcon.icns" "$CONTENTS/Resources/AppIcon.icns"
@@ -34,8 +40,12 @@ cat > "$CONTENTS/Info.plist" <<'PLIST'
 <key>CFBundleName</key><string>乔木 Kindle 助手</string>
 <key>CFBundleDisplayName</key><string>乔木 Kindle 助手</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>1.10.0</string>
-<key>CFBundleVersion</key><string>12</string>
+<key>CFBundleShortVersionString</key><string>1.11.0</string>
+<key>CFBundleVersion</key><string>13</string>
+<key>SUFeedURL</key><string>https://github.com/joeseesun/kindle-push-macos/releases/latest/download/appcast.xml</string>
+<key>SUPublicEDKey</key><string>ftyDAv8Qvb8tv4nf5jnMWtCgIi9yVI2IM6p+qhrKz90=</string>
+<key>SUEnableAutomaticChecks</key><true/>
+<key>NSHumanReadableCopyright</key><string>© 2026 向阳乔木</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>NSAccentColorName</key><string>AccentColor</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
@@ -50,7 +60,16 @@ cat > "$CONTENTS/Info.plist" <<'PLIST'
 </dict></array>
 </dict></plist>
 PLIST
-/usr/bin/codesign --force --sign - "$APP_BUNDLE"
+# Developer ID + hardened runtime on every build, so permissions survive rebuilds; ad-hoc only without the certificate.
+IDENTITY=$(/usr/bin/security find-identity -v -p codesigning 2>/dev/null | grep -m1 "Developer ID Application" | sed -E 's/.*"(.*)"/\1/' || true)
+TS="--timestamp=none"; if [ "$BUILD_CONFIGURATION" = "release" ]; then TS="--timestamp"; fi
+# Nested code first (Sparkle's documented order), never --deep.
+SPK="$CONTENTS/Frameworks/Sparkle.framework/Versions/B"
+for item in "$SPK/XPCServices/Installer.xpc" "$SPK/XPCServices/Downloader.xpc" "$SPK/Autoupdate" "$SPK/Updater.app" \
+            "$CONTENTS/Frameworks/Sparkle.framework"; do
+  if [ -e "$item" ]; then /usr/bin/codesign --force --options runtime $TS --preserve-metadata=entitlements --sign "${IDENTITY:--}" "$item"; fi
+done
+/usr/bin/codesign --force --options runtime $TS --sign "${IDENTITY:--}" "$APP_BUNDLE"
 case "$MODE" in
   --build-only) ;;
   run) /usr/bin/open -n "$APP_BUNDLE" ;;
