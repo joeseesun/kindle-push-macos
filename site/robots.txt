@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://kindle.qiaomu.ai/sitemap.xml

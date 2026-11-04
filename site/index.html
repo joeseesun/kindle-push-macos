@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>乔木 Kindle 助手 · 把文章和电子书无线发到 Kindle · 中英对照翻译 · macOS</title>
+<meta name="description" content="乔木 Kindle 助手是一款免费开源的 Mac 应用：把 Markdown、Obsidian 笔记、Word、TXT 和 EPUB、PDF、MOBI 等电子书拖进窗口，转换成适合墨水屏的版本，可选中英对照翻译，再通过 Wi-Fi 发到装有 KOReader 的 Kindle，或只保存到本机。">
+<link rel="canonical" href="https://kindle.qiaomu.ai/">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="乔木 Kindle 助手">
+<meta property="og:title" content="乔木 Kindle 助手 · 好文章，留给 Kindle 慢读">
+<meta property="og:description" content="拖进来，点发送。文章和电子书经 Wi-Fi 送到 KOReader，英文书可先译成中英对照。免费开源，macOS。">
+<meta property="og:url" content="https://kindle.qiaomu.ai/">
+<meta property="og:image" content="https://kindle.qiaomu.ai/assets/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@vista8">
+<meta name="twitter:image" content="https://kindle.qiaomu.ai/assets/og.png">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/icon-512.png">
+<link rel="stylesheet" href="styles.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "乔木 Kindle 助手",
+  "alternateName": "Kindle Push for macOS",
+  "operatingSystem": "macOS 14+ (Apple Silicon)",
+  "applicationCategory": "UtilitiesApplication",
+  "softwareVersion": "1.10.0",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "downloadUrl": "https://github.com/joeseesun/kindle-push-macos/releases/download/v1.10.0/KindlePush-1.10.0-macos-arm64.zip",
+  "url": "https://kindle.qiaomu.ai/",
+  "image": "https://kindle.qiaomu.ai/assets/og.png",
+  "screenshot": "https://kindle.qiaomu.ai/assets/shots/main.webp",
+  "license": "https://opensource.org/licenses/MIT",
+  "author": { "@type": "Person", "name": "向阳乔木", "url": "https://qiaomu.ai" },
+  "description": "把文章和电子书转换成适合墨水屏的版本，可选中英对照翻译，再通过 Wi-Fi 发到装有 KOReader 的 Kindle，或只保存到本机。"
+}
+</script>
+<script defer src="https://umami.qiaomu.ai/script.js" data-website-id="d134d646-79d3-45a6-a30a-31cdb4640100" data-domains="kindle.qiaomu.ai"></script>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="ig" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2e2e2e"/><stop offset="1" stop-color="#060606"/></linearGradient>
+    <symbol id="appicon" viewBox="0 0 1024 1024">
+      <rect width="1024" height="1024" rx="228" fill="url(#ig)"/>
+      <rect x="1.5" y="1.5" width="1021" height="1021" rx="227" fill="none" stroke="#fff" stroke-opacity=".14" stroke-width="3"/>
+      <path d="M560 226H330a70 70 0 0 0-70 70v436a70 70 0 0 0 70 70h290a70 70 0 0 0 70-70V552" fill="none" stroke="#fafafa" stroke-width="44" stroke-linecap="round" stroke-linejoin="round"/>
+      <g stroke="#8a8a8a" stroke-width="36" stroke-linecap="round"><path d="M378 382h86"/><path d="M378 466h188"/><path d="M378 550h130"/></g>
+      <circle cx="474" cy="650" r="22" fill="#fafafa"/>
+      <path d="M498 302 766 208 672 478 610 374z M610 374 766 208" fill="none" stroke="#fafafa" stroke-width="40" stroke-linejoin="round" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="i-apple" viewBox="0 0 24 24"><path fill="currentColor" d="M16.37 12.6c-.02-2.33 1.9-3.45 1.99-3.5-1.08-1.59-2.77-1.8-3.37-1.83-1.43-.15-2.8.85-3.53.85-.73 0-1.85-.83-3.04-.81-1.56.02-3 .91-3.81 2.31-1.62 2.82-.41 6.99 1.17 9.28.77 1.12 1.69 2.38 2.89 2.33 1.16-.05 1.6-.75 3-.75s1.8.75 3.03.73c1.25-.02 2.04-1.14 2.81-2.27.88-1.3 1.25-2.56 1.27-2.62-.03-.01-2.43-.93-2.45-3.72zM14.06 5.75c.64-.78 1.07-1.85.95-2.93-.92.04-2.04.61-2.7 1.39-.59.69-1.11 1.79-.97 2.85 1.03.08 2.07-.52 2.72-1.31z"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 15V3M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-laptop" viewBox="0 0 24 24"><path d="M20 16V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v9m16 0H4m16 0 1.28 2.55A1 1 0 0 1 20.38 20H3.62a1 1 0 0 1-.9-1.45L4 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M12 20h.01M2 8.82a15 15 0 0 1 20 0M5 12.86a10 10 0 0 1 14 0M8.5 16.43a5 5 0 0 1 7 0" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-reader" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9 7h6M9 10.5h6M9 14h4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="18.3" r=".9" fill="currentColor"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-gift" viewBox="0 0 24 24"><path d="M20 12v10H4V12M2 7h20v5H2zM12 22V7M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-code" viewBox="0 0 24 24"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-gh" viewBox="0 0 24 24"><path fill="currentColor" d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.2.5-2.3 1.3-3.1-.2-.4-.6-1.6 0-3.2 0 0 1-.3 3.4 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.6.2 2.8 0 3.2.9.8 1.3 1.9 1.3 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1 .9 2.2v3.3c0 .3.1.7.8.6A12 12 0 0 0 12 .3"/></symbol>
+    <symbol id="i-xlogo" viewBox="0 0 24 24"><path fill="currentColor" d="M18.9 1.2h3.7l-8 9.2 9.4 12.4h-7.4l-5.8-7.6-6.6 7.6H.5L9 13 0 1.2h7.6l5.2 6.9zm-1.3 19.4h2L6.5 3.2H4.3z"/></symbol>
+  </defs>
+</svg>
+
+<header class="nav" id="top">
+  <div class="wrap nav-in">
+    <a class="brand" href="#top" aria-label="乔木 Kindle 助手 首页">
+      <svg class="brand-icon" aria-hidden="true"><use href="#appicon"/></svg>
+      <span>乔木 Kindle 助手</span>
+    </a>
+    <nav class="nav-links" aria-label="页面导航">
+      <a href="#how">怎么用</a>
+      <a href="#translate">翻译</a>
+      <a href="#formats">格式</a>
+      <a href="#privacy">隐私</a>
+      <a href="#faq">问答</a>
+    </nav>
+    <div class="nav-cta">
+      <a class="icon-btn" href="https://github.com/joeseesun/kindle-push-macos" aria-label="GitHub 源代码" title="GitHub 源代码"><svg><use href="#i-gh"/></svg></a>
+      <a class="btn btn-sm btn-primary" href="#download">下载</a>
+    </div>
+  </div>
+</header>
+
+<main>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="wrap hero-copy">
+    <a class="pill" href="https://github.com/joeseesun/kindle-push-macos/releases/latest"><span class="pill-dot"></span><span>1.10 新增：翻译时照常发送别的书</span><svg><use href="#i-arrow"/></svg></a>
+    <h1>好文章，<br>留给 Kindle 慢读。</h1>
+    <p class="lede">把文章和电子书拖进窗口，转成适合墨水屏的版本，<br class="br-lg">需要的话先译成中英对照，再经 Wi-Fi 送到 Kindle。</p>
+    <div class="hero-actions">
+      <a class="btn btn-lg btn-primary" href="https://github.com/joeseesun/kindle-push-macos/releases/download/v1.10.0/KindlePush-1.10.0-macos-arm64.zip" data-dl><svg><use href="#i-apple"/></svg>下载 Mac 版</a>
+      <a class="btn btn-lg btn-ghost" href="https://github.com/joeseesun/kindle-push-macos/blob/main/docs/SETUP.md">首次配置指南<svg><use href="#i-arrow"/></svg></a>
+    </div>
+    <p class="hero-meta">免费 · MIT 开源 · <span data-ver>v1.10.0</span> · macOS 14+ · Apple 芯片</p>
+  </div>
+
+  <div class="wrap">
+    <div class="hero-shot">
+      <img src="assets/shots/main.webp" alt="乔木 Kindle 助手主窗口：一本英文书正在翻译，显示封面、进度和剩余时间，另外两篇待发送" width="1200" height="1169" fetchpriority="high">
+      <ol class="flow" aria-label="发送路径">
+        <li><svg><use href="#i-laptop"/></svg><b>Mac</b><span>转换 · 翻译</span></li>
+        <li class="flow-line" aria-hidden="true"></li>
+        <li><svg><use href="#i-wifi"/></svg><b>同一个 Wi-Fi</b><span>不经云端</span></li>
+        <li class="flow-line" aria-hidden="true"></li>
+        <li><svg><use href="#i-reader"/></svg><b>KOReader</b><span>校验后送达</span></li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<!-- WHY -->
+<section class="section" id="why">
+  <div class="wrap">
+    <div class="eyebrow">为什么做它</div>
+    <h2>墨水屏适合慢读，<br>把书送上去却总是很麻烦。</h2>
+    <p class="sub">文章在 Obsidian 里写好、电子书下载好了，想放到 Kindle 上读，还得先转格式、找数据线、拷到对的文件夹。</p>
+    <div class="versus">
+      <div class="vs-card vs-old">
+        <div class="vs-label">以前</div>
+        <ol class="steps">
+          <li><span>1</span>把 Markdown 转成 EPUB，图片常常丢</li>
+          <li><span>2</span>插上数据线，等电脑认出 Kindle</li>
+          <li><span>3</span>找到 KOReader 的书目录，拷进去</li>
+          <li><span>4</span>弹出设备，拔线</li>
+          <li><span>5</span>英文书还得另找工具翻译</li>
+        </ol>
+        <div class="vs-foot"><b>几分钟</b>，每本书都来一遍</div>
+      </div>
+      <div class="vs-card vs-new">
+        <div class="vs-label">现在</div>
+        <div class="vs-drop"><span>拖进来</span><svg><use href="#i-arrow"/></svg><span>发送到 Kindle</span></div>
+        <p>转换、翻译、传输、校验都由应用完成。打开 KOReader 的「我的文章」，书已经在那儿了。</p>
+        <div class="vs-foot"><b>一次拖放</b>，不插线</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW -->
+<section class="section" id="how">
+  <div class="wrap">
+    <div class="eyebrow">怎么用</div>
+    <h2>两个按钮，发到 Kindle 或留在本机。</h2>
+    <div class="duo">
+      <article class="duo-card">
+        <div class="duo-tag">发送到 Kindle</div>
+        <h3>拖进来，点发送</h3>
+        <p>整个窗口都能拖入，可以一次拖很多本。应用先试上次的地址，找不到就在局域网里寻找已配对的 Kindle，发完读回文件比对 SHA-256。</p>
+        <ul class="ticks">
+          <li>失败的可以重试，发送记录都留着</li>
+          <li>换了 Wi-Fi 也能重新找到设备，或手动填 IP</li>
+          <li>书放在 KOReader 的 <code>documents/我的文章</code></li>
+        </ul>
+      </article>
+      <article class="duo-card">
+        <div class="duo-tag">保存到本机</div>
+        <h3>不连 Kindle 也能用</h3>
+        <p>「保存到本机」只转换，「翻译并保存」只翻译，完成后在访达里选中结果。拿去用别的阅读器，或者稍后再发。</p>
+        <ul class="ticks">
+          <li>原文件不改动，转换副本单独保存</li>
+          <li>文件自动用干净的书名，不带一串编号</li>
+          <li>翻译和普通发送分两条队列，互不等待</li>
+        </ul>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- TRANSLATE -->
+<section class="section" id="translate">
+  <div class="wrap split">
+    <div>
+      <div class="eyebrow">中文翻译</div>
+      <h2>英文书，读成中英对照。</h2>
+      <p class="sub">拖入 EPUB，在底部选「中英对照」或「仅中文」。先试译 3 段看看译文，满意再翻整本，图片和目录都保留。</p>
+      <ul class="ticks">
+        <li>可以用 ChatGPT 账号登录，用套餐额度，不按 API 计费</li>
+        <li>也支持 DeepSeek、OpenAI、Gemini、Kimi、通义千问、豆包、OpenRouter，或本机的 Ollama / LM Studio</li>
+        <li>四种风格：自然流畅、忠实准确、文学润色、技术学术</li>
+        <li>术语表让人名、地名全书统一；默认 3 章并行</li>
+        <li>可取消、可接着翻；关掉应用，后台翻译也不停</li>
+      </ul>
+    </div>
+    <figure class="bi" aria-label="中英对照译本示例">
+      <div class="bi-bar">
+        <div class="ver" role="tablist" aria-label="版本">
+          <button role="tab" aria-selected="false" data-v="orig">原文</button>
+          <button role="tab" aria-selected="true" data-v="bi">中英对照</button>
+          <button role="tab" aria-selected="false" data-v="zh">仅中文</button>
+        </div>
+      </div>
+      <div class="bi-page" data-mode="bi">
+        <div class="bi-ch">Chapter 1</div>
+        <p class="en">The first thing to understand about the media is that they are businesses, selling a product to a market.</p>
+        <p class="zh">理解媒体，首先要明白：它们是企业，向市场出售一种产品。</p>
+        <p class="en">What they sell is not news alone, but the attention of their readers.</p>
+        <p class="zh">它们卖的不只是新闻，还有读者的注意力。</p>
+      </div>
+      <figcaption>示例段落，仅用于展示版式</figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- FORMATS -->
+<section class="section" id="formats">
+  <div class="wrap">
+    <div class="eyebrow">格式</div>
+    <h2>KOReader 能读的，都能发。</h2>
+    <p class="sub">电子书原样发送；笔记和文档转成带目录、适合小屏的 EPUB。</p>
+    <div class="bento">
+      <article class="b-card b-two">
+        <h3>原样发送</h3>
+        <p>带 DRM 的 MOBI / AZW 会提前提示。PDF、MOBI 这类格式需要 Kindle 上的新版接收端，应用会识别并提醒你更新。</p>
+        <div class="fmt"><span>EPUB</span><span>PDF</span><span>MOBI</span><span>AZW3</span><span>AZW</span><span>DjVu</span><span>CBZ / CBR</span><span>FB2</span><span>XPS</span><span>CHM</span><span>DOC</span><span>fb2.zip</span></div>
+      </article>
+      <article class="b-card">
+        <h3>转成 EPUB 再发</h3>
+        <p>TXT 自动识别 GBK 编码，「第一章」「Chapter 1」变成章节标题。</p>
+        <div class="fmt"><span>Markdown</span><span>TXT</span><span>Word</span><span>HTML</span><span>ODT</span><span>RTF</span></div>
+      </article>
+      <article class="b-card">
+        <h3>Obsidian 笔记</h3>
+        <p>双链转成文字，图片打进 EPUB，整篇嵌入和提示块都保留。只展开你选中文章引用到的内容。</p>
+        <pre class="md md-sm">[[置身事内]] <span class="md-dim">→ 置身事内</span>
+![[图 1.png]] <span class="md-dim">→ 打包进 EPUB</span></pre>
+      </article>
+      <article class="b-card">
+        <h3>整理文件名</h3>
+        <p>⌘E 去掉 z-library、1lib 这类来源标记和「第二版」后缀，预览后再改名。</p>
+        <pre class="md md-sm"><span class="md-dim">Diamond_Age (z-lib.org).epub</span>
+Diamond Age.epub</pre>
+      </article>
+      <article class="b-card">
+        <h3>发送后校验</h3>
+        <p>读回 Kindle 上的文件比对 SHA-256，确认一字不差才算送达。</p>
+      </article>
+      <article class="b-card">
+        <h3>书的封面和书名</h3>
+        <p>列表显示 EPUB 封面、PDF 首页，书名和作者取自书本身，不显示冗长的文件名。</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- PRIVACY -->
+<section class="section" id="privacy">
+  <div class="wrap">
+    <div class="privacy">
+      <div>
+        <div class="eyebrow">隐私与连接</div>
+        <h2>书从你的 Mac，直接到你的 Kindle。</h2>
+        <p class="sub">直接发送不经过任何云服务，也没有遥测。只有在你主动翻译时，正文才会提交给你选的模型服务。</p>
+      </div>
+      <ul class="priv-list">
+        <li><b>局域网直传</b><span>通过 KOReader 的 SSH 服务传文件，Mac 和 Kindle 在同一个 Wi-Fi 即可。</span></li>
+        <li><b>专用密钥</b><span>私钥只在本机生成保存，Kindle 只存公钥；这把钥匙只能收发文件，不能开终端。</span></li>
+        <li><b>严格核对设备</b><span>首次配对确认设备身份，之后每次都核对固定的主机密钥。</span></li>
+        <li><b>Key 放在钥匙串</b><span>翻译服务的 API Key 保存在 macOS 钥匙串里。</span></li>
+        <li><b>原文不动</b><span>只读你选的文章和它引用的附件，只有在「整理文件名」里确认后才改名。</span></li>
+        <li><b>代码公开</b><span>MIT 开源，可以自己从源码构建。</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- START -->
+<section class="section" id="start">
+  <div class="wrap">
+    <div class="eyebrow">开始</div>
+    <h2>配置一次，之后只用拖放。</h2>
+    <ol class="start">
+      <li><span class="n">1</span><b>装好转换组件</b><p>在终端运行 <code>brew install python pandoc</code>，再下载应用 ZIP，解压后放进「应用程序」。</p></li>
+      <li><span class="n">2</span><b>插一次 USB，配对 Kindle</b><p>按<a href="https://github.com/joeseesun/kindle-push-macos/blob/main/docs/SETUP.md">首次配置</a>把接收端写进 Kindle，再确认设备身份。发布包不含任何人的密钥，这一步不能跳过。</p></li>
+      <li><span class="n">3</span><b>拖进来，点发送</b><p>在 KOReader 的文件浏览器里打开 <code>documents/我的文章</code> 阅读。</p></li>
+    </ol>
+
+    <div class="req" aria-label="使用条件">
+      <div><b>Mac</b><span>macOS 14 或更新，Apple 芯片（arm64）</span></div>
+      <div><b>转换组件</b><span>Homebrew Python 3.10+、Pandoc 3.8+</span></div>
+      <div><b>Kindle</b><span>已越狱，装好并运行过 KOReader，含 SSH 插件</span></div>
+      <div><b>网络</b><span>Mac 与 Kindle 在同一个能互通的局域网</span></div>
+    </div>
+
+    <div class="cta" id="download">
+      <svg class="cta-icon" aria-hidden="true"><use href="#appicon"/></svg>
+      <h2>好文章，留给 Kindle 慢读。</h2>
+      <p>免费、开源，适用于 Apple 芯片的 Mac。</p>
+      <div class="dl-grid">
+        <a class="dl-card primary" href="https://github.com/joeseesun/kindle-push-macos/releases/download/v1.10.0/KindlePush-1.10.0-macos-arm64.zip" data-dl>
+          <svg class="dl-os"><use href="#i-apple"/></svg>
+          <b>macOS</b>
+          <span><span data-ver>v1.10.0</span> · <span data-size>0.9 MB</span> · macOS 14+</span>
+          <span>Apple 芯片（arm64），解压后拖进「应用程序」</span>
+          <span class="dl-file" data-name>KindlePush-1.10.0-macos-arm64.zip</span>
+          <span class="dl-btn"><svg><use href="#i-download"/></svg>下载 .zip</span>
+        </a>
+        <a class="dl-card" href="https://github.com/joeseesun/kindle-push-macos#从源码构建">
+          <svg class="dl-os"><use href="#i-code"/></svg>
+          <b>从源码构建</b>
+          <span>Swift 6.0+ · Xcode Command Line Tools</span>
+          <span>Intel Mac 或想自己签名时使用</span>
+          <span class="dl-btn"><svg><use href="#i-gh"/></svg>查看构建说明</span>
+        </a>
+      </div>
+      <p class="hero-meta">应用使用 ad-hoc 签名，未经 Apple 公证，首次打开需要在「系统设置 › 隐私与安全性」里允许。<a href="https://github.com/joeseesun/kindle-push-macos/releases">全部版本与更新日志</a> · <a href="https://github.com/joeseesun/kindle-push-macos/releases/latest" data-sums>SHA256SUMS</a></p>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="section" id="faq">
+  <div class="wrap faq-wrap">
+    <div>
+      <div class="eyebrow">问答</div>
+      <h2>常见问题</h2>
+    </div>
+    <div class="faq">
+      <details><summary>Kindle 一定要越狱吗？</summary><p>是的。应用通过 KOReader 的 SSH 服务传文件，需要已越狱、装好 KOReader 并启用 SSH / Dropbear 插件的 Kindle。应用本身不包含越狱工具，也不要求安装乔木 SimpleUI。</p></details>
+      <details><summary>打开时提示「无法验证开发者」怎么办？</summary><p>应用使用本地 ad-hoc 签名，没有 Apple Developer ID 公证。确认来源后，在「系统设置 › 隐私与安全性」里点「仍要打开」。应用不会要求你全局关闭 Gatekeeper；不放心也可以从源码自己构建。</p></details>
+      <details><summary>支持 Intel Mac 吗？</summary><p>目前只提供 Apple 芯片的预编译包。Intel Mac 可以从源码构建，但还没有实机验证。</p></details>
+      <details><summary>翻译要花钱吗？</summary><p>直接发送完全免费。翻译需要模型服务：用 ChatGPT 账号登录走套餐额度；用 API Key 则按所选服务计费，整本的耗时和费用取决于书的长度、模型和限流。取消后再开始会复用已保存的检查点。</p></details>
+      <details><summary>换了网络还能用吗？</summary><p>两台设备换到同一个新 Wi-Fi 后，应用会重新寻找设备，设备身份不随 IP 改变。常见家庭网络可以自动扫描，更大的网络可以手动填 IP。访客网络隔离、不同 Wi-Fi、跨互联网推送不在支持范围内。</p></details>
+      <details><summary>测试过哪些设备？</summary><p>实机测试过 Kindle Paperwhite 3（第七代），固件 5.16.2.1.1，KOReader v2026.07.1。其他型号和旧版 KOReader 尚未实机验证，欢迎在 GitHub 反馈。</p></details>
+      <details><summary>这个项目从哪来？</summary><p>它基于 <a href="https://github.com/chasepal/kindle-push-macos">chasepal/kindle-push-macos</a>：原作者看了乔木的 Kindle / KOReader 分享后做了这个 Mac 小工具，乔木在此基础上加入了 EPUB 中文对照翻译等功能。翻译引擎是 MIT 开源的 <a href="https://github.com/yihong0618/bilingual_book_maker">bilingual_book_maker</a>。</p></details>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap foot-in">
+    <div class="foot-brand">
+      <a class="brand" href="#top"><svg class="brand-icon" aria-hidden="true"><use href="#appicon"/></svg><span>乔木 Kindle 助手</span></a>
+      <p>由 <a href="https://qiaomu.ai">向阳乔木</a> 维护，基于 <a href="https://github.com/chasepal/kindle-push-macos">chasepal/kindle-push-macos</a>。前字节/TikTok 商业化 AI 产品经理，把 AI 前沿变化转译成可执行的工作流。</p>
+    </div>
+    <div class="foot-cols">
+      <div><b>产品</b><a href="https://github.com/joeseesun/kindle-push-macos/releases/latest">下载最新版</a><a href="https://github.com/joeseesun/kindle-push-macos/blob/main/CHANGELOG.md">更新日志</a><a href="https://github.com/joeseesun/kindle-push-macos/blob/main/docs/SETUP.md">首次配置</a><a href="https://github.com/joeseesun/kindle-push-macos/blob/main/docs/TROUBLESHOOTING.md">常见故障</a><a href="https://github.com/joeseesun/kindle-push-macos/issues">反馈问题</a></div>
+      <div><b>作者</b><a href="https://qiaomu.ai">qiaomu.ai</a><a href="https://blog.qiaomu.ai">博客</a><a href="https://tuijian.qiaomu.ai/">乔木推荐</a><a href="https://x.com/vista8">X @vista8</a></div>
+    </div>
+    <div class="foot-actions">
+      <button class="icon-btn" type="button" data-modal="m-follow" aria-label="关注" title="关注"><svg><use href="#i-chat"/></svg></button>
+      <button class="icon-btn" type="button" data-modal="m-reward" aria-label="打赏" title="打赏"><svg><use href="#i-gift"/></svg></button>
+      <a class="icon-btn" href="https://github.com/joeseesun/kindle-push-macos" aria-label="GitHub" title="GitHub"><svg><use href="#i-gh"/></svg></a>
+      <a class="icon-btn" href="https://x.com/vista8" aria-label="X" title="X"><svg><use href="#i-xlogo"/></svg></a>
+    </div>
+  </div>
+  <div class="wrap foot-legal">MIT © 2026 向阳乔木 · 原项目 chasepal/kindle-push-macos · 字体 Geist（OFL）· 图标 Lucide（ISC）· Kindle 是 Amazon 的商标，本项目与 Amazon 无关</div>
+</footer>
+
+<dialog class="modal" id="m-follow" aria-labelledby="m-follow-t">
+  <button class="modal-x" type="button" data-close aria-label="关闭"><svg><use href="#i-x"/></svg></button>
+  <h3 id="m-follow-t">关注向阳乔木</h3>
+  <img src="assets/wechat-qr.jpg" alt="微信公众号「向阳乔木推荐看」二维码" width="220" height="220">
+  <p>微信扫码关注公众号「向阳乔木推荐看」</p>
+  <div class="modal-links"><a href="https://github.com/joeseesun/"><svg><use href="#i-gh"/></svg>GitHub</a><a href="https://x.com/vista8"><svg><use href="#i-xlogo"/></svg>@vista8</a></div>
+</dialog>
+<dialog class="modal" id="m-reward" aria-labelledby="m-reward-t">
+  <button class="modal-x" type="button" data-close aria-label="关闭"><svg><use href="#i-x"/></svg></button>
+  <h3 id="m-reward-t">打赏支持</h3>
+  <img src="assets/reward-qr.png" alt="向阳乔木打赏二维码" width="220" height="220">
+  <p>感谢支持乔木持续做好用的小工具</p>
+</dialog>
+
+<script src="app.js" defer></script>
+</body>
+</html>
