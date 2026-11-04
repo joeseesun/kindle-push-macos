@@ -13,7 +13,10 @@ import time
 from urllib.parse import urlsplit
 
 import kindle_push as kp
+import chunks
 import names
+import polish
+import terms
 
 VERSION = '1.3.2'
 DATA = kp.DATA
@@ -21,12 +24,36 @@ RUNTIME = DATA / 'translation-runtime'
 SETTINGS = DATA / 'translation.json'
 JOBS = DATA / 'translations'
 KEY_SERVICE = 'local.chase.KindlePush.translation'
-WORKERS = (1, 2, 3, 4)
-DEFAULT_WORKERS = 3
+MAX_WORKERS = 64
+DEFAULT_WORKERS = 16
+# Small models drop paragraphs from big batches, and a misaligned batch is split and sent again.
+SMALL_MODEL = re.compile(r'flash|mini|nano|lite|small|haiku|turbo|[^0-9][1-9]b\b|[^0-9]1[0-4]b\b', re.I)
+SMALL_BATCH = 10
+TEMPERATURE = '0.3'
+# The engine waits 300 s for a reply; some gateways now and then accept a request and never
+# answer, which held whole books for minutes. Cloud replies to one batch come in well under these.
+# Runs the engine's own entry point with that one limit changed; anything unexpected runs it as is.
+LAUNCH = ('import sys\n'
+          'try:\n'
+          '    import book_maker.translator.chatgptapi_translator as c\n'
+          '    c.REQUEST_LIMITS["timeout"] = float(sys.argv.pop(1))\n'
+          'except Exception:\n'
+          '    sys.argv.pop(1)\n'
+          'from book_maker.cli import main\n'
+          'sys.argv[0] = "bbook_maker"\n'
+          'sys.exit(main())\n')
+
+
+def request_timeout(config):
+    if config.get('provider') == 'chatgpt' or is_local(config.get('base', '')):
+        return 300
+    return 60 if SMALL_MODEL.search(config.get('model', '')) else 150
 ENGINE_PROMPT = 'Please help me to translate,`{text}` to {language}, please return only translated content not include the origin text'
-# System messages layered on the engine's own user template; 'natural' keeps the engine default.
+# Every style keeps these; they stop the usual ways a model shortens or edits a book.
+RULES = '完整翻译每一句，不省略、不概括；不纠正原文里的错误；不回避或删改敏感内容；不加解释或译注；保持原文的段落划分。'
+# System messages layered on the engine's own user template.
 STYLES = {
-    'natural': '',
+    'natural': '你是专业的图书译者。把原文译成自然、地道的简体中文：忠实完整，不增删信息；按中文习惯调整语序，避免翻译腔；人名、地名和术语前后统一；保留原文的语气和段落结构。',
     'faithful': '你是资深译者。把原文准确、完整地译成简体中文：不增删信息，保留原文的逻辑层次与语气，专有名词前后统一。',
     'literary': '你是文学翻译家。把原文译成地道、流畅、有文采的简体中文：保留作者的语气、修辞和人物口吻，避免翻译腔，但不改写情节与信息。',
     'technical': '你是技术与学术翻译专家。把原文译成严谨、易读的简体中文：术语准确且前后统一，首次出现的专业术语在译名后用括号保留英文原词，代码、公式、命令保持原样。',
@@ -57,7 +84,11 @@ def own_account(base):
 
 def settings():
     if SETTINGS.exists():
-        return json.loads(SETTINGS.read_text())
+        config = json.loads(SETTINGS.read_text())
+        # Before 1.12 the choice was 1–4 chapters, 3 recommended and 4 fastest; both mean "fast" now.
+        if config.get('workers') in (3, 4) and not config.get('partsEra'):
+            config['workers'] = DEFAULT_WORKERS
+        return config
     # Reuse only the named, non-secret Flash route, with its existing Keychain item.
     registry = Path.home() / '.config/qiaomu-llm/registry.json'
     if registry.exists():
@@ -115,10 +146,10 @@ def save_settings(base, model, workers=None, style=None, glossary=None, provider
     config = {'provider': provider, 'base': base, 'model': model,
               'service': '' if chatgpt else KEY_SERVICE, 'account': '' if chatgpt else own_account(base),
               'workers': old.get('workers', DEFAULT_WORKERS), 'style': old.get('style', 'natural'),
-              'glossary': old.get('glossary', '')}
+              'glossary': old.get('glossary', ''), 'partsEra': True}
     if workers is not None:
-        if not str(workers).isdigit() or int(workers) not in WORKERS:
-            raise ValueError('同时翻译的章节数应为 1–4。')
+        if not str(workers).isdigit() or not 1 <= int(workers) <= MAX_WORKERS:
+            raise ValueError(f'同时翻译数应为 1–{MAX_WORKERS}。')
         config['workers'] = int(workers)
     if style is not None:
         if style not in STYLES:
@@ -219,7 +250,7 @@ MODES = ('bilingual', 'chinese')   # side by side, or the translation alone (--s
 def job_id(digest, config, preview, mode='bilingual'):
     # Speed does not change the translation, so a run can resume at another worker count.
     # 'provider' only matters for the ChatGPT route; elsewhere base and model already identify the service.
-    quality = {k: v for k, v in config.items() if k != 'workers' and (k not in {'style', 'glossary', 'provider'} or v not in {'', 'natural'})
+    quality = {k: v for k, v in config.items() if k not in {'workers', 'partsEra'} and (k not in {'style', 'glossary', 'provider'} or v not in {'', 'natural'})
                and not (k == 'provider' and v != 'chatgpt')}
     # Bilingual identities predate modes and stay as they were, so their checkpoints still resume.
     parts = [digest, quality, preview, VERSION, 'pipeline-2'] + ([mode] if mode != 'bilingual' else [])
@@ -306,18 +337,28 @@ def cancel(job):
 
 def command(folder, config, preview, mode='bilingual'):
     codex = config.get('provider') == 'chatgpt'
-    args = [str(RUNTIME / 'bin/bbook_maker'), '--book_name', str(folder / 'book.epub'), '--language', 'zh-hans']
+    book_file = engine_book(folder)
+    args = [str(RUNTIME / 'bin/python3'), '-c', LAUNCH, str(request_timeout(config)),
+            '--book_name', str(book_file), '--language', 'zh-hans']
     args += (['--api_format', 'codex', '--model', config['model']] if codex else
              ['--api_format', 'openai', '--api_base', config['base'], '--model', config['model'], '--no-thinking'])
-    if (folder / '.book.temp.bin').is_file():
+    if (folder / f'.{book_file.stem}.temp.bin').is_file():
         args += ['--resume']
-    system = STYLES.get(config.get('style', 'natural'), '')
-    if system:
-        (folder / 'prompt.json').write_text(json.dumps({'user': ENGINE_PROMPT, 'system': system}, ensure_ascii=False))
-        args += ['--prompt', str(folder / 'prompt.json')]
-    if config.get('glossary'):
-        (folder / 'glossary.txt').write_text(config['glossary'] + '\n')
+    # Every request knows which book it is in: parallel chapters never see each other.
+    title, author = terms.book_meta(folder / 'book.epub')
+    book = f'正在翻译的书：《{title}》' + (f'，作者 {author}' if author else '') + '。' if title else ''
+    system = book + STYLES.get(config.get('style', 'natural'), STYLES['natural']) + RULES
+    (folder / 'prompt.json').write_text(json.dumps({'user': ENGINE_PROMPT, 'system': system}, ensure_ascii=False))
+    args += ['--prompt', str(folder / 'prompt.json')]
+    auto = folder / 'glossary-auto.txt'
+    glossary = terms.merge(config.get('glossary', ''), auto.read_text().splitlines() if auto.is_file() else [])
+    if glossary:
+        (folder / 'glossary.txt').write_text(glossary + '\n')
         args += ['--glossary', str(folder / 'glossary.txt')]
+    if not codex:
+        args += ['--temperature', TEMPERATURE]
+        if SMALL_MODEL.search(config['model']):
+            args += ['--max-batch-units', str(SMALL_BATCH)]
     if mode == 'chinese':
         args += ['--single_translate']
     if preview:
@@ -328,6 +369,36 @@ def command(folder, config, preview, mode='bilingual'):
         if workers > 1:
             args += ['--parallel-workers', str(workers)]
     return args
+
+
+def engine_book(folder):
+    """What the engine translates: the book with long chapters cut into parts, when it was cut."""
+    return folder / ('book-split.epub' if (folder / 'book-split.epub').is_file() else 'book.epub')
+
+
+def prepare_parts(folder, config, preview):
+    """Cut long chapters once per job, so every worker has work; a job begun without parts keeps none."""
+    plan_file = folder / 'split.json'
+    if preview or config.get('provider') == 'chatgpt' or plan_file.exists() or (folder / '.book.temp.bin').exists():
+        return
+    try:
+        plan = chunks.split(folder / 'book.epub', folder / 'book-split.epub', int(config.get('workers', DEFAULT_WORKERS)))
+    except Exception:
+        plan = None
+    if not plan:
+        (folder / 'book-split.epub').unlink(missing_ok=True)
+    chunks.save_plan(plan_file, plan or {})
+
+
+def finish_parts(folder, raw, result):
+    """Join translated parts back into whole chapters, then tidy Chinese punctuation."""
+    plan_file = folder / 'split.json'
+    plan = json.loads(plan_file.read_text()) if plan_file.is_file() else {}
+    if plan.get('chapters'):
+        chunks.join(raw, result, plan)
+    elif raw != result:
+        shutil.copyfile(raw, result)
+    polish.epub(result)
 
 
 def worker(job):
@@ -348,11 +419,21 @@ def worker(job):
         else:
             env['BBM_API_KEY'] = read_key(config)
         env.update(PYTHONUNBUFFERED='1', PYTHONIOENCODING='utf-8')
+        auto = folder / 'glossary-auto.txt'
+        if not request['preview'] and 'BBM_API_KEY' in env and not auto.exists():
+            state.update(state='running', message='正在整理书中的人名和术语…')
+            atomic_json(folder / 'state.json', state)
+            lines = terms.build(folder / 'book.epub', config['base'], config['model'], env['BBM_API_KEY'])
+            auto.write_text('\n'.join(lines) + ('\n' if lines else ''))
+            auto.chmod(0o600)
         state.update(state='running', message='正在翻译，首次分析可能需要几分钟…')
         atomic_json(folder / 'state.json', state)
+        prepare_parts(folder, config, request['preview'])
         # A previous failed run must never leave a stale final book eligible for delivery.
         result = folder / 'book_bilingual.epub'
+        raw = folder / f'{engine_book(folder).stem}_bilingual.epub'
         result.unlink(missing_ok=True)
+        raw.unlink(missing_ok=True)
         with (folder / 'engine.log').open('w') as log:
             child = subprocess.Popen(command(folder, config, request['preview'], request.get('mode', 'bilingual')), cwd=folder,
                                      env=env, stdin=subprocess.DEVNULL, stdout=log, stderr=log,
@@ -371,8 +452,9 @@ def worker(job):
                     atomic_json(folder / 'state.json', state)
                     return
                 time.sleep(0.5)
-        if child.returncode or not result.is_file():
+        if child.returncode or not raw.is_file():
             raise ValueError('翻译未完成，请检查模型设置、余额和网络后重试；已完成的进度会保留。')
+        finish_parts(folder, raw, result)
         kp.validate_epub(result)
         kp.OUT.mkdir(parents=True, exist_ok=True)
         title = names.tidy(request['title'], smart=False)[:60].strip() or '书籍'
