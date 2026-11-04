@@ -32,9 +32,7 @@ struct KindlePushApp: App {
         .windowToolbarStyle(.unified(showsTitle: true))
         .commands {
             CommandGroup(replacing: .appInfo) {
-                Button("关于 乔木 Kindle 助手") {
-                    NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "乔木 Kindle 助手"])
-                }
+                AboutMenuButton(store: store)
                 Button("检查更新…") { Updater.shared.checkForUpdates() }
             }
             CommandGroup(replacing: .newItem) {

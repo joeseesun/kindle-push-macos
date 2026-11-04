@@ -37,13 +37,8 @@ struct TranslationSettingsView: View {
         ("technical", "技术学术", "术语准确统一，首次出现保留英文原词，代码和公式不动。"),
     ]
 
-    var body: some View {
-        TabView {
-            serviceForm.tabItem { Label("翻译服务", systemImage: "network") }
-            qualityForm.tabItem { Label("质量与速度", systemImage: "wand.and.stars") }
-        }
-        .safeAreaInset(edge: .bottom) {
-            HStack(spacing: 10) {
+    private var saveBar: some View {
+        HStack(spacing: 10) {
                 if saved {
                     Label("已保存", systemImage: "checkmark").foregroundStyle(.green).transition(.opacity)
                 } else if !message.isEmpty {
@@ -56,7 +51,19 @@ struct TranslationSettingsView: View {
                               || (service.signIn == .chatgpt && !codexLoggedIn))
             }
             .font(.callout).padding(.horizontal, 20).padding(.bottom, 16)
+    }
+
+    var body: some View {
+        TabView(selection: $store.settingsTab) {
+            serviceForm.tabItem { Label("翻译服务", systemImage: "network") }.tag(SettingsTab.service)
+            qualityForm.tabItem { Label("质量与速度", systemImage: "wand.and.stars") }.tag(SettingsTab.quality)
+            AboutView().tabItem { Label("关于", systemImage: "info.circle") }.tag(SettingsTab.about)
         }
+        .safeAreaInset(edge: .bottom) {
+            if store.settingsTab != .about { saveBar }
+        }
+        // The gear opens translation settings next time, not the About tab the menu left open.
+        .onDisappear { if store.settingsTab == .about { store.settingsTab = .service } }
         .frame(width: 520)
         .fixedSize(horizontal: false, vertical: true)
         .task {

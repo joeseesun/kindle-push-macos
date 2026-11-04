@@ -27,6 +27,9 @@ fi
 cp "$ROOT_DIR/wifi-push/kindle_push.py" "$ROOT_DIR/wifi-push/app_bridge.py" "$ROOT_DIR/wifi-push/markdown_support.py" "$ROOT_DIR/wifi-push/ebook.css" "$CONTENTS/Resources/"
 cp "$ROOT_DIR/wifi-push/translation.py" "$ROOT_DIR/wifi-push/accounts.py" "$ROOT_DIR/wifi-push/bookinfo.py" "$ROOT_DIR/wifi-push/names.py" "$CONTENTS/Resources/"
 cp "$ROOT_DIR/mac-app/Assets/AppIcon.icns" "$CONTENTS/Resources/AppIcon.icns"
+# About tab: QR codes (bundled so they work offline) and third-party licenses.
+rm -rf "$CONTENTS/Resources/About"; cp -R "$ROOT_DIR/mac-app/Assets/About" "$CONTENTS/Resources/About"
+cp "$ROOT_DIR/THIRD_PARTY_NOTICES.md" "$ROOT_DIR/LICENSE" "$CONTENTS/Resources/"
 # Ink accent (no system blue). Compiled from mac-app/Assets/Colors.xcassets by script/make_assets.sh.
 cp "$ROOT_DIR/mac-app/Assets/Assets.car" "$CONTENTS/Resources/Assets.car"
 cat > "$CONTENTS/Info.plist" <<'PLIST'
@@ -40,8 +43,8 @@ cat > "$CONTENTS/Info.plist" <<'PLIST'
 <key>CFBundleName</key><string>乔木 Kindle 助手</string>
 <key>CFBundleDisplayName</key><string>乔木 Kindle 助手</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>1.11.0</string>
-<key>CFBundleVersion</key><string>13</string>
+<key>CFBundleShortVersionString</key><string>1.11.1</string>
+<key>CFBundleVersion</key><string>14</string>
 <key>SUFeedURL</key><string>https://github.com/joeseesun/kindle-push-macos/releases/latest/download/appcast.xml</string>
 <key>SUPublicEDKey</key><string>ftyDAv8Qvb8tv4nf5jnMWtCgIi9yVI2IM6p+qhrKz90=</string>
 <key>SUEnableAutomaticChecks</key><true/>

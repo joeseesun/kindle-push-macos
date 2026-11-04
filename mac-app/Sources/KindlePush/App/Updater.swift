@@ -12,4 +12,9 @@ final class Updater {
         NSApp.activate()
         controller.checkForUpdates(nil)
     }
+
+    var automaticallyChecks: Bool {
+        get { controller.updater.automaticallyChecksForUpdates }
+        set { controller.updater.automaticallyChecksForUpdates = newValue }
+    }
 }

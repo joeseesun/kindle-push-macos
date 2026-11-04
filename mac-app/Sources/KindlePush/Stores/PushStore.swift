@@ -29,6 +29,7 @@ final class PushStore: ObservableObject {
     }
     var translateBooks: Bool { outputMode != .original }
     @Published var currentJob: String?
+    @Published var settingsTab: SettingsTab = .service
     private var stopRequested = false
     private var started = false
 
