@@ -14,7 +14,8 @@ struct ArticleRow: View {
                 HStack(spacing: 6) {
                     Text(article.title).font(.body.weight(.semibold)).lineLimit(1).truncationMode(.tail)
                         .help(article.path)
-                    if article.bilingual == true {
+                    // The menu tag at the end already says what this book becomes; this one is for books done with.
+                    if article.bilingual == true && !showsChoice {
                         Text(t(translatedLabel)).font(.caption2.weight(.semibold)).foregroundStyle(Color.ink)
                             .padding(.horizontal, 6).padding(.vertical, 1.5)
                             .background(Color.ink.opacity(0.08), in: Capsule())
@@ -44,7 +45,7 @@ struct ArticleRow: View {
                     // In words and acting at once: an icon that only moved the book back to waiting read as broken.
                     Button(t("重试")) { Task { await store.retryNow(article.id) } }
                         .buttonStyle(.inkOutline).controlSize(.small).fixedSize().padding(.trailing, 4)
-                        .help(store.mode(of: article) == .original ? t("再发一次这本书") : t("接着处理这本书：已经译好的部分不会重新翻译，只补没完成的"))
+                        .help(store.mode(of: article) == .original ? t("再发一次这本书") : t("接着翻，已译好的部分不再收费"))
                 }
                 // Always there: the way back to the file is the most common next step.
                 iconButton("folder", help: revealHelp) { store.reveal([article.id]) }
@@ -60,8 +61,14 @@ struct ArticleRow: View {
                 .accessibilityLabel(t("更多操作"))
                 .opacity(hovering || selected ? 1 : 0)
             }
-            if showsChoice { TranslationChoice(article: article, store: store) }
-            StatusChip(article: article)
+            // Fixed columns, so the folder, the tag and the status line up from row to row.
+            let column: CGFloat = I18n.english ? 136 : 88
+            if showsChoice {
+                TranslationChoice(article: article, store: store).frame(minWidth: column, alignment: .trailing)
+            } else {
+                Color.clear.frame(width: column, height: 1)
+            }
+            StatusChip(article: article).frame(minWidth: I18n.english ? 100 : 72, alignment: .trailing)
         }
         .padding(.vertical, 8).padding(.horizontal, 4)
         .contentShape(Rectangle())
@@ -148,12 +155,12 @@ struct ArticleActions: View {
             Divider()
             Button(t("先试译 3 段")) { Task { await store.preview(single.id) } }
                 .disabled(store.translation.running || single.phase == .working || single.status == "排队中")
-                .help(t("只翻译 3 段正文，在访达里打开给你检查；不发送"))
+                .help(t("只译 3 段给你看，不发送"))
         }
         if let single, store.translatable(single), single.bilingual == true || store.mode(of: single) != .original {
             Button(t("重新翻译…")) { store.confirmRetranslate = single.id }
                 .disabled(single.phase == .working || single.status == "排队中" || store.active.contains(single.id))
-                .help(t("丢弃这本书已有的译文和进度，从头翻译"))
+                .help(t("丢掉已有译文，从头翻译"))
         }
         Divider()
         if items.contains(where: { $0.status == "排队中" }) {

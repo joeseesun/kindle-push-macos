@@ -73,7 +73,7 @@ private struct ConnectionPopover: View {
                         .disabled(store.manualHost.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
                 .disabled(store.searching)
-                Text(t("IP 在 KOReader › 网络 › 网络信息 里。换 Wi‑Fi 后先试重新寻找；访客网络会隔离设备。"))
+                Text(t("IP 在 KOReader › 网络 › 网络信息。访客网络连不上。"))
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 if !store.setupNeeded {
                     Button { store.showConnection = false; store.showAddKindle = true } label: {
@@ -110,7 +110,7 @@ struct ReceiverNotice: View {
             VStack(alignment: .leading, spacing: 8) {
                 Label(old.count == 1 ? t("「\(first.name)」的接收端是旧版") : t("\(old.count) 台 Kindle 的接收端是旧版"), systemImage: "arrow.up.circle")
                     .font(.callout.weight(.semibold))
-                Text(t("EPUB、Word、TXT 照常能发，PDF 会转成图片版。MOBI、DjVu、漫画要升级后才能发。升级要插一次 USB，配对和书都不受影响。"))
+                Text(t("EPUB、Word、TXT 照常能发，PDF 会转成图片。要发 MOBI、DjVu、漫画，得插一次 USB 升级。"))
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 ForEach(old) { device in
                     Button { store.startUpgrade(device) } label: {
@@ -136,7 +136,7 @@ struct DeviceList: View {
     private var caption: String {
         if store.busy { return t("正在发的书不受影响，改动从下一本开始。") }
         let count = store.targets.count
-        return count > 0 ? t("每本书都会发给这 \(count) 台；不在线的那台，之后可以单独补发。") : t("可以勾选多台，一本书会发给每一台。")
+        return count > 0 ? t("每本书都会发给这 \(count) 台。不在线的，之后可以补发。") : t("可以勾选多台，一本书会发给每一台。")
     }
 
     var body: some View {
@@ -172,7 +172,7 @@ struct DeviceList: View {
                 if let device = forgetting { Task { await store.forget(device) } }
             }
         } message: {
-            Text(t("这台 Kindle 上的书不受影响。以后要再发给它，需要重新配对。"))
+            Text(t("这台 Kindle 上的书不会删。以后要再发给它，得重新配对。"))
         }
     }
 }

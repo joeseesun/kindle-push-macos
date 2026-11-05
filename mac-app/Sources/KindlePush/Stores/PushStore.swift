@@ -261,7 +261,7 @@ final class PushStore: ObservableObject {
             } else { articles.append(Article(path: path)) }
         }
         Task { await loadBookInfo() }
-        if rejected > 0 { notice = "已略过 \(rejected) 个不支持的文件。支持 KOReader 能打开的电子书、漫画、文档，以及 Markdown。"; isError = true }
+        if rejected > 0 { notice = "有 \(rejected) 个文件不支持，已跳过。支持 KOReader 能打开的电子书、漫画、文档和 Markdown。"; isError = true }
         else if isError { dismissNotice() }
         save()
     }
@@ -955,7 +955,7 @@ final class PushStore: ObservableObject {
         translation.reset(total: 1); stopRequested = false; dismissNotice()
         if let output = await translate(index: index, preview: true, mode: mode, target: goal(of: first)) {
             NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: output)])
-            announce("试译样本已在访达中打开，没有发送到 Kindle。满意后再翻译整本。", error: false)
+            announce("试译已在访达里打开，没有发到 Kindle。满意了再译整本。", error: false)
         } else if let failed = articles.first(where: { $0.id == first.id }) {
             notice = failed.details; isError = !stopRequested
         }

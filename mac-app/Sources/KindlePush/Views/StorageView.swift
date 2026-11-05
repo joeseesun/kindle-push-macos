@@ -19,9 +19,9 @@ struct StorageView: View {
         }
         var note: String {
             switch self {
-            case .jobs: t("只清已译完的书，生成的译本不动，没译完的进度也不动。之后如果删了译本再翻译，要重新计费。")
+            case .jobs: t("只清已译完的书，译本不会删。")
             case .covers: t("列表里还在用的封面会留下。")
-            case .runtime: t("翻译前要在翻译服务里重新安装，需要联网。设置和 Key 都保留。")
+            case .runtime: t("下次翻译前要重新安装（需联网）。设置和 Key 都会保留。")
             }
         }
         var action: String {
@@ -35,7 +35,7 @@ struct StorageView: View {
     var body: some View {
         Form {
             Section {
-                row(t("已转换的书"), usage?.outputBytes, t("译本和转换好的文件，都是你的，不会自动删")) {
+                row(t("已转换的书"), usage?.outputBytes, t("译本和转换好的文件，不会自动删")) {
                     Button(t("在访达中显示")) { store.revealOutput() }
                 }
                 row(t("翻译工作文件"), usage?.jobsBytes, jobsNote) {
@@ -44,7 +44,7 @@ struct StorageView: View {
                 row(t("封面缓存"), usage?.coversBytes, t("列表里显示的封面")) {
                     Button(t("清理…")) { asking = .covers }.disabled((usage?.coversBytes ?? 0) == 0)
                 }
-                row(t("翻译组件"), usage?.runtimeBytes, usage?.running == true ? t("还有书在翻译，译完才能卸载") : t("翻译时用的引擎，可以随时重新安装")) {
+                row(t("翻译组件"), usage?.runtimeBytes, usage?.running == true ? t("还有书在翻译，译完才能卸载") : t("翻译要用到，删了可以再装")) {
                     Button(t("卸载…")) { asking = .runtime }.disabled((usage?.runtimeBytes ?? 0) == 0 || usage?.running == true)
                 }
             } footer: {

@@ -20,7 +20,7 @@ struct RenameSheet: View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 6) {
                 Text(t("整理文件名")).font(.title2.weight(.semibold))
-                Text(t("去掉 z-library 等来源标记、杂乱分隔符和版本年份后缀。只改文件名，书的内容不变。"))
+                Text(t("去掉 z-library 这类来源标记、多余符号和版本后缀。只改文件名，不改内容。"))
                     .font(.callout).foregroundStyle(.secondary)
             }
             .padding(.bottom, 16)
@@ -51,7 +51,7 @@ struct RenameSheet: View {
             .overlay { if loading { ProgressView().controlSize(.small) } }
 
             HStack(spacing: 10) {
-                Text(t("根据书里的书名和文件名推断，难免出错，确认后再重命名。"))
+                Text(t("名字是推断出来的，可能有错，看一眼再改。"))
                     .font(.caption).foregroundStyle(.tertiary)
                 Spacer()
                 Button(t("取消")) { dismiss() }.keyboardShortcut(.cancelAction)

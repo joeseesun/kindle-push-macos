@@ -71,7 +71,7 @@ struct ContentView: View {
                 if let id = store.confirmRetranslate { Task { await store.retranslate(id) } }
             }
         } message: {
-            Text(t("已有的译文和进度会丢弃，整本从头翻译，会再次用掉模型额度。原书不变。只是出错想接着翻，用「重试」就好，已译好的部分不重复计费。"))
+            Text(t("已有的译文会丢掉，整本重新翻译，要再付一次费用。只是出错想接着译，点「重试」就行。"))
         }
         .sheet(isPresented: $store.showAddKindle, onDismiss: { store.upgrading = nil }) { AddKindleSheet(store: store) }
         .task { await store.start() }
@@ -141,7 +141,7 @@ private struct TranslationPrompt: View {
         .fixedSize(horizontal: false, vertical: true)
         .padding(.horizontal, 12).padding(.vertical, 9)
         .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .help(t("每本书行尾的标签可以单独改。想以后不再问，在翻译设置 › 语言里选「外文书默认」"))
+        .help(t("每本书行尾的标签可以单独改。不想每次都问，去设置 › 语言选「外文书默认」"))
     }
 }
 
@@ -154,7 +154,7 @@ private struct AddMoreRow: View {
                 .frame(width: 40)
             VStack(alignment: .leading, spacing: 2) {
                 Text(t("拖入更多文章或电子书")).font(.callout.weight(.medium))
-                Text(t("拖到窗口任意位置，或用右上角 ＋（⌘O）。右键一本书可打开、在访达中显示或放回待发送。"))
+                Text(t("拖到窗口任意位置，或点右上角的 ＋（⌘O）。"))
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 8)
@@ -198,7 +198,7 @@ private struct EmptyStateView: View {
                 .font(.system(size: 26, weight: .semibold, design: .serif))
                 .padding(.top, 26)
                 .contentTransition(.opacity)
-            Text(t("拖入文章或电子书：翻译成任意语言，保存到本机，或经 Wi‑Fi 送到 Kindle。"))
+            Text(t("拖进文章或电子书：可以翻译、存到本机，或经 Wi‑Fi 发到 Kindle。"))
                 .font(.callout).foregroundStyle(.secondary).padding(.top, 8)
             Text("EPUB · PDF · MOBI · AZW3 · FB2 · DjVu · CBZ · TXT · Word · HTML · Markdown")
                 .help(t("KOReader 能打开的格式都支持：EPUB、PDF、XPS、DjVu、CBZ/CBR/CBT、MOBI/AZW/AZW3/PRC/PDB、FB2/FB3、CHM、DOC/DOCX/ODT/RTF、TXT、HTML、Markdown、图片"))
