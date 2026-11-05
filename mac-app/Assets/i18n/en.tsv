@@ -1,0 +1,649 @@
+未完成：{}	Not finished: {}
+EPUB 结构或内容校验失败：{}	This EPUB failed its structure check: {}
+EPUB、Word、TXT 照常能发，PDF 会转成图片版。MOBI、DjVu、漫画要升级后才能发。升级要插一次 USB，配对和书都不受影响。	EPUB, Word and TXT send as usual, and PDF is sent as page images. MOBI, DjVu and comics need the upgrade, which takes one USB connection. Pairing and books are not affected.
+Codex 命令行	Codex CLI
+Codex 用的是 API Key，不是 ChatGPT 账号。	Codex is using an API key, not a ChatGPT account.
+ED25519 主机指纹：{}	ED25519 host fingerprint: {}
+Hari Seldon -> 哈里·谢顿\nPsychohistory -> 心理史学\n# 以 # 开头的行是备注	Hari Seldon -> 哈里·谢顿\nPsychohistory -> 心理史学\n# Lines starting with # are notes
+IP 在 KOReader › 网络 › 网络信息 里。换 Wi‑Fi 后先试重新寻找；访客网络会隔离设备。	The IP is in KOReader › Network › Network info. After changing Wi‑Fi, try Search Again first. Guest networks keep devices apart.
+KOReader 能打开的格式都支持：EPUB、PDF、XPS、DjVu、CBZ/CBR/CBT、MOBI/AZW/AZW3/PRC/PDB、FB2/FB3、CHM、DOC/DOCX/ODT/RTF、TXT、HTML、Markdown、图片	Every format KOReader opens: EPUB, PDF, XPS, DjVu, CBZ/CBR/CBT, MOBI/AZW/AZW3/PRC/PDB, FB2/FB3, CHM, DOC/DOCX/ODT/RTF, TXT, HTML, Markdown and images
+Kindle IP，例如 192.168.1.42	Kindle IP, e.g. 192.168.1.42
+Kindle › 我的文章 › 	Kindle › 我的文章 › 
+Kindle → 文件浏览器 → documents → 我的文章	Kindle → File browser → documents → 我的文章
+Kindle 上的接收端是旧版，只收 EPUB。发送 {} 需要用 USB 连接 Kindle，在「添加 Kindle」里点一次「写入」；EPUB、Markdown、TXT、Word 等不受影响。	The receiver on this Kindle is an old version that only takes EPUB. To send {}, connect the Kindle by USB and press Write once in Add Kindle. EPUB, Markdown, TXT and Word are not affected.
+Kindle 尚未连接	Kindle not connected
+Kindle 已连接	Kindle connected
+Kindle 接收服务没有正常响应，请重新打开 KOReader。	The Kindle's receiver did not answer properly. Reopen KOReader.
+Kindle 接收端是旧版，只收 EPUB：已把 PDF 逐页转成图片版 EPUB 发送。	The Kindle's receiver is an old version that only takes EPUB, so the PDF was sent as an EPUB of page images.
+Kindle 暂时没有响应。请确认它没有休眠、KOReader 仍在前台，然后重试。	The Kindle is not responding. Make sure it is awake with KOReader open, then try again.
+Kindle 没有确认接收。	The Kindle did not confirm it received the file.
+USB 接收配置已写入。备份：{}	Receiver written over USB. Backup: {}
+USB 首次配置尚未完成。	First-time USB setup is not finished.
+{} · {} 台不在线	{} · {} offline
+{} 万	{}0k
+{} 个文件已保存到本机，已在访达中选中	{} file(s) saved to this Mac and selected in Finder
+{} 个文件没能重命名（可能已被移动或没有权限）：{}	{} file(s) could not be renamed (moved, or no permission): {}
+{} 分钟	{} min
+{} 台 Kindle	{} Kindles
+{} 台 Kindle 的接收端是旧版	{} Kindles have an old receiver
+{} 小时	{} h
+{} 已连接	{} connected
+{} 授权没有完成，请重试。	{} sign-in was not completed. Try again.
+{} 是固定版式，暂时不能翻译。可以直接发送。	{} is a fixed layout and can't be translated yet. You can send it as it is.
+{} 本	{} book(s)
+{} 本原文	{} original(s)
+{} 本原文 · 本机排版，经 Wi‑Fi 直传，不经过云端	{} original(s) · Laid out on this Mac and sent directly over Wi‑Fi, with no cloud
+{} 本已放回待发送，点「发送到 Kindle」即可。	{} book(s) put back in the queue. Press Send to Kindle when ready.
+{} 本已译完的书留下的中间文件	Working files from {} translated book(s)
+{} 本翻译{}	{} to translate{}
+{} 本要翻译的书没有开始：还没安装翻译组件。	{} book(s) to translate did not start: the translation engine isn't installed.
+{} 本要翻译，还没安装翻译组件	{} to translate, but the translation engine isn't installed
+{} 没有返回 Key，请重新授权。	{} did not return a key. Sign in again.
+{} 篇已送达 · 在 KOReader 打开 documents › 我的文章	{} delivered · In KOReader, open documents › 我的文章
+{} 篇待发送	{} waiting
+{} 篇未完成，可以重试	{} not finished, you can retry
+{}·繁体	{} (Traditional)
+{}·试译3段	{} (3-paragraph sample)
+{}版已生成。	{} version ready.
+© {} 向阳乔木 · MIT 许可 · 基于 chasepal/kindle-push-macos\n第三方许可见 THIRD_PARTY_NOTICES.md	© {} 向阳乔木 · MIT · Based on chasepal/kindle-push-macos\nLicenses: THIRD_PARTY_NOTICES.md
+·繁体	 (Traditional)
+《{}》的译本已生成。	The translation of “{}” is ready.
+《{}》翻译完成。点「发送到 Kindle」会直接用这份译本。	“{}” is translated. Send to Kindle will use this translation.
+「{}」不在这个 Wi-Fi 里	“{}” is not on this Wi-Fi
+「{}」不在这个 Wi-Fi 里，已改为发到「{}」	“{}” is not on this Wi-Fi, so this goes to “{}” instead
+「{}」没有发成	Could not send to “{}”
+「{}」的接收端是旧版	“{}” has an old receiver
+一个 Key 用所有模型	One key for every model
+不再发到这台	Stop sending to this one
+不在线 · 上次 {}	Offline · Last at {}
+不在这个 Wi‑Fi	Not on this Wi‑Fi
+不增删信息，保留原文层次与语气，适合非虚构、历史、传记。	Adds and drops nothing, and keeps the original's structure and tone. Good for non-fiction, history and biography.
+不支持的目标语言。	This target language isn't supported.
+不是有效的 DjVu 文件：{}	Not a valid DjVu file: {}
+不是有效的 EPUB 文件：{}	Not a valid EPUB file: {}
+不是有效的 MOBI/AZW 文件：{}	Not a valid MOBI/AZW file: {}
+不是有效的 PDF 文件：{}	Not a valid PDF file: {}
+不是有效的压缩包：{}	Not a valid archive: {}
+不用，发原文	No, send the original
+丢弃这本书已有的译文和进度，从头翻译	Discard this book's translation and progress, and start over
+中	Chinese
+中{}对照	Chinese / {}
+中文	Chinese
+中英对照	Chinese / English
+中英对照引擎	Bilingual translation engine
+中转平台	Gateways
+乌	Ukrainian
+乌克兰文	Ukrainian
+乔木 Kindle 助手	Qiaomu Kindle Assistant
+乔木 Kindle 助手首次配置	Qiaomu Kindle Assistant setup
+乔木 Kindle 助手：两台设备连接同一 Wi-Fi，Kindle 打开 KOReader。	Qiaomu Kindle Assistant: put both devices on the same Wi-Fi and open KOReader on the Kindle.
+乔木推荐	Qiaomu's pick
+也发到这台	Send to this one too
+书会发给 {}	Books go to {}
+书名提取方式	How to extract the title
+书籍	Book
+书籍正文会发给{}{}，按用量计费。API Key 存在 macOS 钥匙串里，换服务要填对应的 Key。	The book's text is sent to{}{} and billed by usage. The API key stays in the macOS Keychain. A different service needs its own key.
+云端服务必须使用 HTTPS；本机服务可以使用 HTTP。	Cloud services must use HTTPS. Local ones can use HTTP.
+仅	Only
+仅{}	{} only
+仅译文	Translation only
+从列表移除（不删除文件）	Remove from list (keeps the file)
+从列表选择	Choose from list
+从历史中删除	Delete from history
+任何兼容 OpenAI 接口的地址	Any OpenAI-compatible address
+任务副本校验失败，原书未修改。	The job's copy failed its check. The original book was not changed.
+会写入接收脚本和本机公钥，原文件先备份	Writes the receiver and this Mac's public key, after backing up the originals
+会打开浏览器登录，Plus、Pro、Business 套餐都可以	Opens a browser to sign in. Plus, Pro and Business plans all work
+传输校验未通过，请重试。	The transfer failed verification. Try again.
+使用说明	Help
+例如 192.168.1.43	e.g. 192.168.1.43
+俄	Russian
+俄文	Russian
+保存	Save
+保存到本机	Save to Mac
+保存到本机（要翻译的书先翻译），完成后在访达中选中；不需要连接 Kindle（⌥⌘↩）	Save to this Mac, translating first where chosen, then select in Finder. No Kindle needed (⌥⌘↩)
+保守清理	Light cleanup
+保留副标题，只去掉来源标记、多余符号和版本后缀。	Keeps the subtitle. Removes only source tags, stray symbols and edition suffixes.
+信任并保存该设备身份？输入 yes 继续：	Trust and save this device's identity? Type yes to continue: 
+偏好翻译语言	Preferred language
+停止发送	Stop Sending
+停止正在翻译的书；已完成的进度保留，排队的书回到待发送（⌘.）	Stop the book being translated. Progress is kept and queued books go back to waiting (⌘.)
+停止翻译	Stop Translating
+先试译 3 段	Try 3 Paragraphs First
+全部	All
+全部已送达	All delivered
+共 {} 个模型	{} models
+关于	About
+关于 乔木 Kindle 助手	About Qiaomu Kindle Assistant
+关注公众号	Follow on WeChat
+关闭	Close
+其他	Other
+再发	Send Again
+再发一次	Send Again
+再发一次这本书	Send this book again
+写入	Write
+列表里显示的封面	Covers shown in the list
+列表里还在用的封面会留下。	Covers still in use in the list are kept.
+加上作者	Add author
+加入正在进行的队列（⌘↩）	Add to the running queue (⌘↩)
+加入队列	Add to Queue
+升级	Upgrade
+升级「{}」…	Upgrade “{}”…
+升级「{}」的接收端	Upgrade the receiver on “{}”
+升级后才能发 MOBI、DjVu、漫画等格式。接收端在 Kindle 上受保护，只能通过 USB 更新。不用重新配对，书也不受影响。	MOBI, DjVu, comics and other formats need the upgrade. The receiver is protected on the Kindle and can only be updated over USB. No re-pairing needed, and books are not affected.
+升级成功，MOBI、DjVu、漫画现在都能发了	Upgraded. MOBI, DjVu and comics can now be sent
+博客	Blog
+印地	Hindi
+印地文	Hindi
+印尼	Indonesian
+印尼文	Indonesian
+卸载	Uninstall
+卸载…	Uninstall…
+卸载翻译组件？	Uninstall the translation engine?
+原文	Original
+原文件已不在	Original file is gone
+原文件已经不在了。	The original file is gone.
+原文件已经不在了，无法再发。	The original file is gone, so it can't be sent again.
+原文和译文逐段对照	Original and translation, paragraph by paragraph
+原文直接发送，要翻译的书译完自动发送（⌘↩）	Originals send now. Books to translate send when done (⌘↩)
+原文，不翻译	Original, no translation
+去掉 z-library 等来源标记、杂乱分隔符和版本年份后缀。只改文件名，书的内容不变。	Removes source tags such as z-library, stray separators and edition years. Only the file name changes, not the book.
+去设置	Settings
+双语对照	Side by side
+反馈问题	Feedback
+发到 Kindle 的书会记在这里。清除列表后，也能从这里找回再发。	Books sent to a Kindle are listed here. After clearing the list, you can still find and resend them here.
+发原文	Send original
+发送 {} / {}	Sending {} / {}
+发送中	Sending
+发送到	Send to
+发送到 Kindle	Send to Kindle
+发送到 {} 台 Kindle	Send to {} Kindles
+发送历史	Send History
+发送历史…	Send History…
+发送历史：找回发过的书，再发一次	Send history: find a book you sent and send it again
+发送原文。点开可以翻译成任意语言	Sends the original. Click to translate into any language
+发送失败	Send failed
+取消	Cancel
+取消发送译本	Cancel Sending
+取消这本	Cancel This One
+取消配对	Unpair
+取消配对…	Unpair…
+取消配对「{}」？	Unpair “{}”?
+只保留译文	Keep only the translation
+只删除这里的记录，Kindle 和本机上的书都不受影响。	Only deletes the records here. Books on the Kindle and this Mac are not affected.
+只清已译完的书，生成的译本不动，没译完的进度也不动。之后如果删了译本再翻译，要重新计费。	Clears only books already translated. Translations and unfinished progress stay. If you later delete a translation and translate again, it costs usage again.
+只留主书名：去掉副标题，以及书名后括号里的作者、出版社等说明。	Main title only: removes the subtitle and any author or publisher in brackets after it.
+只翻译 3 段正文，在访达里打开给你检查；不发送	Translates just 3 paragraphs and shows them in Finder to check. Nothing is sent
+可以勾选多台，一本书会发给每一台。	Tick several, and each book goes to every one.
+可以回到 乔木 Kindle 助手了。	You can go back to Qiaomu Kindle Assistant.
+同名文件太多：{}	Too many files with this name: {}
+同时翻译	Parallel requests
+同时翻译数应为 1–{}。	Parallel requests must be 1–{}.
+名字	Name
+名字不能为空。	The name can't be empty.
+土	Turkish
+土耳其文	Turkish
+在 KOReader 里选「退出」回到原生书库，再用数据线连接 Mac。Kindle 显示「USB 驱动器模式」后，它会出现在这里。	In KOReader choose Exit to return to the Kindle library, then connect to the Mac with a cable. It appears here once the Kindle shows USB drive mode.
+在 Wi‑Fi 里配对	Pair over Wi‑Fi
+在「我的文章」阅读	Read in 我的文章
+在线 · {}	Online · {}
+在线 · 接收端旧版	Online · Old receiver
+在访达中显示	Show in Finder
+在访达中显示{}	Show {} in Finder
+在访达中显示{}（双击行用默认程序打开）	Show {} in Finder (double-click the row to open)
+在访达中显示原文件	Show Original in Finder
+在访达中显示（双击行用默认程序打开）	Show in Finder (double-click the row to open)
+地道流畅、避免翻译腔，适合大多数书。	Natural and fluent, not stiff. Good for most books.
+基于开源 bilingual_book_maker，首次安装需要几分钟	Built on the open-source bilingual_book_maker. First install takes a few minutes
+填好 API Key 后按回车，会自动读取可用模型。	Enter the API key and press Return to load the available models.
+外文	Foreign
+外文书默认	Foreign books
+失败	Failed
+如连接失败：确认 Kindle 打开 KOReader、Wi-Fi 已开启，IP 地址正确。	If it fails to connect, check that KOReader is open, Wi-Fi is on and the IP is right.
+存储	Storage
+它的接收端还是旧版。请确认刚才写入的是这台 Kindle，并已推出。	Its receiver is still the old version. Check that you wrote to this Kindle and ejected it.
+安装	Install
+安装未完成，请重试。	Install didn't finish. Try again.
+完成	Done
+寻找新的 Kindle	Find a New Kindle
+封面缓存	Cover cache
+已保存	Saved
+已保存到本机	Saved to Mac
+已保存到本机 · 可在访达中查看	Saved to this Mac · Available in Finder
+已保存，留空则不变	Saved. Leave empty to keep it
+已停止	Stopped
+已停止。已完成的翻译保留，未开始的书回到待发送	Stopped. Finished translations are kept and books not started go back to waiting
+已停止发送。没发的书回到待发送，再点「发送到 Kindle」接着发	Stopped sending. Unsent books go back to waiting. Press Send to Kindle to continue
+已写入。推出后拔线，进行第 2 步	Written. Eject, unplug and go to step 2
+已切换到「{}」，但它现在不在这个 Wi-Fi 里。请在这台 Kindle 上打开 KOReader，再点“重新寻找”。	Switched to “{}”, but it isn't on this Wi-Fi. Open KOReader on that Kindle, then press Search Again.
+已发到 {}；	Sent to {}; 
+已发到 {}；{}	Sent to {}; {}
+已发到 {}；{}。重试只发给没收到的	Sent to {}; {}. Retry sends only to those that didn't get it
+已发送	Sent
+已发送并校验	Sent and verified
+已发送并校验：{}	Sent and verified: {}
+已取消	Cancelled
+已取消发送	Send cancelled
+已取消，未保存设备身份。	Cancelled. The device identity was not saved.
+已就绪	Ready
+已拿到 {} 的 Key，点保存后生效。	Got the key from {}. Press Save to use it.
+已放回待发送，点「发送到 Kindle」即可。	Back in the queue. Press Send to Kindle when ready.
+已有的译文和进度会丢弃，整本从头翻译，会再次用掉模型额度。原书不变。只是出错想接着翻，用「重试」就好，已译好的部分不重复计费。	The translation and progress are discarded and the whole book is translated again, using model credit again. The original is not changed. To carry on after an error, use Retry, which doesn't charge again for what's done.
+已生成 3 段试译，整本翻译会单独处理。	A 3-paragraph sample is ready. The whole book is translated separately.
+已略过 {} 个不支持的文件。支持 KOReader 能打开的电子书、漫画、文档，以及 Markdown。	Skipped {} unsupported file(s). Ebooks, comics and documents KOReader opens are supported, and Markdown.
+已登录，但暂时读不到模型列表，可以手动填写模型。	Signed in, but the model list can't be read right now. You can type a model.
+已移出队列	Taken out of the queue
+已移除 {} 本	Removed {} books
+已移除《{}》	Removed “{}”
+已经很干净	Already clean
+已读回 Kindle 上的文件，校验一致	Read back from the Kindle and verified
+已读回文件，校验一致	Read back and verified
+已转换的书	Converted books
+已转换：{}	Converted: {}
+已连接 {}	Connected to {}
+已连接 · {}	Connected · {}
+已送达	Delivered
+已送达 {} · 校验一致	Delivered to {} · Verified
+已配对「{}」，书会发到它	Paired “{}”. Books will go to it
+已配对：{}。新设备会加入列表，原有配对不受影响。	Paired: {}. New devices join the list and existing pairings stay.
+已配对：{}（{}）。可以在应用里改名，或切换发送到哪台 Kindle。	Paired: {} ({}). You can rename it or choose which Kindle books go to in the app.
+已重命名 {} 个文件。	Renamed {} file(s).
+应用不完整，请重新下载安装。从源码构建需要 Homebrew Python 和 Pandoc，参见项目安装文档。	The app is incomplete. Download it again. Building from source needs Homebrew Python and Pandoc; see the install docs.
+应用组件不完整，请重新安装。	The app's components are incomplete. Reinstall it.
+待发送	Waiting
+待发送 {} · 已送达 {}	{} waiting · {} delivered
+微信扫码，支持持续更新	Scan in WeChat to support updates
+微信搜索「向阳乔木推荐看」	Search “向阳乔木推荐看” in WeChat
+德	German
+德文	German
+忠实准确	Faithful
+意	Italian
+意大利文	Italian
+我的 Kindle	My Kindle
+手动填写	Type manually
+手动连接	Connect manually
+打开	Open
+打开 KOReader，并连接同一个 Wi‑Fi	Open KOReader and join the same Wi‑Fi
+打开翻译设置	Open Translation Settings
+找不到这个文件，可能已被移动或删除。重新拖入即可。	Can't find this file. It may have been moved or deleted. Drag it in again.
+找到了 KOReader，但还没写入接收配置：先用 USB 连接这台 Kindle。	Found KOReader, but the receiver isn't written yet. Connect this Kindle by USB first.
+技术学术	Technical
+把 {} 本已送达的书移出列表，不删除文件；发送历史里还能找到	Remove {} delivered book(s) from the list. Files stay, and they remain in Send History
+把文章和电子书经 Wi‑Fi 送到 Kindle，可选中英对照翻译。	Sends articles and ebooks to your Kindle over Wi‑Fi, with optional bilingual translation.
+把文章或电子书拖进这个窗口，然后按回车：	Drag an article or ebook into this window, then press Return:
+把文章留给慢读	Save articles for slow reading
+拔线后在 Kindle 上打开 KOReader，连到和这台 Mac 相同的 Wi‑Fi。	Unplug, open KOReader on the Kindle and join the same Wi‑Fi as this Mac.
+拔线后在 Kindle 上打开 KOReader，连到和这台 Mac 相同的 Wi‑Fi，再点检查。	Unplug, open KOReader on the Kindle, join the same Wi‑Fi as this Mac, then press Check.
+拔线，确认升级成功	Unplug and confirm the upgrade
+拖入文章	Add Articles
+拖入文章或电子书：翻译成任意语言，保存到本机，或经 Wi‑Fi 送到 Kindle。	Drop in articles or ebooks to translate into any language, save to this Mac, or send to your Kindle over Wi‑Fi.
+拖入时直接标为「{}」；每本书行尾的标签仍可单独修改。	Marked “{}” when added. The tag at the end of each row can still change it.
+拖入更多文章或电子书	Add more articles or ebooks
+拖入的书会在本机识别语言。不是{}的书会问你要不要翻译成{}；每本书行尾的标签都能改成任意语言，这里只是偏好。	Each book's language is detected on this Mac. Books not in {} ask whether to translate into {}. The tag at the end of each row can pick any language; this is only a preference.
+拖到窗口任意位置，或用右上角 ＋（⌘O）。右键一本书可打开、在访达中显示或放回待发送。	Drop anywhere in the window, or use ＋ at the top right (⌘O). Right-click a book to open it, show it in Finder or put it back in the queue.
+拷贝	Copy
+换个关键词试试。	Try another search.
+授权完成	Signed in
+授权没有完成	Sign-in not completed
+授权没有完成。	Sign-in was not completed.
+授权超时，请重试。	Sign-in timed out. Try again.
+排队中	Queued
+接收端可以升级	Receiver can be upgraded
+接收端可以升级：{}	Receiver can be upgraded: {}
+接收端是旧版。点升级写入新版，原文件先备份	The receiver is old. Upgrade writes the new one, after backing up the originals
+接收端未正常响应。	The receiver did not answer properly.
+接收端未配置好。	The receiver isn't set up.
+接着处理这本书：已经译好的部分不会重新翻译，只补没完成的	Carry on with this book. What's translated isn't redone, only what's left
+推出	Eject
+推荐	Recommended
+搜索书名、作者或设备	Search titles, authors or devices
+撤销	Undo
+改动立即生效。	Changes apply at once.
+改风格后会重新翻译，原有进度不会被覆盖。	Changing the style translates again. Existing progress isn't overwritten.
+放回待发送	Put Back in Queue
+放回待发送列表	Put back in the queue
+整理 {} 个文件名	Tidy {} file names
+整理文件名	Tidy File Names
+整理文件名…	Tidy File Names…
+整理文件名：去掉来源标记、杂乱分隔符和版本后缀，预览后再改名	Tidy file names: removes source tags, stray separators and edition suffixes, with a preview first
+整理选中的 {} 个文件名：去掉来源标记、杂乱分隔符和版本后缀，预览后再改名	Tidy {} selected file names: removes source tags, stray separators and edition suffixes, with a preview first
+文件不完整：{}	File is incomplete: {}
+文件名	File name
+文件超过 100 MB，请压缩后再发送。	This file is over 100 MB. Compress it before sending.
+文学润色	Literary
+文本是空的：{}	The text is empty: {}
+文章	Articles
+断开正在传的这本，Kindle 上不会留下半个文件；后面的书也不再发送	Drops the transfer in progress, leaving no partial file on the Kindle. Later books aren't sent either
+无效的翻译任务。	Invalid translation job.
+无法保存密钥，请解锁 macOS 钥匙串后重试。	Can't save the key. Unlock the macOS Keychain and try again.
+无法写入页面图片。	Can't write the page images.
+无法启动本机转换组件。请重新下载安装应用。	Can't start the converter on this Mac. Download the app again.
+无法在本机接收授权结果，请重试。	Can't receive the sign-in result on this Mac. Try again.
+无法打开这个 PDF。	Can't open this PDF.
+无法把这个 PDF 转成 Kindle 能收的格式。	Can't convert this PDF to a format the Kindle takes.
+无法识别 KOReader settings.reader.lua；未修改该文件。	Can't read KOReader's settings.reader.lua. The file was not changed.
+无法识别文本编码，请另存为 UTF-8 后再试。	Can't detect the text encoding. Save it as UTF-8 and try again.
+无法读取翻译 API Key，请在翻译设置中保存，或解锁 macOS 钥匙串。	Can't read the translation API key. Save it in Translation Settings, or unlock the macOS Keychain.
+无法读取配置。	Can't read the settings.
+日	Japanese
+日文	Japanese
+日本語	日本語
+智能精简	Smart trim
+智谱 GLM	Zhipu GLM
+暂不支持这种格式：{}	This format isn't supported yet: {}
+更地道有文采，保留人物口吻，减少翻译腔，适合小说、散文。	More idiomatic and literary, keeps characters' voices. Good for fiction and essays.
+更多操作	More Actions
+更多操作：打开、再次发送、从列表移除…	More actions: open, send again, remove from list…
+更多语言	More Languages
+更早	Earlier
+有 {} 本{}书，要翻译成{}吗？	{} {} book(s) here. Translate into {}?
+有书没有完成	Some books didn't finish
+服务	Service
+服务地址	Base URL
+服务地址不能包含密码、查询参数或片段。	The base URL can't include a password, query or fragment.
+未发现可用局域网。请先连接 Wi-Fi。	No usable local network found. Connect to Wi-Fi first.
+未发现可用局域网。请先连接 Wi-Fi，或在“手动连接”中输入 Kindle IP。	No usable local network found. Connect to Wi-Fi first, or enter the Kindle's IP under Connect Manually.
+未找到已配对的 Kindle。请确认两台设备在同一 Wi-Fi、Kindle 已打开 KOReader；访客网络可能隔离设备。也可以手动输入 IP。	No paired Kindle found. Make sure both are on the same Wi-Fi with KOReader open. Guest networks may keep devices apart. You can also enter the IP.
+未知操作。	Unknown operation.
+未知的清理项。	Unknown item to clear.
+未知的翻译服务。	Unknown translation service.
+未知的译文版本。	Unknown translation version.
+未知的译文风格。	Unknown translation style.
+未知翻译操作。	Unknown translation operation.
+未连接 Kindle	No Kindle Connected
+本机	On This Mac
+本机 :1234	Local :1234
+本机 › 	This Mac › 
+本机 › {}	This Mac › {}
+本机排版	Laid out on this Mac
+本机排版，经 Wi‑Fi 直传 Kindle。只有翻译时，正文才发给你设置的翻译服务。	Laid out on this Mac and sent directly to the Kindle over Wi‑Fi. Text goes to your translation service only when translating.
+本机模型，不联网	Local model, no internet
+术语准确统一，首次出现保留英文原词，代码和公式不动。	Consistent terms, keeping the original word at first use. Code and formulas stay as they are.
+术语表	Glossary
+术语表最多 500 行。	The glossary can have at most 500 lines.
+术语表每行写成「原文 -> 译名」：{}	Write each glossary line as “original -> translation”: {}
+松手，交给 Kindle	Drop to send to Kindle
+松手，加入发送列表	Drop to add to the list
+查找	Search
+查看已转换文件	Show Converted Files
+根据书里的书名和文件名推断，难免出错，确认后再重命名。	Worked out from the book's title and file name, so it can be wrong. Check before renaming.
+检查	Check
+检查更新	Updates
+检查更新…	Check for Updates…
+模型	Model
+模型 ID	Model ID
+模型厂商	Model vendors
+模型服务拒绝了 Key。到翻译设置检查或重新填写后重试，已译好的部分不重复计费。	The model service rejected the key. Check or re-enter it in Translation Settings and retry. What's translated isn't charged again.
+模型服务暂时出错了。等一会儿点重试，已译好的部分不重复计费。	The model service had a temporary error. Wait a little and retry. What's translated isn't charged again.
+模型跑在这台 Mac 上，正文不出本机。先在 {} 里下载并运行模型。	The model runs on this Mac, so the text stays here. Download and run a model in {} first.
+正在{}：{}	{}: {}
+正在传的这本照常传完并校验，排队的书回到待发送（⌘.）	The book in transfer finishes and is verified. Queued books go back to waiting (⌘.)
+正在停止，保留已完成进度…	Stopping, keeping progress…
+正在准备{}版…	Preparing the {} version…
+正在准备翻译…	Preparing translation…
+正在发到「{}」…	Sending to “{}”…
+正在发的书不受影响，改动从下一本开始。	Books in transfer aren't affected. Changes apply from the next one.
+正在发送 {}：{}	Sending {}: {}
+正在发送 {}：{} → {}	Sending {}: {} → {}
+正在发送 · {}%	Sending · {}%
+正在寻找…	Searching…
+正在寻找你的 Kindle…	Looking for your Kindle…
+正在当前 Wi‑Fi 中寻找已配对的 Kindle	Looking for paired Kindles on this Wi‑Fi
+正在整理书中的人名和术语…	Collecting names and terms from the book…
+正在校验…	Verifying…
+正在检查…	Checking…
+正在检查连接…	Checking connection…
+正在等待浏览器授权…	Waiting for browser sign-in…
+正在等待浏览器登录…	Waiting for browser sign-in…
+正在翻译	Translating
+正在翻译 · {}%	Translating · {}%
+正在翻译 · {}% · {}	Translating · {}% · {}
+正在翻译…	Translating…
+正在翻译或发送书	Translating or sending books
+正在翻译的书：《{}》{}。	Translating: “{}”{}.
+正在翻译，首次分析可能需要几分钟…	Translating. The first pass can take a few minutes…
+正在翻译：{}	Translating: {}
+正在试译：{}	Sampling: {}
+正在读取模型列表…	Loading models…
+正在转换 {}：{}	Converting {}: {}
+正在转换…	Converting…
+正在连接 Kindle…	Connecting to Kindle…
+正在下载并安装，首次可能需要几分钟…	Downloading and installing. The first time can take a few minutes…
+每本书行尾的标签可以单独改。想以后不再问，在翻译设置 › 语言里选「外文书默认」	The tag at the end of each row can change one book. To stop being asked, set Foreign Books in Translation Settings › Language
+每本书都会发给这 {} 台；不在线的那台，之后可以单独补发。	Each book goes to these {}. One that's offline can get it later.
+每本书都发给 {}。	Each book goes to {}.
+每次问我	Ask each time
+每行一条「原文 -> 译名」，优先于自动整理的译名。只有出现这些词的段落才会带上术语，不增加其他段落的费用。	One “original -> translation” per line, taking priority over names collected automatically. Only paragraphs with these words carry them, so others cost nothing extra.
+没找到 KOReader 的 SSH 组件，请先在 Kindle 上运行一次 KOReader	KOReader's SSH component wasn't found. Run KOReader on the Kindle once first
+没找到新的 Kindle。确认 KOReader 已打开、Wi‑Fi 相同；访客网络会隔离设备。也可以输入 Kindle 的 IP（KOReader › 网络 › 网络信息）：	No new Kindle found. Check KOReader is open on the same Wi‑Fi. Guest networks keep devices apart. You can also enter the Kindle's IP (KOReader › Network › Network info):
+没有写入。	Nothing was written.
+没有匹配的书	No matching books
+没有取消配对。	Not unpaired.
+没有可以清理的	Nothing to clear
+没有可发送的书	Nothing to send
+没有可整理的电子书文件名。笔记和文档保留原名。	No ebook file names to tidy. Notes and documents keep their names.
+没有在这个磁盘上找到 KOReader。请确认 Kindle 已用 USB 连接，并且运行过 KOReader。	KOReader wasn't found on this disk. Make sure the Kindle is connected by USB and has run KOReader.
+没有完成 ChatGPT 登录，请在浏览器里登录后重试。	ChatGPT sign-in wasn't completed. Sign in in the browser and try again.
+没有完成。	Not finished.
+没有找到 Kindle，请重试。	No Kindle found. Try again.
+没有找到已经运行过的 KOReader / Dropbear。请核对 Kindle 磁盘路径。	No KOReader / Dropbear that has run was found. Check the Kindle's disk path.
+没有收到 SSH 主机密钥。请确认 KOReader SSH 服务器已启动。	No SSH host key received. Make sure KOReader's SSH server has started.
+没有改名。	Not renamed.
+没有改成。	Couldn't change it.
+没有这台 Kindle 的配对记录。	No pairing record for this Kindle.
+没有连上 Kindle。请连接同一个 Wi-Fi，在 Kindle 打开 KOReader；然后点“自动寻找”。	Couldn't reach the Kindle. Join the same Wi-Fi, open KOReader on the Kindle, then press Search.
+没有配对。	Not paired.
+没能推出：{} 请在访达里推出。	Couldn't eject: {} Eject it in Finder.
+没能清理。	Couldn't clear it.
+没能重新翻译。	Couldn't translate again.
+法	French
+法文	French
+波	Polish
+波兰文	Polish
+泰	Thai
+泰文	Thai
+添加 Kindle	Add Kindle
+添加 Kindle…	Add Kindle…
+添加另一台 Kindle…	Add Another Kindle…
+添加文章	Add Articles
+添加文章…	Add Articles…
+添加文章或电子书（⌘O）	Add articles or ebooks (⌘O)
+清理	Clear
+清理…	Clear…
+清理封面缓存？	Clear the cover cache?
+清理翻译工作文件？	Clear translation working files?
+清空全部发送历史？	Clear all send history?
+清空历史	Clear History
+清空历史…	Clear History…
+清除	Clear
+清除列表不会清掉这里的记录	Clearing the list doesn't clear these records
+源代码	Source Code
+火山方舟	Volcano Ark
+版本	Version
+用 ChatGPT 套餐额度翻译，不按 API 计费，受套餐的 5 小时用量限制；一次翻译一章。书籍正文会发给 OpenAI。	Translates with your ChatGPT plan, not API billing, within the plan's 5-hour limit, one chapter at a time. The book's text goes to OpenAI.
+用 ChatGPT 套餐额度，不按 API 计费	Uses your ChatGPT plan, no API billing
+用 ChatGPT 登录	Sign In with ChatGPT
+用 ChatGPT 翻译需要先安装 Codex 命令行工具，并在翻译设置里登录。	Translating with ChatGPT needs the Codex CLI installed and signed in under Translation Settings.
+用 ChatGPT 账号翻译时一次只能翻一章。	A ChatGPT account translates one chapter at a time.
+用 ChatGPT 账号翻译要借助 OpenAI 的 Codex 命令行工具。在「终端」运行下面一行安装：	Translating with a ChatGPT account uses OpenAI's Codex CLI. Run this line in Terminal to install it:
+用 USB 写入接收配置	Write the Receiver over USB
+用 USB 升级…	Upgrade over USB…
+用了 {} token	Used {} tokens
+用账号登录	Sign in with an account
+登录{}，自动填入 Key	Sign in to {} to fill in the key
+登录超时，请重试。	Sign-in timed out. Try again.
+硅基流动	SiliconFlow
+移出队列	Remove from Queue
+等待发送	Waiting
+等待继续	Ready to Resume
+简体中文	简体中文
+管理 {}	Manage {}
+粘贴 API Key	Paste API Key
+繁	Traditional
+繁体中文	Traditional Chinese
+繁體中文	繁體中文
+约 {}	About {}
+约 {} token	about {} tokens
+线已经连上了。还差一步：在 Kindle 的 KOReader 里选「退出」回到原生书库。显示「USB 驱动器模式」后，它会出现在这里。	The cable is connected. One more step: in KOReader on the Kindle, choose Exit to return to the library. It appears here once USB drive mode shows.
+缺少已配对 Kindle 的身份记录，请恢复本机 KindlePush 配置。	The paired Kindle's identity record is missing. Restore this Mac's KindlePush settings.
+缺少本机组件：{}	A component is missing on this Mac: {}
+翻译 MOBI/AZW 需要 Calibre 来提取文字。安装 Calibre 后再试，或换成 EPUB。	Translating MOBI/AZW needs Calibre to extract the text. Install Calibre and try again, or use an EPUB.
+翻译 {} / {}	Translating {} / {}
+翻译中	Translating
+翻译前要在翻译服务里重新安装，需要联网。设置和 Key 都保留。	You'll need to reinstall it under Translation Service before translating, which needs internet. Settings and keys stay.
+翻译完成	Translated
+翻译完成，但没连上 Kindle：{}	Translated, but couldn't reach the Kindle: {}
+翻译工作文件	Translation working files
+翻译已中断。再次点击可从已保存的进度继续。	Translation was interrupted. Start again to continue from the saved progress.
+翻译已停止，再次开始会继续已保存的进度。	Translation stopped. Starting again continues from the saved progress.
+翻译成	Translate into
+翻译成{}后再发送或保存。点开可以换版本或语言	Translated into {} before sending or saving. Click to change the version or language
+翻译时用的引擎，可以随时重新安装	The engine used for translating, can be reinstalled any time
+翻译服务	Translation Service
+翻译未完成，请检查模型设置、余额和网络后重试；已完成的进度会保留。	Translation didn't finish. Check the model settings, balance and network, then retry. Progress is kept.
+翻译未完成，请检查翻译设置。	Translation didn't finish. Check Translation Settings.
+翻译没有完成	Translation didn't finish
+翻译组件	Translation engine
+翻译组件安装失败，请检查网络后重试。原有传书不受影响。	The translation engine failed to install. Check the network and retry. Sending books still works.
+翻译组件运行失败，请检查设置后继续。	The translation engine failed to run. Check the settings and continue.
+翻译设置	Translation Settings
+翻译设置（⌘,）	Translation Settings (⌘,)
+自动检查更新（每天一次，有新版时提示你）	Check for updates automatically (daily)
+自定义服务	Custom service
+自然流畅	Natural
+至少要选一台	At least one must stay selected
+至少要选一台 Kindle。	Select at least one Kindle.
+英	English
+英文	English
+荷	Dutch
+荷兰文	Dutch
+获取 API Key	Get an API Key
+葡	Portuguese
+葡萄牙文	Portuguese
+装好了，重新检测	Installed, Check Again
+西	Spanish
+西班牙文	Spanish
+要翻译的书正文发给翻译模型，按用量计费；译完自动发送。时间和用量按书的篇幅粗估	The text of books to translate goes to the model, billed by usage, and sends when done. Time and usage are rough estimates from the book's length
+要翻译的书用 ChatGPT 套餐额度翻译，译完自动发送	Books to translate use your ChatGPT plan and send when done
+设备指纹 {}…	Device fingerprint {}…
+设置保存失败。	Couldn't save settings.
+词元跳动	Tokenjump
+译文已保存，但拼回章节时找不到其中一段。点「重试」不会重新翻译；还不行就用「重新翻译」。	The translation is saved, but one part couldn't be found when rejoining the chapter. Retry won't translate again. If that fails, use Translate Again.
+译文风格	Style
+译本	translation
+译本和转换好的文件，都是你的，不会自动删	Translations and converted files. They're yours and are never deleted automatically
+译本已生成 · 点「发送到 Kindle」送到 Kindle	Translation ready · Press Send to Kindle
+译本已生成，正在准备发送。	Translation ready, preparing to send.
+试译3段	3-paragraph sample
+试译中	Sampling
+试译完成	Sample Ready
+试译完成，可先检查译文。	Sample ready. Check the translation first.
+试译样本已在访达中打开，没有发送到 Kindle。满意后再翻译整本。	The sample is open in Finder and wasn't sent to the Kindle. Translate the whole book when you're happy with it.
+语言	Language
+请先打开翻译设置，安装翻译组件。	Open Translation Settings and install the translation engine first.
+请先执行 usb-install。	Run usb-install first.
+请回到 乔木 Kindle 助手重试。	Go back to Qiaomu Kindle Assistant and try again.
+请在 Finder 安全弹出 Kindle，拔线；连接同一个 Wi-Fi，打开 KOReader。	Eject the Kindle in Finder and unplug it. Join the same Wi-Fi and open KOReader.
+请填写 HTTPS 服务地址，本机服务可使用 HTTP。	Enter an HTTPS base URL. Local services can use HTTP.
+请我喝杯咖啡	Buy Me a Coffee
+请指定至少一个文件：{}	Specify at least one file: {}
+请求太频繁，被模型服务限流了。到翻译设置调低并发数，稍后重试。	Too many requests, so the model service is rate limiting. Lower Parallel Requests in Translation Settings and retry later.
+请确认这个 IP 正是 Kindle 网络信息显示的地址，并在可信局域网操作。	Check this IP is the one in the Kindle's network info, and use a network you trust.
+请输入 Kindle 在同一 Wi-Fi 下的局域网 IPv4 地址。	Enter the Kindle's IPv4 address on the same Wi-Fi.
+请输入 Kindle 网络信息里的 IPv4 地址，例如 192.168.1.42。	Enter the IPv4 address from the Kindle's network info, e.g. 192.168.1.42.
+请输入同一 Wi-Fi 下 Kindle 的局域网 IPv4 地址。	Enter the Kindle's IPv4 address on the same Wi-Fi.
+请选择或填写模型。	Choose or type a model.
+读不到模型列表，可以手动填写。	Can't read the model list. You can type a model.
+读取模型列表失败（HTTP {}）{}。也可以手动填写模型。	Couldn't load the model list (HTTP {}){}. You can also type a model.
+豆包	Doubao
+账号	Account
+账户余额或额度用完了。充值后点重试，已译好的部分不重复计费。	The account is out of balance or quota. Top up and retry. What's translated isn't charged again.
+质量	Quality
+质量与速度	Quality & Speed
+越	Vietnamese
+越南文	Vietnamese
+路	parallel
+转换后的文件	converted file
+转换失败	Conversion failed
+转换需处理：{}	Conversion needs attention: {}
+输出：{}	Output: {}
+还剩约 {} 分钟	About {} min left
+还剩约 {} 小时	About {} h left
+还有书在翻译，等它结束后再卸载翻译组件。	A book is still translating. Uninstall the engine after it finishes.
+还有书在翻译，译完才能卸载	A book is translating. Uninstall after it finishes
+还没安装翻译组件。请先在翻译设置里安装，或把这些书改成「原文」。	The translation engine isn't installed. Install it in Translation Settings, or set these books to Original.
+还没安装翻译组件，请先在翻译设置里安装。	The translation engine isn't installed. Install it in Translation Settings first.
+还没完成首次配置。	First-time setup isn't finished.
+还没有写入过接收配置：先用 USB 连接 Kindle。	The receiver hasn't been written yet. Connect the Kindle by USB first.
+还没有发送记录	No sends yet
+还没有安装	Not installed yet
+还没有安装 Codex 命令行工具。	The Codex CLI isn't installed yet.
+还没有配对的 Kindle。	No Kindle paired yet.
+还没设置 Kindle IP。首次运行时输入 KOReader 网络信息里的 IP。	No Kindle IP set yet. Enter the IP from KOReader's network info at first run.
+还没连上这台 Kindle。确认 KOReader 已打开、Wi‑Fi 相同，再点检查。	Not connected to this Kindle yet. Check KOReader is open on the same Wi‑Fi, then press Check.
+这个 PDF 有密码保护。	This PDF is password protected.
+这个 PDF 没有页面。	This PDF has no pages.
+这个地址上的设备身份变了，没有配对。请重新寻找。	The device identity at this address changed, so it wasn't paired. Search again.
+这个地址的设备与已配对 Kindle 不一致。请核对 IP；应用没有发送文件。	The device at this address isn't the paired Kindle. Check the IP. Nothing was sent.
+这个服务	this service
+这个服务不支持登录授权，请粘贴 API Key。	This service doesn't support sign-in. Paste an API key.
+这个服务没有返回可用模型。也可以手动填写模型。	This service returned no usable models. You can also type a model.
+这个模型用不了。到翻译设置重新选一个模型后重试。	This model isn't available. Choose another in Translation Settings and retry.
+这台 Kindle 上的书不受影响。以后要再发给它，需要重新配对。	Books on this Kindle aren't affected. To send to it again, you'll need to pair again.
+这台 Kindle 已经写入过？直接做第 2 步。	Already written to this Kindle? Go straight to step 2.
+这台 Kindle 的名字，例如「卧室 Paperwhite」	A name for this Kindle, e.g. “Bedroom Paperwhite”
+这台 Mac 上的应用组件不完整，无法转换 PDF。	The app's components on this Mac are incomplete, so the PDF can't be converted.
+这本书带有 DRM 保护，KOReader 无法打开：{}	This book has DRM, which KOReader can't open: {}
+这本书正在翻译。先停止翻译，再重新翻译。	This book is translating. Stop it before translating again.
+这本书超过 100 MB，请先缩小图片。	This book is over 100 MB. Shrink its images first.
+这本发完就停	Stopping after this one
+连不上模型服务。检查网络或代理后重试，已译好的部分不重复计费。	Can't reach the model service. Check the network or proxy and retry. What's translated isn't charged again.
+连不上这个服务，读不到模型列表。也可以手动填写模型。	Can't reach this service to load the model list. You can also type a model.
+连接	Connect
+连接 Kindle	Connect Kindle
+连接或转换未完成。请检查 Kindle Wi-Fi 和 KOReader，然后重试。	Connecting or converting didn't finish. Check the Kindle's Wi-Fi and KOReader, then retry.
+连接设置	Connection
+连接设置…	Connection…
+退出登录	Sign Out
+适用于已越狱、运行过 KOReader 的 Kindle。每台只需做一次，之后换 Wi‑Fi 也不用重来。	For jailbroken Kindles that have run KOReader. Once per Kindle, and changing Wi‑Fi doesn't need a redo.
+选了默认处理方式后，拖入时直接标好，不再在列表上方询问。	With a default chosen, books are marked when added, with no question above the list.
+选择文件…	Choose Files…
+通义千问	Qwen
+速度	Speed
+遇到问题？看配置说明	Having trouble? Read the setup guide
+部分送达	Partly Delivered
+都完成了	All done
+都已送达。拖入新的书，或右键一本书「放回待发送」再发一次	All delivered. Add new books, or right-click one and choose Put Back in Queue
+配对	Pair
+配对成功	Paired
+配对成功。现在可以打开 乔木 Kindle 助手.app，之后换 Wi-Fi 不需要重新插 USB。	Paired. You can now open the app. Changing Wi-Fi later doesn't need USB again.
+重命名	Rename
+重命名 Kindle	Rename Kindle
+重命名 {} 个文件	Rename {} files
+重命名…	Rename…
+重命名或取消配对	Rename or unpair
+重新寻找	Search Again
+重新寻找 Kindle	Search for Kindle Again
+重新翻译	Translate Again
+重新翻译…	Translate Again…
+重新翻译《{}》？	Translate “{}” again?
+重新读取模型列表	Reload Models
+重试	Retry
+长章节会自动切成几段，和其他章一起并行翻译，译完再拼回原章；费用不变。默认 16 路，1–64 可调：服务商并发额度高（如 DeepSeek 官方）可以调大，频繁限流或失败时调低。并行时点停止需要等正在翻译的各段收尾。	Long chapters are cut into parts, translated in parallel with the rest and joined back, at no extra cost. The default is 16, from 1 to 64: raise it if your provider allows (such as DeepSeek's own API), and lower it after rate limits or failures. Stopping waits for the parts in flight.
+阿	Arabic
+阿拉伯文	Arabic
+阿里云百炼	Alibaba Bailian
+需要首次配置	Setup Needed
+韩	Korean
+韩文	Korean
+马上完成	Almost Done
+（偏好）	(preferred)
+（图片版）	(page images)
+（图片版 {}-{}）	(page images {}-{})
+，请检查 API Key	, check the API key
+{} 套餐	{} plan
+{} 路	{} parallel
+{}译本	{} translation
+界面语言	Interface language
+跟随系统	Same as macOS
+重新打开应用后生效。	Applies the next time the app opens.

@@ -15,7 +15,7 @@ struct ArticleRow: View {
                     Text(article.title).font(.body.weight(.semibold)).lineLimit(1).truncationMode(.tail)
                         .help(article.path)
                     if article.bilingual == true {
-                        Text(translatedLabel).font(.caption2.weight(.semibold)).foregroundStyle(Color.ink)
+                        Text(t(translatedLabel)).font(.caption2.weight(.semibold)).foregroundStyle(Color.ink)
                             .padding(.horizontal, 6).padding(.vertical, 1.5)
                             .background(Color.ink.opacity(0.08), in: Capsule())
                             .fixedSize()
@@ -27,13 +27,13 @@ struct ArticleRow: View {
                         .frame(maxWidth: 240).padding(.top, 3)
                 }
                 if let detail {
-                    Text(detail).font(.caption)
+                    Text(t(detail)).font(.caption)
                         .foregroundStyle(article.phase == .failed ? Color.orange : Color.secondary)
-                        .lineLimit(2).truncationMode(.middle).help(detail)
+                        .lineLimit(2).truncationMode(.middle).help(t(detail))
                 }
                 // The failures only settings can fix get the way there, next to the reason.
                 if article.phase == .failed, let tab = settingsTabForProblem {
-                    SettingsLink { Text("打开翻译设置") }
+                    SettingsLink { Text(t("打开翻译设置")) }
                         .simultaneousGesture(TapGesture().onEnded { store.settingsTab = tab })
                         .buttonStyle(.inkLink).font(.caption)
                 }
@@ -42,9 +42,9 @@ struct ArticleRow: View {
             HStack(spacing: 2) {
                 if [.failed, .stopped].contains(article.phase) {
                     // In words and acting at once: an icon that only moved the book back to waiting read as broken.
-                    Button("重试") { Task { await store.retryNow(article.id) } }
+                    Button(t("重试")) { Task { await store.retryNow(article.id) } }
                         .buttonStyle(.inkOutline).controlSize(.small).fixedSize().padding(.trailing, 4)
-                        .help(store.mode(of: article) == .original ? "再发一次这本书" : "接着处理这本书：已经译好的部分不会重新翻译，只补没完成的")
+                        .help(store.mode(of: article) == .original ? t("再发一次这本书") : t("接着处理这本书：已经译好的部分不会重新翻译，只补没完成的"))
                 }
                 // Always there: the way back to the file is the most common next step.
                 iconButton("folder", help: revealHelp) { store.reveal([article.id]) }
@@ -56,8 +56,8 @@ struct ArticleRow: View {
                         .frame(width: 24, height: 24).contentShape(Rectangle())
                 }
                 .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
-                .foregroundStyle(.secondary).help("更多操作：打开、再次发送、从列表移除…")
-                .accessibilityLabel("更多操作")
+                .foregroundStyle(.secondary).help(t("更多操作：打开、再次发送、从列表移除…"))
+                .accessibilityLabel(t("更多操作"))
                 .opacity(hovering || selected ? 1 : 0)
             }
             if showsChoice { TranslationChoice(article: article, store: store) }
@@ -78,12 +78,12 @@ struct ArticleRow: View {
 
     private var translatedLabel: String {
         let goal = article.translatedTo ?? "zh"
-        return article.chineseOnly == true ? Lang.name(goal) + "译本" : Lang.pairLabel(article.language ?? "", goal)
+        return article.chineseOnly == true ? t("\(Lang.name(goal))译本") : Lang.pairLabel(article.language ?? "", goal)
     }
 
     private var revealHelp: String {
-        article.madeFile != nil ? "在访达中显示\(article.madeFileLabel)（双击行用默认程序打开）"
-            : "在访达中显示（双击行用默认程序打开）"
+        article.madeFile != nil ? t("在访达中显示\(article.madeFileLabel)（双击行用默认程序打开）")
+            : t("在访达中显示（双击行用默认程序打开）")
     }
 
     /// Something the status chip does not already say: where the file went, a hint, or why it failed.
@@ -92,10 +92,10 @@ struct ArticleRow: View {
         case .done:
             // Several Kindles: which ones got it matters more than the folder, which is the same on each.
             if article.details.contains("提示：") || article.details.hasPrefix("已送达") { return article.details }
-            return "Kindle › 我的文章 › " + article.preferredURL.lastPathComponent
+            return t("Kindle › 我的文章 › ") + article.preferredURL.lastPathComponent
         case .ready where article.status == "已保存":
             let url = article.preferredURL
-            return "本机 › " + url.deletingLastPathComponent().lastPathComponent + " › " + url.lastPathComponent
+            return t("本机 › ") + url.deletingLastPathComponent().lastPathComponent + " › " + url.lastPathComponent
         default:
             return article.details.isEmpty ? nil : article.details
         }
@@ -113,8 +113,8 @@ struct ArticleRow: View {
     private var metaLine: String {
         let label = FileBadge(format: article.format, sent: false).label
         let language = article.language.flatMap { $0.isEmpty ? nil : Lang.name($0) }
-        let used = article.tokens.map { "用了 \(PushStore.tokenText($0)) token" }
-        return [article.author, language, label, used, article.author == nil || article.author?.isEmpty == true ? article.folder : nil]
+        let used = article.tokens.map { t("用了 \(PushStore.tokenText($0)) token") }
+        return [article.author, language.map(t), t(label), used.map(t), article.author == nil || article.author?.isEmpty == true ? article.folder : nil]
             .compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
     }
 
@@ -137,33 +137,33 @@ struct ArticleActions: View {
     private var single: Article? { items.count == 1 ? items.first : nil }
 
     var body: some View {
-        Button("打开") { store.open(ids) }
+        Button(t("打开")) { store.open(ids) }
         if let single, single.madeFile != nil {
-            Button("在访达中显示\(single.madeFileLabel)") { store.reveal(ids) }
-            Button("在访达中显示原文件") { store.revealOriginal(ids) }
+            Button(t("在访达中显示\(single.madeFileLabel)")) { store.reveal(ids) }
+            Button(t("在访达中显示原文件")) { store.revealOriginal(ids) }
         } else {
-            Button("在访达中显示") { store.reveal(ids) }
+            Button(t("在访达中显示")) { store.reveal(ids) }
         }
         if let single, store.translatable(single), single.language != store.goal(of: single) {
             Divider()
-            Button("先试译 3 段") { Task { await store.preview(single.id) } }
+            Button(t("先试译 3 段")) { Task { await store.preview(single.id) } }
                 .disabled(store.translation.running || single.phase == .working || single.status == "排队中")
-                .help("只翻译 3 段正文，在访达里打开给你检查；不发送")
+                .help(t("只翻译 3 段正文，在访达里打开给你检查；不发送"))
         }
         if let single, store.translatable(single), single.bilingual == true || store.mode(of: single) != .original {
-            Button("重新翻译…") { store.confirmRetranslate = single.id }
+            Button(t("重新翻译…")) { store.confirmRetranslate = single.id }
                 .disabled(single.phase == .working || single.status == "排队中" || store.active.contains(single.id))
-                .help("丢弃这本书已有的译文和进度，从头翻译")
+                .help(t("丢弃这本书已有的译文和进度，从头翻译"))
         }
         Divider()
         if items.contains(where: { $0.status == "排队中" }) {
-            Button("移出队列") { store.unqueue(ids) }
+            Button(t("移出队列")) { store.unqueue(ids) }
         }
-        Button("放回待发送") { ids.forEach(store.retry) }
+        Button(t("放回待发送")) { ids.forEach(store.retry) }
             .disabled(items.allSatisfy { $0.phase == .working || $0.status == "排队中" })
-        Button("整理文件名…") { store.tidyNames(ids) }
+        Button(t("整理文件名…")) { store.tidyNames(ids) }
         Divider()
-        Button("从列表移除（不删除文件）") { store.remove(ids) }
+        Button(t("从列表移除（不删除文件）")) { store.remove(ids) }
             .disabled(items.allSatisfy { store.busy && $0.phase == .working })
     }
 }
@@ -201,7 +201,7 @@ private struct FileBadge: View {
     var body: some View {
         VStack(spacing: 3) {
             Image(systemName: symbol).font(.system(size: 13, weight: .regular))
-            Text(label).font(.system(size: 7.5, weight: .bold)).kerning(0.3)
+            Text(t(label)).font(.system(size: 7.5, weight: .bold)).kerning(0.3)
                 .lineLimit(1).minimumScaleFactor(0.7)
         }
         .foregroundStyle(.secondary)
@@ -241,20 +241,20 @@ private struct StatusChip: View {
     var body: some View {
         HStack(spacing: 5) {
             if article.phase == .working { ProgressView().controlSize(.mini) }
-            Text(label)
+            Text(t(label))
         }
         .font(.caption.weight(.medium)).foregroundStyle(tint)
         .padding(.horizontal, 8).padding(.vertical, 3)
         .background(tint.opacity(article.phase == .waiting ? 0.08 : 0.12), in: Capsule())
         .fixedSize()
-        .help(article.phase == .done ? "已读回 Kindle 上的文件，校验一致" : article.details)
+        .help(article.phase == .done ? t("已读回 Kindle 上的文件，校验一致") : article.details)
     }
 
     private var label: String {
         switch article.status {
-        case "等待发送": "待发送"
-        case "已发送": "已送达"
-        case "失败" where article.deliveredTo?.isEmpty == false: "部分送达"
+        case "等待发送": t("待发送")
+        case "已发送": t("已送达")
+        case "失败" where article.deliveredTo?.isEmpty == false: t("部分送达")
         default: article.status
         }
     }
@@ -288,9 +288,9 @@ private struct TranslationChoice: View {
         let goal = store.goal(of: article)
         let sameLanguage = article.language == goal
         Menu {
-            Section("版本") {
+            Section(t("版本")) {
                 Button { store.choose(.original, for: [article.id]) } label: {
-                    check(current == .original, "原文，不翻译")
+                    check(current == .original, t("原文，不翻译"))
                 }
                 if !sameLanguage {
                     ForEach([OutputMode.bilingual, .targetOnly], id: \.self) { mode in
@@ -300,14 +300,14 @@ private struct TranslationChoice: View {
                     }
                 }
             }
-            Section("翻译成") {
+            Section(t("翻译成")) {
                 ForEach(quick, id: \.self) { code in
                     Button { store.translate([article.id], into: code) } label: {
                         check(current != .original && goal == code,
-                              Lang.picker(code) + (code == store.targetLanguage ? "（偏好）" : ""))
+                              Lang.picker(code) + (code == store.targetLanguage ? t("（偏好）") : ""))
                     }
                 }
-                Menu("更多语言") {
+                Menu(t("更多语言")) {
                     ForEach(Lang.targets.filter { !quick.contains($0.code) && $0.code != article.language }, id: \.code) { target in
                         Button(target.picker) { store.translate([article.id], into: target.code) }
                     }
@@ -315,12 +315,12 @@ private struct TranslationChoice: View {
             }
             if current != .original {
                 Divider()
-                Button("先试译 3 段") { Task { await store.preview(article.id) } }
+                Button(t("先试译 3 段")) { Task { await store.preview(article.id) } }
                     .disabled(store.translation.running)
             }
         } label: {
             HStack(spacing: 3) {
-                Text(store.title(current, for: article))
+                Text(t(store.title(current, for: article)))
                 Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold))
             }
             .font(.caption.weight(.medium))
@@ -332,11 +332,11 @@ private struct TranslationChoice: View {
         }
         // .button + .plain keeps the label as drawn; .borderlessButton drops the capsule and moves the chevron.
         .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
-        .help(current == .original ? "发送原文。点开可以翻译成任意语言" : "翻译成\(Lang.name(goal))后再发送或保存。点开可以换版本或语言")
-        .accessibilityLabel("输出：\(store.title(current, for: article))")
+        .help(current == .original ? t("发送原文。点开可以翻译成任意语言") : t("翻译成\(Lang.name(goal))后再发送或保存。点开可以换版本或语言"))
+        .accessibilityLabel(t("输出：\(store.title(current, for: article))"))
     }
 
     @ViewBuilder private func check(_ on: Bool, _ title: String) -> some View {
-        if on { Label(title, systemImage: "checkmark") } else { Text(title) }
+        if on { Label(t(title), systemImage: "checkmark") } else { Text(t(title)) }
     }
 }

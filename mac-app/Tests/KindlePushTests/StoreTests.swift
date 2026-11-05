@@ -9,6 +9,8 @@ final class StoreTests: XCTestCase {
         return article
     }
 
+    override func setUp() { I18n.english = false }
+
     func testOnlyReadableBooksWithAKnownLanguageCanBeTranslated() {
         let store = PushStore()
         XCTAssertTrue(store.translatable(book("/x/a.txt")))
@@ -69,6 +71,7 @@ final class StoreTests: XCTestCase {
     }
 
     func testTokenText() {
+        I18n.english = false
         XCTAssertEqual(PushStore.tokenText(411), "411")
         XCTAssertEqual(PushStore.tokenText(12_300), "1.2 万")
         XCTAssertEqual(PushStore.tokenText(611_000), "61 万")
@@ -94,5 +97,44 @@ final class StoreTests: XCTestCase {
             XCTAssertTrue(Article.isSupported(URL(fileURLWithPath: "/x/" + name)), name)
         }
         XCTAssertFalse(Article.isSupported(URL(fileURLWithPath: "/x/a.exe")))
+    }
+
+    // MARK: English
+
+    private func catalog() throws -> ([String: String], [(NSRegularExpression, String)]) {
+        let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("../../Assets/i18n/en.tsv")
+        return I18n.parse(try String(contentsOf: url, encoding: .utf8))
+    }
+
+    func testEnglishFillsTemplatesAndTranslatesWhatIsFilledIn() throws {
+        let (exact, templates) = try catalog()
+        func en(_ text: String) -> String { I18n.translate(text, exact: exact, templates: templates) }
+        XCTAssertEqual(en("重试"), "Retry")
+        XCTAssertEqual(en("已移除 3 本"), "Removed 3 books")
+        XCTAssertEqual(en("已移除《Snow Crash》"), "Removed “Snow Crash”")
+        XCTAssertEqual(en("仅英文"), "English only")
+        XCTAssertEqual(en("正在翻译 · 42%"), "Translating · 42%")
+        XCTAssertEqual(en("正在翻译 · 42% · 还剩约 5 分钟"), "Translating · 42% · About 5 min left")
+        XCTAssertEqual(en("Snow Crash.epub"), "Snow Crash.epub")
+    }
+
+    func testSentencesThisAppJoinsAreTranslatedPiecewise() throws {
+        let (exact, templates) = try catalog()
+        func en(_ text: String) -> String { I18n.translate(text, exact: exact, templates: templates) }
+        XCTAssertEqual(en("2 篇未完成，可以重试；1 个文件已保存到本机，已在访达中选中。"),
+                       "2 not finished, you can retry; 1 file(s) saved to this Mac and selected in Finder.")
+        XCTAssertEqual(en("已发到 甲；「乙」不在这个 Wi-Fi 里。重试只发给没收到的"),
+                       "Sent to 甲; “乙” is not on this Wi-Fi. Retry sends only to those that didn't get it")
+    }
+
+    func testChineseStaysChineseWhenThatIsTheLanguage() {
+        I18n.english = false
+        XCTAssertEqual(t("重试"), "重试")
+    }
+
+    func testEnglishLabels() {
+        I18n.english = true; defer { I18n.english = false }
+        XCTAssertEqual(PushStore.tokenText(611_000), "611k")
+        XCTAssertEqual(PushStore.tokenText(1_260_000), "1.3M")
     }
 }

@@ -1,0 +1,3 @@
+"CFBundleDisplayName" = "Qiaomu Kindle Assistant";
+"CFBundleName" = "Qiaomu Kindle";
+"NSLocalNetworkUsageDescription" = "Finds your paired Kindle on this Wi-Fi and sends the articles you choose.";

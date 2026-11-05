@@ -12,22 +12,22 @@ struct StorageView: View {
         var id: String { rawValue }
         var question: String {
             switch self {
-            case .jobs: "清理翻译工作文件？"
-            case .covers: "清理封面缓存？"
-            case .runtime: "卸载翻译组件？"
+            case .jobs: t("清理翻译工作文件？")
+            case .covers: t("清理封面缓存？")
+            case .runtime: t("卸载翻译组件？")
             }
         }
         var note: String {
             switch self {
-            case .jobs: "只清已译完的书，生成的译本不动，没译完的进度也不动。之后如果删了译本再翻译，要重新计费。"
-            case .covers: "列表里还在用的封面会留下。"
-            case .runtime: "翻译前要在翻译服务里重新安装，需要联网。设置和 Key 都保留。"
+            case .jobs: t("只清已译完的书，生成的译本不动，没译完的进度也不动。之后如果删了译本再翻译，要重新计费。")
+            case .covers: t("列表里还在用的封面会留下。")
+            case .runtime: t("翻译前要在翻译服务里重新安装，需要联网。设置和 Key 都保留。")
             }
         }
         var action: String {
             switch self {
-            case .jobs, .covers: "清理"
-            case .runtime: "卸载"
+            case .jobs, .covers: t("清理")
+            case .runtime: t("卸载")
             }
         }
     }
@@ -35,20 +35,20 @@ struct StorageView: View {
     var body: some View {
         Form {
             Section {
-                row("已转换的书", usage?.outputBytes, "译本和转换好的文件，都是你的，不会自动删") {
-                    Button("在访达中显示") { store.revealOutput() }
+                row(t("已转换的书"), usage?.outputBytes, t("译本和转换好的文件，都是你的，不会自动删")) {
+                    Button(t("在访达中显示")) { store.revealOutput() }
                 }
-                row("翻译工作文件", usage?.jobsBytes, jobsNote) {
-                    Button("清理…") { asking = .jobs }.disabled((usage?.jobs ?? 0) == 0)
+                row(t("翻译工作文件"), usage?.jobsBytes, jobsNote) {
+                    Button(t("清理…")) { asking = .jobs }.disabled((usage?.jobs ?? 0) == 0)
                 }
-                row("封面缓存", usage?.coversBytes, "列表里显示的封面") {
-                    Button("清理…") { asking = .covers }.disabled((usage?.coversBytes ?? 0) == 0)
+                row(t("封面缓存"), usage?.coversBytes, t("列表里显示的封面")) {
+                    Button(t("清理…")) { asking = .covers }.disabled((usage?.coversBytes ?? 0) == 0)
                 }
-                row("翻译组件", usage?.runtimeBytes, usage?.running == true ? "还有书在翻译，译完才能卸载" : "翻译时用的引擎，可以随时重新安装") {
-                    Button("卸载…") { asking = .runtime }.disabled((usage?.runtimeBytes ?? 0) == 0 || usage?.running == true)
+                row(t("翻译组件"), usage?.runtimeBytes, usage?.running == true ? t("还有书在翻译，译完才能卸载") : t("翻译时用的引擎，可以随时重新安装")) {
+                    Button(t("卸载…")) { asking = .runtime }.disabled((usage?.runtimeBytes ?? 0) == 0 || usage?.running == true)
                 }
             } footer: {
-                if !message.isEmpty { Text(message).foregroundStyle(.orange) }
+                if !message.isEmpty { Text(t(message)).foregroundStyle(.orange) }
             }
         }
         .formStyle(.grouped)
@@ -61,14 +61,14 @@ struct StorageView: View {
 
     private var jobsNote: String {
         let count = usage?.jobs ?? 0
-        return count > 0 ? "\(count) 本已译完的书留下的中间文件" : "没有可以清理的"
+        return count > 0 ? t("\(count) 本已译完的书留下的中间文件") : t("没有可以清理的")
     }
 
     private func clean(_ item: Item) async {
         let keep = store.articles.compactMap(\.cover)
         let data = (try? JSONEncoder().encode(["keep": keep])).flatMap { String(data: $0, encoding: .utf8) }
         let response = await Bridge.call(["data-clean", item.rawValue], input: data)
-        if response.ok { usage = response; message = "" } else { message = response.message ?? "没能清理。" }
+        if response.ok { usage = response; message = "" } else { message = response.message ?? t("没能清理。") }
         if item == .runtime { await store.refreshTranslationStatus() }
     }
 

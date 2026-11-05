@@ -213,7 +213,7 @@ enum OutputMode: String, CaseIterable, Codable {
         switch self {
         case .original: "原文"
         case .bilingual: Lang.pairLabel(source, target)
-        case .targetOnly: "仅" + Lang.name(target)
+        case .targetOnly: I18n.english ? t(Lang.name(target)) + " only" : "仅" + Lang.name(target)
         }
     }
 }
@@ -279,6 +279,10 @@ enum Lang {
     }
     /// 中英对照 for English and Chinese either way round, 英日对照 for English into Japanese.
     static func pairLabel(_ source: String, _ target: String) -> String {
+        if I18n.english {
+            let names = [source, target].filter { !$0.isEmpty }.map { t(name($0)) }
+            return names.count == 2 && source != target ? names.joined(separator: " / ") : t("双语对照")
+        }
         if target == "zh-hant" { return pairLabel(source, "zh") + "·繁体" }
         guard let first = char(source), let second = char(target), source != target else { return "双语对照" }
         if source == "zh" { return "中\(second)对照" }

@@ -31,21 +31,21 @@ struct TranslationSettingsView: View {
     @State private var codexEmail: String?
 
     private let styles: [(id: String, name: String, note: String)] = [
-        ("natural", "自然流畅", "地道流畅、避免翻译腔，适合大多数书。"),
-        ("faithful", "忠实准确", "不增删信息，保留原文层次与语气，适合非虚构、历史、传记。"),
-        ("literary", "文学润色", "更地道有文采，保留人物口吻，减少翻译腔，适合小说、散文。"),
-        ("technical", "技术学术", "术语准确统一，首次出现保留英文原词，代码和公式不动。"),
+        ("natural", t("自然流畅"), t("地道流畅、避免翻译腔，适合大多数书。")),
+        ("faithful", t("忠实准确"), t("不增删信息，保留原文层次与语气，适合非虚构、历史、传记。")),
+        ("literary", t("文学润色"), t("更地道有文采，保留人物口吻，减少翻译腔，适合小说、散文。")),
+        ("technical", t("技术学术"), t("术语准确统一，首次出现保留英文原词，代码和公式不动。")),
     ]
 
     private var saveBar: some View {
         HStack(spacing: 10) {
                 if saved {
-                    Label("已保存", systemImage: "checkmark").foregroundStyle(.green).transition(.opacity)
+                    Label(t("已保存"), systemImage: "checkmark").foregroundStyle(.green).transition(.opacity)
                 } else if !message.isEmpty {
-                    Text(message).foregroundStyle(.secondary).textSelection(.enabled).lineLimit(2)
+                    Text(t(message)).foregroundStyle(.secondary).textSelection(.enabled).lineLimit(2)
                 }
                 Spacer()
-                Button("保存") { Task { await save() } }
+                Button(t("保存")) { Task { await save() } }
                     .buttonStyle(.ink).keyboardShortcut(.defaultAction)
                     .disabled(working || signingIn || model.isEmpty || (service.signIn != .chatgpt && trimmedBase.isEmpty)
                               || (service.signIn == .chatgpt && !codexLoggedIn))
@@ -55,11 +55,11 @@ struct TranslationSettingsView: View {
 
     var body: some View {
         TabView(selection: $store.settingsTab) {
-            languageForm.tabItem { Label("语言", systemImage: "character.book.closed") }.tag(SettingsTab.language)
-            serviceForm.tabItem { Label("翻译服务", systemImage: "network") }.tag(SettingsTab.service)
-            qualityForm.tabItem { Label("质量与速度", systemImage: "wand.and.stars") }.tag(SettingsTab.quality)
-            StorageView(store: store).tabItem { Label("存储", systemImage: "internaldrive") }.tag(SettingsTab.storage)
-            AboutView().tabItem { Label("关于", systemImage: "info.circle") }.tag(SettingsTab.about)
+            languageForm.tabItem { Label(t("语言"), systemImage: "character.book.closed") }.tag(SettingsTab.language)
+            serviceForm.tabItem { Label(t("翻译服务"), systemImage: "network") }.tag(SettingsTab.service)
+            qualityForm.tabItem { Label(t("质量与速度"), systemImage: "wand.and.stars") }.tag(SettingsTab.quality)
+            StorageView(store: store).tabItem { Label(t("存储"), systemImage: "internaldrive") }.tag(SettingsTab.storage)
+            AboutView().tabItem { Label(t("关于"), systemImage: "info.circle") }.tag(SettingsTab.about)
         }
         .safeAreaInset(edge: .bottom) {
             if store.settingsTab != .about && store.settingsTab != .language && store.settingsTab != .storage { saveBar }
@@ -75,7 +75,7 @@ struct TranslationSettingsView: View {
             serviceID = ProviderCatalog.match(provider: response.provider ?? "", base: base).id
             workers = response.workers ?? 16; style = response.style ?? "natural"; glossary = response.glossary ?? ""
             ready = response.runtimeReady ?? false
-            if !response.ok { message = response.message ?? "无法读取配置。" }
+            if !response.ok { message = response.message ?? t("无法读取配置。") }
             await loadModels()
         }
         .onChange(of: base) { saved = false }
@@ -87,22 +87,33 @@ struct TranslationSettingsView: View {
         .onChange(of: key) { saved = false }
     }
 
+    @AppStorage("interfaceLanguage") private var interfaceLanguage = ""
+
     /// Takes effect at once, like the rest of the main window; the service settings have their own Save.
     private var languageForm: some View {
         Form {
             Section {
-                Picker("偏好翻译语言", selection: $store.targetLanguage) {
+                Picker(t("偏好翻译语言"), selection: $store.targetLanguage) {
                     ForEach(Lang.targets, id: \.code) { target in
                         Text(target.picker).tag(target.code)
                     }
                 }
-                Picker("外文书默认", selection: $store.foreignDefault) {
-                    ForEach(ForeignDefault.allCases, id: \.self) { Text($0.title).tag($0) }
+                Picker(t("外文书默认"), selection: $store.foreignDefault) {
+                    ForEach(ForeignDefault.allCases, id: \.self) { Text(t($0.title)).tag($0) }
                 }
             } footer: {
                 Text(languageNote)
                     .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            Section {
+                Picker(t("界面语言"), selection: $interfaceLanguage) {
+                    Text(t("跟随系统")).tag("")
+                    Text(verbatim: "简体中文").tag("zh")
+                    Text(verbatim: "English").tag("en")
+                }
+            } footer: {
+                Text(t("重新打开应用后生效。")).foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
@@ -110,23 +121,23 @@ struct TranslationSettingsView: View {
 
     private var languageNote: String {
         let name = Lang.name(store.targetLanguage)
-        let rule = "拖入的书会在本机识别语言。不是\(name)的书会问你要不要翻译成\(name)；每本书行尾的标签都能改成任意语言，这里只是偏好。"
+        let rule = t("拖入的书会在本机识别语言。不是\(name)的书会问你要不要翻译成\(name)；每本书行尾的标签都能改成任意语言，这里只是偏好。")
         let choice = store.foreignDefault == .ask
-            ? "选了默认处理方式后，拖入时直接标好，不再在列表上方询问。"
-            : "拖入时直接标为「\(store.foreignDefault.title)」；每本书行尾的标签仍可单独修改。"
-        return rule + choice + "改动立即生效。"
+            ? t("选了默认处理方式后，拖入时直接标好，不再在列表上方询问。")
+            : t("拖入时直接标为「\(t(store.foreignDefault.title))」；每本书行尾的标签仍可单独修改。")
+        return [rule, choice, t("改动立即生效。")].filter { !$0.isEmpty }.joined(separator: I18n.sentenceGap)
     }
 
     private var qualityForm: some View {
         Form {
             Section {
-                Picker("译文风格", selection: $style) {
-                    ForEach(styles, id: \.id) { Text($0.name).tag($0.id) }
+                Picker(t("译文风格"), selection: $style) {
+                    ForEach(styles, id: \.id) { Text(t($0.name)).tag($0.id) }
                 }
             } header: {
-                Text("质量")
+                Text(t("质量"))
             } footer: {
-                Text((styles.first { $0.id == style }?.note ?? "") + "改风格后会重新翻译，原有进度不会被覆盖。")
+                Text(t(styles.first { $0.id == style }?.note ?? "") + I18n.sentenceGap + t("改风格后会重新翻译，原有进度不会被覆盖。"))
                     .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -136,34 +147,34 @@ struct TranslationSettingsView: View {
                     .frame(height: 96).scrollContentBackground(.hidden)
                     .overlay(alignment: .topLeading) {
                         if glossary.isEmpty {
-                            Text("Hari Seldon -> 哈里·谢顿\nPsychohistory -> 心理史学\n# 以 # 开头的行是备注")
+                            Text(t("Hari Seldon -> 哈里·谢顿\nPsychohistory -> 心理史学\n# 以 # 开头的行是备注"))
                                 .font(.system(.callout, design: .monospaced)).foregroundStyle(.tertiary)
                                 .padding(.leading, 5).allowsHitTesting(false)
                         }
                     }
             } header: {
-                Text("术语表")
+                Text(t("术语表"))
             } footer: {
-                Text("每行一条「原文 -> 译名」，优先于自动整理的译名。只有出现这些词的段落才会带上术语，不增加其他段落的费用。")
+                Text(t("每行一条「原文 -> 译名」，优先于自动整理的译名。只有出现这些词的段落才会带上术语，不增加其他段落的费用。"))
                     .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             Section {
-                LabeledContent("同时翻译") {
+                LabeledContent(t("同时翻译")) {
                     HStack(spacing: 6) {
                         TextField("", value: serviceID == "chatgpt" ? .constant(1) : $workers, format: .number)
                             .multilineTextAlignment(.trailing).frame(width: 52).monospacedDigit()
                             .disabled(serviceID == "chatgpt")
                         Stepper("", value: serviceID == "chatgpt" ? .constant(1) : $workers, in: 1...64)
                             .labelsHidden().disabled(serviceID == "chatgpt")
-                        Text("路").foregroundStyle(.secondary)
+                        Text(t("路")).foregroundStyle(.secondary)
                     }
                 }
                 .onChange(of: workers) { _, value in if value < 1 || value > 64 { workers = min(64, max(1, value)) } }
             } header: {
-                Text("速度")
+                Text(t("速度"))
             } footer: {
-                Text(serviceID == "chatgpt" ? "用 ChatGPT 账号翻译时一次只能翻一章。" : "长章节会自动切成几段，和其他章一起并行翻译，译完再拼回原章；费用不变。默认 16 路，1–64 可调：服务商并发额度高（如 DeepSeek 官方）可以调大，频繁限流或失败时调低。并行时点停止需要等正在翻译的各段收尾。")
+                Text(serviceID == "chatgpt" ? t("用 ChatGPT 账号翻译时一次只能翻一章。") : t("长章节会自动切成几段，和其他章一起并行翻译，译完再拼回原章；费用不变。默认 16 路，1–64 可调：服务商并发额度高（如 DeepSeek 官方）可以调大，频繁限流或失败时调低。并行时点停止需要等正在翻译的各段收尾。"))
                     .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -176,11 +187,11 @@ struct TranslationSettingsView: View {
     private var serviceForm: some View {
         Form {
             Section {
-                Picker("服务", selection: Binding(get: { serviceID }, set: { pick($0) })) {
+                Picker(t("服务"), selection: Binding(get: { serviceID }, set: { pick($0) })) {
                     ForEach(ModelService.Group.allCases, id: \.self) { group in
                         Section(group.rawValue) {
                             ForEach(ProviderCatalog.all.filter { $0.group == group }) { item in
-                                Text(item.name).tag(item.id)
+                                Text(t(item.name)).tag(item.id)
                             }
                         }
                     }
@@ -189,21 +200,21 @@ struct TranslationSettingsView: View {
                     chatgptRows
                 } else {
                     if service.group == .custom || service.group == .local {
-                        TextField("服务地址", text: $base, prompt: Text("https://example.com/v1"))
+                        TextField(t("服务地址"), text: $base, prompt: Text("https://example.com/v1"))
                             .textContentType(.URL)
                             .onSubmit { Task { await loadModels() } }
                     }
                     if service.needsKey || service.group == .custom {
-                        SecureField("API Key", text: $key, prompt: Text(keySaved ? "已保存，留空则不变" : "粘贴 API Key"))
+                        SecureField("API Key", text: $key, prompt: Text(keySaved ? t("已保存，留空则不变") : t("粘贴 API Key")))
                             .onSubmit { Task { await loadModels() } }
                         if service.keyURL != nil || service.signIn == .key {
                         HStack(spacing: 14) {
                             if let url = service.keyURL.flatMap(URL.init(string:)) {
-                                InkLink(url: url) { Label("获取 API Key", systemImage: "arrow.up.right.square") }
+                                InkLink(url: url) { Label(t("获取 API Key"), systemImage: "arrow.up.right.square") }
                             }
                             if service.signIn == .key {
                                 Button { Task { await signInForKey() } } label: {
-                                    Label(signingIn ? "正在等待浏览器授权…" : "登录\(service.name)，自动填入 Key", systemImage: "person.badge.key")
+                                    Label(signingIn ? t("正在等待浏览器授权…") : t("登录\(t(service.name))，自动填入 Key"), systemImage: "person.badge.key")
                                 }
                                 .buttonStyle(.inkLink).disabled(signingIn)
                             }
@@ -214,7 +225,7 @@ struct TranslationSettingsView: View {
                     }
                 }
             } header: {
-                Text("翻译服务")
+                Text(t("翻译服务"))
             } footer: {
                 Text(serviceNote)
                     .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.leading)
@@ -223,50 +234,50 @@ struct TranslationSettingsView: View {
             Section {
                 if !manualModel && !modelChoices.isEmpty {
                     HStack {
-                        Picker("模型", selection: $model) {
+                        Picker(t("模型"), selection: $model) {
                             let recommended = modelChoices.filter(isRecommended)
                             if !recommended.isEmpty {
-                                Section("推荐") { ForEach(recommended) { Text($0.name).tag($0.id) } }
+                                Section(t("推荐")) { ForEach(recommended) { Text($0.name).tag($0.id) } }
                             }
-                            Section(recommended.isEmpty ? "" : "全部") {
-                                ForEach(modelChoices.filter { !isRecommended($0) }) { Text($0.name).tag($0.id) }
+                            Section(recommended.isEmpty ? "" : t("全部")) {
+                                ForEach(modelChoices.filter { !isRecommended($0) }) { Text(t($0.name)).tag($0.id) }
                             }
                         }
                         Button { Task { await loadModels() } } label: { Image(systemName: "arrow.clockwise") }
-                            .buttonStyle(.borderless).help("重新读取模型列表").disabled(loadingModels)
+                            .buttonStyle(.borderless).help(t("重新读取模型列表")).disabled(loadingModels)
                     }
                 } else {
-                    TextField("模型", text: $model, prompt: Text(service.popular.first ?? "模型 ID"))
+                    TextField(t("模型"), text: $model, prompt: Text(service.popular.first ?? t("模型 ID")))
                 }
                 HStack(spacing: 8) {
                     if loadingModels {
                         ProgressView().controlSize(.small)
-                        Text("正在读取模型列表…").foregroundStyle(.secondary)
+                        Text(t("正在读取模型列表…")).foregroundStyle(.secondary)
                     } else if !modelNote.isEmpty {
                         Text(modelNote).foregroundStyle(modelNoteIsError ? Color.orange : Color.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer()
                     if !modelChoices.isEmpty {
-                        Button(manualModel ? "从列表选择" : "手动填写") { manualModel.toggle() }.buttonStyle(.inkLink)
+                        Button(manualModel ? t("从列表选择") : t("手动填写")) { manualModel.toggle() }.buttonStyle(.inkLink)
                     }
                 }
                 .font(.caption)
             } header: {
-                Text("模型")
+                Text(t("模型"))
             }
-            Section("翻译组件") {
+            Section(t("翻译组件")) {
                 LabeledContent {
                     if ready {
-                        Label("已就绪", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                        Label(t("已就绪"), systemImage: "checkmark.circle.fill").foregroundStyle(.green)
                     } else if working && message.hasPrefix("正在下载") {
                         ProgressView().controlSize(.small)
                     } else {
-                        Button("安装") { Task { await install() } }.disabled(working)
+                        Button(t("安装")) { Task { await install() } }.disabled(working)
                     }
                 } label: {
-                    Text("中英对照引擎")
-                    Text("基于开源 bilingual_book_maker，首次安装需要几分钟").font(.caption)
+                    Text(t("中英对照引擎"))
+                    Text(t("基于开源 bilingual_book_maker，首次安装需要几分钟")).font(.caption)
                 }
             }
         }
@@ -283,35 +294,35 @@ struct TranslationSettingsView: View {
 
     @ViewBuilder private var chatgptRows: some View {
         if codexInstalled == false {
-            LabeledContent("Codex 命令行") { Text("还没有安装").foregroundStyle(.secondary) }
+            LabeledContent(t("Codex 命令行")) { Text(t("还没有安装")).foregroundStyle(.secondary) }
             VStack(alignment: .leading, spacing: 8) {
-                Text("用 ChatGPT 账号翻译要借助 OpenAI 的 Codex 命令行工具。在「终端」运行下面一行安装：")
+                Text(t("用 ChatGPT 账号翻译要借助 OpenAI 的 Codex 命令行工具。在「终端」运行下面一行安装："))
                     .font(.callout).foregroundStyle(.secondary)
                 HStack {
                     Text(installCommand).font(.system(.callout, design: .monospaced)).textSelection(.enabled)
                     Spacer()
-                    Button("拷贝") {
+                    Button(t("拷贝")) {
                         NSPasteboard.general.clearContents()
                         NSPasteboard.general.setString(installCommand, forType: .string)
                     }
-                    Button("装好了，重新检测") { Task { await loadModels() } }
+                    Button(t("装好了，重新检测")) { Task { await loadModels() } }
                 }
             }
         } else if codexLoggedIn {
-            LabeledContent("账号") {
+            LabeledContent(t("账号")) {
                 HStack(spacing: 10) {
-                    Text([codexEmail, codexPlan.map { $0.capitalized + " 套餐" }].compactMap { $0 }.joined(separator: " · "))
+                    Text([codexEmail, codexPlan.map { t("\($0.capitalized) 套餐") }].compactMap { $0 }.joined(separator: " · "))
                         .foregroundStyle(.secondary)
-                    Button("退出登录") { Task { await codexCall("codex-logout") } }.disabled(signingIn)
+                    Button(t("退出登录")) { Task { await codexCall("codex-logout") } }.disabled(signingIn)
                 }
             }
         } else {
             LabeledContent {
-                Button(signingIn ? "正在等待浏览器登录…" : "用 ChatGPT 登录") { Task { await codexCall("codex-login") } }
+                Button(signingIn ? t("正在等待浏览器登录…") : t("用 ChatGPT 登录")) { Task { await codexCall("codex-login") } }
                     .buttonStyle(.ink).disabled(signingIn || codexInstalled == nil)
             } label: {
-                Text("账号")
-                Text("会打开浏览器登录，Plus、Pro、Business 套餐都可以").font(.caption)
+                Text(t("账号"))
+                Text(t("会打开浏览器登录，Plus、Pro、Business 套餐都可以")).font(.caption)
             }
         }
     }
@@ -321,14 +332,14 @@ struct TranslationSettingsView: View {
     private var serviceNote: String {
         switch service.group {
         case .account:
-            return "用 ChatGPT 套餐额度翻译，不按 API 计费，受套餐的 5 小时用量限制；一次翻译一章。书籍正文会发给 OpenAI。"
+            return t("用 ChatGPT 套餐额度翻译，不按 API 计费，受套餐的 5 小时用量限制；一次翻译一章。书籍正文会发给 OpenAI。")
         case .local:
-            return "模型跑在这台 Mac 上，正文不出本机。先在 \(service.name) 里下载并运行模型。"
+            return t("模型跑在这台 Mac 上，正文不出本机。先在 \(service.name) 里下载并运行模型。")
         default:
             // A space between Chinese and a Latin name (发给 DeepSeek), none before a Chinese one (发给硅基流动).
-            let name = service.name == "自定义服务" ? "这个服务" : service.name
+            let name = service.name == "自定义服务" ? t("这个服务") : service.name
             let gap = name.first?.isASCII == true ? " " : ""
-            return "书籍正文会发给\(gap)\(name)，按用量计费。API Key 存在 macOS 钥匙串里，换服务要填对应的 Key。"
+            return t("书籍正文会发给\(gap)\(name)，按用量计费。API Key 存在 macOS 钥匙串里，换服务要填对应的 Key。")
         }
     }
 
@@ -363,7 +374,7 @@ struct TranslationSettingsView: View {
         }
         guard !trimmedBase.isEmpty else { models = []; return }
         if service.needsKey && key.isEmpty && !keySaved {
-            models = []; modelNote = "填好 API Key 后按回车，会自动读取可用模型。"; return
+            models = []; modelNote = t("填好 API Key 后按回车，会自动读取可用模型。"); return
         }
         let response = await Bridge.call(["models", trimmedBase] + (key.isEmpty ? [] : ["--key-stdin"]),
                                          input: key.isEmpty ? nil : key)
@@ -372,16 +383,16 @@ struct TranslationSettingsView: View {
             if model.isEmpty || !list.contains(where: { $0.id == model }) && !service.popular.isEmpty && service.popular.first == model {
                 model = list.first(where: isRecommended)?.id ?? list.first?.id ?? model
             }
-            modelNote = "共 \(list.count) 个模型"
+            modelNote = t("共 \(list.count) 个模型")
         } else {
-            models = []; modelNote = response.message ?? "读不到模型列表，可以手动填写。"; modelNoteIsError = true
+            models = []; modelNote = response.message ?? t("读不到模型列表，可以手动填写。"); modelNoteIsError = true
         }
     }
 
     private func codexCall(_ command: String) async {
         signingIn = true; defer { signingIn = false }
         let response = await Bridge.call([command])
-        if !response.ok { message = response.message ?? "没有完成。" }
+        if !response.ok { message = response.message ?? t("没有完成。") }
         await loadModels()
     }
 
@@ -390,17 +401,17 @@ struct TranslationSettingsView: View {
         let response = await Bridge.call(["sign-in-key", service.id])
         if response.ok, let value = response.key {
             key = value
-            message = "已拿到 \(service.name) 的 Key，点保存后生效。"
+            message = t("已拿到 \(service.name) 的 Key，点保存后生效。")
             await loadModels()
-        } else { message = response.message ?? "授权没有完成。" }
+        } else { message = response.message ?? t("授权没有完成。") }
     }
 
     private func install() async {
-        working = true; message = "正在下载并安装，首次可能需要几分钟…"
+        working = true; message = t("正在下载并安装，首次可能需要几分钟…")
         let response = await Bridge.call(["translation-install"])
         ready = response.runtimeReady ?? false
         store.translationReady = ready
-        message = ready ? "" : response.message ?? "安装未完成，请重试。"
+        message = ready ? "" : response.message ?? t("安装未完成，请重试。")
         working = false
     }
 
@@ -414,7 +425,7 @@ struct TranslationSettingsView: View {
         guard let url = URL(string: normalized), let host = url.host,
               url.user == nil, url.password == nil, url.query == nil, url.fragment == nil,
               url.scheme == "https" || (url.scheme == "http" && ["localhost", "127.0.0.1", "::1"].contains(host)) else {
-            message = "请填写 HTTPS 服务地址，本机服务可使用 HTTP。"; working = false; return
+            message = t("请填写 HTTPS 服务地址，本机服务可使用 HTTP。"); working = false; return
         }
         if !key.isEmpty {
             let account = SHA256.hash(data: Data(normalized.utf8)).map { String(format: "%02x", $0) }.joined()
@@ -429,7 +440,7 @@ struct TranslationSettingsView: View {
                 status = SecItemAdd(item as CFDictionary, nil)
             }
             guard status == errSecSuccess else {
-                message = "无法保存密钥，请解锁 macOS 钥匙串后重试。"; working = false; return
+                message = t("无法保存密钥，请解锁 macOS 钥匙串后重试。"); working = false; return
             }
             key = ""
         }
@@ -447,6 +458,6 @@ struct TranslationSettingsView: View {
             savedBase = normalized; savedHasKey = response.hasKey ?? false
             store.translationProvider = serviceID
             withAnimation { saved = true }
-        } else { message = response.message ?? "设置保存失败。" }
+        } else { message = response.message ?? t("设置保存失败。") }
     }
 }
