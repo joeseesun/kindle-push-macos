@@ -71,6 +71,31 @@ class ChunkTests(unittest.TestCase):
         self.assertEqual(text.count('<p>译文</p>'), 200)
         self.assertEqual(text.count('<section'), 1); self.assertEqual(text.count('</body>'), 1)
 
+    def test_join_finds_parts_the_engine_moved_into_its_own_folder(self):
+        # content.opf at the top of the zip: the engine writes everything under EPUB/ (Snow Crash).
+        opf = OPF.replace('text/', '')
+        with zipfile.ZipFile(self.root / 'top.epub', 'w') as z:
+            z.writestr('META-INF/container.xml', '<container><rootfiles><rootfile full-path="content.opf"/></rootfiles></container>')
+            z.writestr('content.opf', opf)
+            z.writestr('c1.xhtml', self.long)
+        plan = chunks.split(self.root / 'top.epub', self.root / 's.epub', 16)
+        self.assertTrue(plan and plan['chapters'][0]['parts'][1].startswith('c1__kp'))
+        with zipfile.ZipFile(self.root / 's.epub') as z, zipfile.ZipFile(self.root / 't.epub', 'w') as out:
+            out.writestr('META-INF/container.xml', '<container><rootfiles><rootfile full-path="EPUB/content.opf"/></rootfiles></container>')
+            for name in z.namelist():
+                if name != 'META-INF/container.xml':
+                    out.writestr('EPUB/' + name, z.read(name))
+        chunks.join(self.root / 't.epub', self.root / 'j.epub', plan)
+        with zipfile.ZipFile(self.root / 'j.epub') as z:
+            self.assertEqual(z.read('EPUB/c1.xhtml').decode(), self.long)
+            self.assertFalse([n for n in z.namelist() if '__kp' in n])
+            self.assertNotIn('__kp', z.read('EPUB/content.opf').decode())
+        # Plans saved before `base` existed still work; a part truly missing is said plainly.
+        chunks.join(self.root / 't.epub', self.root / 'j2.epub', {k: v for k, v in plan.items() if k != 'base'})
+        broken = dict(plan, chapters=[dict(plan['chapters'][0], parts=plan['chapters'][0]['parts'] + ['gone.xhtml'])])
+        with self.assertRaisesRegex(ValueError, '重试'):
+            chunks.join(self.root / 't.epub', self.root / 'j3.epub', broken)
+
     def test_short_or_odd_books_are_left_alone(self):
         book(self.root / 'small.epub', {'c1.xhtml': self.short, 'c2.xhtml': self.short})
         self.assertIsNone(chunks.split(self.root / 'small.epub', self.root / 'x.epub', 16))

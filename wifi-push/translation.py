@@ -315,6 +315,17 @@ def find(source, goal='zh'):
     return found
 
 
+def reset(source, mode='bilingual', goal='zh'):
+    """Forget a book's translation and checkpoint, so the next start translates it from scratch."""
+    source = Path(source).expanduser().resolve(strict=True)
+    digest = hashlib.sha256(source.read_bytes()).hexdigest()
+    folder = job_dir(job_id(digest, settings(), False, mode_of(mode), lang.target(goal)))
+    if (folder / 'state.json').exists() and progress(folder.name).get('state') in {'queued', 'running'}:
+        raise ValueError('这本书正在翻译。先停止翻译，再重新翻译。')
+    shutil.rmtree(folder, ignore_errors=True)
+    return {'ok': True}
+
+
 def start(source, preview=False, mode='bilingual', goal='zh'):
     mode = mode_of(mode)
     if mode not in MODES:
