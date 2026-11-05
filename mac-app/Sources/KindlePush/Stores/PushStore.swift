@@ -173,6 +173,12 @@ final class PushStore: ObservableObject {
     /// Books the buttons would start now, split by what happens to them.
     var plannedOriginals: [Article] { queueable.filter { mode(of: $0) == .original } }
     var plannedTranslations: [Article] { queueable.filter { mode(of: $0) != .original } }
+    /// The buttons say what will happen: 翻译并保存 when any book will be translated first.
+    var saveTitle: String { plannedTranslations.isEmpty ? t("保存到本机") : t("翻译并保存") }
+    var sendTitle: String {
+        if !plannedTranslations.isEmpty { return t("翻译并发送") }
+        return targets.count > 1 ? t("发送到 \(targets.count) 台 Kindle") : t("发送到 Kindle")
+    }
     /// A rough time for the translations about to start: they run one book after another.
     var translationMinutes: Int? {
         let books = plannedTranslations

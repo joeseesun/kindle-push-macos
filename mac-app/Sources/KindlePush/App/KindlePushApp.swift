@@ -51,10 +51,10 @@ struct KindlePushApp: App {
                 Button(t("发送历史…")) { store.showConnection = false; store.showHistory = true }
                     .keyboardShortcut("y")
                 Divider()
-                Button(t("发送到 Kindle")) { Task { await store.send() } }
+                Button(store.sendTitle) { Task { await store.send() } }
                     .keyboardShortcut(.return, modifiers: .command)
                     .disabled(store.queueable.isEmpty)
-                Button(t("保存到本机")) { Task { await store.saveLocally() } }
+                Button(store.saveTitle) { Task { await store.saveLocally() } }
                     .keyboardShortcut(.return, modifiers: [.command, .option])
                     .disabled(store.queueable.isEmpty)
                 Button(store.quick.running ? t("停止发送") : t("停止翻译")) {
