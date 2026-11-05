@@ -102,6 +102,17 @@ def info(path):
         pass  # Fall back to the cleaned file name; a broken book is reported when it is sent.
     stem = source.name[:-len(suffix)] if source.name.lower().endswith(suffix) else source.stem
     result['title'] = result['title'] or names.tidy(stem, smart=False)
-    # Translation handles EPUB only, so only an EPUB needs its language; '' means unknown.
-    result['language'] = languages.detect(source) if suffix == '.epub' else ''
+    # '' means unknown. MOBI/AZW text is only readable through Calibre, so it stays unknown.
+    result['language'] = ''
+    result['translatable'] = kp.translatable(source)
+    if suffix == '.epub':
+        result['language'] = languages.detect(source)
+    elif result['translatable'] and suffix not in {'.mobi', '.azw', '.azw3'}:
+        try:
+            text = languages.text_of(source, suffix)
+            result['language'] = languages.from_text(text[:languages.SAMPLE])
+            # The estimate is calibrated on XHTML bytes, about 1.3 times the UTF-8 text.
+            result['textSize'] = int(len(text.encode('utf-8')) * 1.3)
+        except (OSError, KeyError, zipfile.BadZipFile, UnicodeError):
+            pass
     return {'ok': True, **result}

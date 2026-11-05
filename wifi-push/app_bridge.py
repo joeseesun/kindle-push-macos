@@ -312,6 +312,9 @@ def handle(args):
         if command == 'translation-reset': return tr.reset(args[1], args[2] if len(args) > 2 else 'bilingual', args[3] if len(args) > 3 else 'zh')
         if command == 'translation-cancel': return tr.cancel(args[1])
         raise ValueError('未知翻译操作。')
+    if command in {'data-usage', 'data-clean'}:
+        import storage
+        return storage.request(args, sys.stdin.read() if command == 'data-clean' else '')
     if command == 'tidy-names':
         # stdin: {"items": [{"path", "title", "author"}], "smart": bool, "author": bool}
         import names

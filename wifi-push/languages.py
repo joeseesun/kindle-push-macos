@@ -132,6 +132,27 @@ def detect(path):
     return found or tag
 
 
+def text_of(path, suffix):
+    """Plain text of a non-EPUB document, for detecting its language and sizing its translation."""
+    if suffix in {'.docx', '.odt'}:
+        with zipfile.ZipFile(path) as book:
+            raw = book.read('word/document.xml' if suffix == '.docx' else 'content.xml').decode('utf-8', 'ignore')
+        return re.sub(r'\s+', ' ', html.unescape(re.sub(r'<[^>]+>', ' ', raw))).strip()
+    data = path.read_bytes()
+    for encoding in ('utf-8-sig', 'gb18030', 'big5', 'latin-1'):
+        try:
+            raw = data.decode(encoding)
+            break
+        except UnicodeDecodeError:
+            continue
+    if suffix == '.rtf':
+        raw = re.sub(r'\\[a-z]+-?\d* ?|[{}]', ' ', raw)
+    elif suffix not in {'.txt', '.md', '.markdown'}:
+        raw = re.sub(r'(?is)<(script|style|head)\b.*?</\1>', ' ', raw)
+        raw = html.unescape(re.sub(r'<[^>]+>', ' ', raw))
+    return re.sub(r'\s+', ' ', raw).strip()
+
+
 def chinese(goal):
     """Simplified or Traditional: both get Chinese punctuation and a Han-only glossary."""
     return target(goal) in ('zh', 'zh-hant')

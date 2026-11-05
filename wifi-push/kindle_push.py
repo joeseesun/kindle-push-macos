@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import zipfile
 from html import escape
 from markdown_support import prepare_markdown, vault_root
@@ -128,22 +129,56 @@ def pandoc_document(source, reader, folder):
     return epub.read_bytes()
 
 
-def convert(source):
-    source = source.expanduser().resolve(strict=True)
-    OUT.mkdir(parents=True, exist_ok=True)
+def calibre():
+    """Calibre's converter when it is installed: the only way this app can read MOBI/AZW text."""
+    found = shutil.which('ebook-convert') or '/Applications/calibre.app/Contents/MacOS/ebook-convert'
+    return found if Path(found).is_file() else None
+
+
+def translatable(source):
+    """Whether this file's text can be made into an EPUB to translate."""
+    suffix = extension(source)
+    if suffix in {'.epub', '.fb2'} | MARKDOWN | set(DOCUMENTS):
+        return True
+    return suffix in {'.mobi', '.azw', '.azw3'} and calibre() is not None
+
+
+def epub_for_translation(source):
+    """EPUB bytes of a book in any format `translatable` accepts."""
     suffix = extension(source)
     if suffix == '.epub':
         validate_epub(source)
-        content = source.read_bytes()
-    elif suffix in NATIVE:
-        validate_native(source)
-        content = source.read_bytes()
-    elif suffix in DOCUMENTS:
+        return source.read_bytes()
+    if suffix == '.fb2':
         with tempfile.TemporaryDirectory(prefix='kindle-push-') as folder:
-            content = pandoc_document(source, DOCUMENTS[suffix], folder)
-        suffix = '.epub'
-    elif suffix in MARKDOWN:
-        suffix = '.epub'
+            return pandoc_document(source, 'fb2', folder)
+    if suffix in {'.mobi', '.azw', '.azw3'}:
+        validate_native(source)
+        tool = calibre()
+        if not tool:
+            raise ValueError('翻译 MOBI/AZW 需要 Calibre 来提取文字。安装 Calibre 后再试，或换成 EPUB。')
+        with tempfile.TemporaryDirectory(prefix='kindle-push-') as folder:
+            target = Path(folder) / 'book.epub'
+            run([tool, str(source), str(target)], stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=600)
+            validate_epub(target)
+            return target.read_bytes()
+    if suffix in DOCUMENTS or suffix in MARKDOWN:
+        return converted_content(source, suffix)[0]
+    raise ValueError(suffix[1:].upper() + ' 是固定版式，暂时不能翻译。可以直接发送。')
+
+
+def converted_content(source, suffix):
+    """(bytes, suffix) of what is sent for `source`."""
+    if suffix == '.epub':
+        validate_epub(source)
+        return source.read_bytes(), suffix
+    if suffix in NATIVE:
+        validate_native(source)
+        return source.read_bytes(), suffix
+    if suffix in DOCUMENTS:
+        with tempfile.TemporaryDirectory(prefix='kindle-push-') as folder:
+            return pandoc_document(source, DOCUMENTS[suffix], folder), '.epub'
+    if suffix in MARKDOWN:
 
         markdown, warnings = prepare_markdown(source)
         for warning in warnings:
@@ -170,9 +205,21 @@ def convert(source):
             if problems:
                 raise ValueError('转换需处理：' + '; '.join(e.get('pretty', str(e)) for e in problems))
             validate_epub(epub)
-            content = epub.read_bytes()
-    else:
-        raise ValueError('暂不支持这种格式：' + source.name)
+            return epub.read_bytes(), '.epub'
+    raise ValueError('暂不支持这种格式：' + source.name)
+
+
+def convert(source):
+    source = source.expanduser().resolve(strict=True)
+    OUT.mkdir(parents=True, exist_ok=True)
+    suffix = extension(source)
+    # Already one of our own files (a translation added back to the list): send it as it is.
+    # Copying it would only make `title 2` next to itself.
+    # (.azw3 still goes through: it is sent under the name .azw.)
+    if source.parent == OUT.resolve() and suffix != '.azw3' and (suffix == '.epub' or suffix in NATIVE):
+        converted_content(source, suffix)
+        return source
+    content, suffix = converted_content(source, suffix)
     # A clean, stable per-source name: repeated sends replace that article, without clutter.
     title = names.tidy(names.file_stem(source, extension(source)), smart=False)[:60].strip() or '文章'
     # KOReader registers KF8 books as .azw only; the bytes are the same.
@@ -201,19 +248,71 @@ def get_config(host=None):
         raise ValueError('还没设置 Kindle IP。首次运行时输入 KOReader 网络信息里的 IP。')
     return config
 
-def ssh(config, operation, content=b'', timeout=180):
+def ssh_command(config, operation):
     key = DATA / 'id_ed25519'
     if not key.exists():
         raise ValueError('USB 首次配置尚未完成。')
-    result = run(['/usr/bin/ssh', '-F', '/dev/null', '-T', '-p', '2222', '-i', str(key),
+    return ['/usr/bin/ssh', '-F', '/dev/null', '-T', '-p', '2222', '-i', str(key),
         '-o', 'IdentitiesOnly=yes', '-o', 'BatchMode=yes',
         '-o', 'StrictHostKeyChecking=yes', '-o', 'HostKeyAlias=' + config.get('alias', 'kindle-push'),
         '-o', 'HostKeyAlgorithms=ssh-ed25519',
         '-o', 'UserKnownHostsFile="' + str(config.get('known_hosts') or DATA / 'known_hosts') + '"',
         '-o', 'ConnectTimeout=8', '-o', 'ServerAliveInterval=10',
-        '-o', 'ServerAliveCountMax=3', 'root@' + config['host'], operation],
-        input=content, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
-    return result.stdout
+        '-o', 'ServerAliveCountMax=3', 'root@' + config['host'], operation]
+
+
+def ssh(config, operation, content=b'', timeout=180):
+    return run(ssh_command(config, operation), input=content, stdout=subprocess.PIPE,
+               stderr=subprocess.PIPE, timeout=timeout).stdout
+
+
+def report_progress(percent, stage='send'):
+    """For the app, which reads this file while a transfer runs. Off unless it asks."""
+    path = os.environ.get('KINDLEPUSH_PROGRESS')
+    if not path:
+        return
+    temp = path + '.tmp'
+    with open(temp, 'w') as file:
+        json.dump({'percent': percent, 'stage': stage}, file)
+    os.replace(temp, path)
+
+
+def put(config, header, content, timeout):
+    """Stream a file to the receiver, reporting how far it has got. Returns its answer."""
+    command = ssh_command(config, 'put')
+    expired = threading.Event()
+    with subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as process:
+        def expire():
+            expired.set()
+            process.kill()
+        timer = threading.Timer(timeout, expire)
+        timer.start()
+        try:
+            try:
+                process.stdin.write(header)
+                step, last = 64 * 1024, -1
+                for start in range(0, len(content), step):
+                    process.stdin.write(content[start:start + step])
+                    percent = min((start + step) * 100 // max(1, len(content)), 100)
+                    if percent != last:
+                        last = percent
+                        report_progress(percent)
+                process.stdin.close()
+            except (BrokenPipeError, ValueError):
+                pass  # The connection went away; the exit code and stderr say why.
+            output, errors = process.stdout.read(), process.stderr.read()
+            code = process.wait()
+        finally:
+            # Dropping ssh mid-file makes the Kindle discard the part it got.
+            timer.cancel()
+            if process.poll() is None:
+                process.kill()
+    if expired.is_set():
+        raise subprocess.TimeoutExpired(command, timeout)
+    if code:
+        raise subprocess.CalledProcessError(code, command, output, errors)
+    return output
+
 
 def send(epub, config):
     """Send one file, or, to a receiver that takes only EPUB, a PDF as page-image EPUB volumes.
@@ -240,9 +339,10 @@ def send_file(path, config):
     # Big files over Kindle Wi-Fi: allow about 256 KB/s on top of the usual limit.
     timeout = 180 + len(content) // (256 * 1024)
     filename = path.name.encode('utf-8') + b'\n'
-    response = ssh(config, 'put', filename + str(len(content)).encode() + b'\n' + content, timeout)
+    response = put(config, filename + str(len(content)).encode() + b'\n', content, timeout)
     if response.strip() != b'OK':
         raise ValueError('Kindle 没有确认接收。')
+    report_progress(100, 'verify')
     received = ssh(config, 'get', filename, timeout)
     if hashlib.sha256(received).digest() != hashlib.sha256(content).digest():
         raise ValueError('传输校验未通过，请重试。')

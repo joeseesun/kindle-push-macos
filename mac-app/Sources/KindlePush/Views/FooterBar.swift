@@ -15,8 +15,8 @@ struct FooterBar: View {
                 summary
                 Spacer(minLength: 8)
                 if store.quick.running { sendingControls }
-                if store.currentJob != nil {
-                    Button("停止翻译") { store.stopTranslation() }.buttonStyle(.inkOutline).controlSize(.large).fixedSize()
+                if store.currentJob != nil || store.translation.sending != nil {
+                    Button(store.currentJob != nil ? "停止翻译" : "取消发送译本") { store.stopTranslation() }.buttonStyle(.inkOutline).controlSize(.large).fixedSize()
                         .help("停止正在翻译的书；已完成的进度保留，排队的书回到待发送（⌘.）")
                 }
                 // While a queue runs, only "add to queue" stays, so the stop buttons and progress have room.
@@ -63,12 +63,14 @@ struct FooterBar: View {
             Label("\(originals) 本原文 · 本机排版，经 Wi‑Fi 直传，不经过云端", systemImage: "lock")
                 .font(.caption).foregroundStyle(.secondary)
         } else {
-            let time = store.translationMinutes.map { "（约 \(Self.duration($0))）" } ?? ""
+            let guess = [store.translationMinutes.map { "约 \(Self.duration($0))" },
+                         store.translationTokens.map { "约 \(PushStore.tokenText($0)) token" }].compactMap { $0 }
+            let time = guess.isEmpty ? "" : "（\(guess.joined(separator: "，"))）"
             let parts = (originals > 0 ? ["\(originals) 本原文"] : []) + ["\(translations) 本翻译\(time)"]
             Label(parts.joined(separator: " · "), systemImage: "globe")
                 .font(.caption).foregroundStyle(.secondary)
                 .help(store.translationProvider == "chatgpt" ? "要翻译的书用 ChatGPT 套餐额度翻译，译完自动发送"
-                      : "要翻译的书正文发给翻译模型，按用量计费；译完自动发送。时间按书的篇幅粗估")
+                      : "要翻译的书正文发给翻译模型，按用量计费；译完自动发送。时间和用量按书的篇幅粗估")
         }
     }
 
@@ -97,7 +99,7 @@ struct FooterBar: View {
     /// Stop after the book in flight, or cancel it outright. Readable at all times: a status line
     /// replaces the stop button once pressed, instead of a greyed-out button.
     @ViewBuilder private var sendingControls: some View {
-        if store.sendingID != nil {
+        if store.quick.sending != nil {
             Button("取消这本") { store.stopSending(now: true) }
                 .buttonStyle(.inkOutline).controlSize(.large).fixedSize()
                 .help("断开正在传的这本，Kindle 上不会留下半个文件；后面的书也不再发送")
@@ -169,6 +171,10 @@ private struct NoticeBanner: View {
             Text(store.notice).font(.callout).textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 4)
+            if !store.undoable.isEmpty {
+                Button("撤销") { store.undoRemove() }.buttonStyle(.inkLink).font(.callout)
+                    .keyboardShortcut("z", modifiers: .command)
+            }
             if store.isError && !store.connected {
                 Button("连接设置") { store.showConnection = true }.controlSize(.small)
             }

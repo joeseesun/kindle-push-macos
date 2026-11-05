@@ -15,7 +15,7 @@ KOReader 能打开的格式都支持（对照 KOReader 源码 `credocument.lua`�
 | fb2.zip、txt.zip、html.zip、htm.zip、htmlz、rtf.zip、md.zip | 原样发送，KOReader 直接打开压缩包 |
 | PNG、JPG、GIF、WEBP、TIFF | 原样发送，KOReader 可当作单页查看 |
 
-原样发送的格式需要 v2 接收端（PDF、MOBI 等，见 README「发送 PDF、MOBI 等原生格式」）。翻译只支持 EPUB，其他格式的外文书不显示翻译选项，直接按原文发送。
+原样发送的格式需要 v2 接收端（PDF、MOBI 等，见 README「发送 PDF、MOBI 等原生格式」）。翻译支持 EPUB、TXT、Markdown、HTML、Word（.docx）、ODT、RTF、FB2；MOBI/AZW 需要装 Calibre 提取文字；PDF、DjVu、漫画是固定版式，不能翻译。其他格式的外文书不显示翻译选项，直接按原文发送。
 
 ## Markdown → EPUB
 
