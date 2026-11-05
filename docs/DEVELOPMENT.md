@@ -43,6 +43,16 @@ python3 -m unittest discover -s wifi-push -p 'test_*.py' -v
 
 这些文件全部上传到 GitHub release；`SUFeedURL` 指向 `releases/latest/download/appcast.xml`。公证用钥匙串配置 `notary`（`xcrun notarytool store-credentials notary`）。更新说明放在 `release/notes-v<版本>.md`（`## 中文 … ## English …`，中文部分进更新窗口）。`SKIP_NOTARIZE=1` 只做本地检查。发布包不包含 Python、Pandoc、个人配对数据或文章。
 
+### 发版后同步官网
+
+GitHub release 发布（标为 Latest）后运行：
+
+```sh
+./script/publish_site.sh && git push
+```
+
+它从最新 release 读版本号、`KindlePush.dmg` 大小和更新说明「## 中文」下第一条的加粗标题，写进 `site/index.html`（JSON-LD、首屏「新增」、下载区），提交并部署到 kindle.qiaomu.ai。下载按钮永远是 `releases/latest/download/KindlePush.dmg`，网站不需要改链接；前提是每次 release 都上传固定名 `KindlePush.dmg` 和 `SHA256SUMS`。所以更新说明的第一条要写成 `- **一句话亮点**：……`，首屏就显示这句。功能区文案（翻译、格式等段落）不会自动改，有大功能时手动改 `site/index.html`。
+
 版本定义在 `script/build_and_run.sh` 的 Info.plist 模板中：`CFBundleShortVersionString` 和 `CFBundleVersion`。主界面从 bundle 读取版本。
 
 目前只提供 arm64 实测包。Intel 用户可尝试在 Intel Mac 本地构建，依赖路径已兼容 `/usr/local/bin`，但不能视为完成实机测试。
