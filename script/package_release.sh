@@ -10,11 +10,15 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 KINDLE_BUILD_CONFIGURATION=release ./script/build_and_run.sh --build-only
-APP="$ROOT_DIR/mac-app/dist/乔木 Kindle 助手.app"
+ARCH="${KINDLE_ARCH:-$(/usr/bin/uname -m)}"
+DIST="$ROOT_DIR/mac-app/dist"; [ "$ARCH" = "$(/usr/bin/uname -m)" ] || DIST="$ROOT_DIR/mac-app/dist-$ARCH"
+APP="$DIST/乔木 Kindle 助手.app"
+# Release both: ./script/package_release.sh, then KINDLE_ARCH=x86_64 ./script/package_release.sh
+FIXED_DMG=KindlePush.dmg; APPCAST=appcast.xml
+if [ "$ARCH" = "x86_64" ]; then FIXED_DMG=KindlePush-Intel.dmg; APPCAST=appcast-intel.xml; fi
 VERSION=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$APP/Contents/Info.plist")
 BUILD=$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "$APP/Contents/Info.plist")
-ARCH=$(/usr/bin/uname -m)
-OUT="$ROOT_DIR/release/v$VERSION"; rm -rf "$OUT"; mkdir -p "$OUT"
+OUT="$ROOT_DIR/release/v$VERSION"; mkdir -p "$OUT"; rm -f "$OUT"/KindlePush-"$VERSION"-macos-"$ARCH".* "$OUT/$FIXED_DMG" "$OUT/$APPCAST"
 ZIP="$OUT/KindlePush-$VERSION-macos-$ARCH.zip"
 DMG="$OUT/KindlePush-$VERSION-macos-$ARCH.dmg"
 PROFILE="${NOTARY_PROFILE:-notary}"
@@ -46,7 +50,7 @@ if [ "${SKIP_NOTARIZE:-0}" != "1" ]; then
   xcrun stapler validate "$DMG"
   /usr/sbin/spctl --assess --type open --context context:primary-signature -vv "$DMG"
 fi
-cp "$DMG" "$OUT/KindlePush.dmg"   # fixed name for releases/latest/download/KindlePush.dmg
+cp "$DMG" "$OUT/$FIXED_DMG"   # fixed name for releases/latest/download/KindlePush.dmg
 
 # 3. Sparkle appcast, signed after stapling (stapling changes the bytes).
 SIG=$("$ROOT_DIR/mac-app/.build/artifacts/sparkle/Sparkle/bin/sign_update" "$DMG")
@@ -64,7 +68,7 @@ for line in zh.splitlines():
 print("\n".join(out))
 PY
 )
-cat > "$OUT/appcast.xml" <<XML
+cat > "$OUT/$APPCAST" <<XML
 <?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
   <channel>
@@ -82,6 +86,6 @@ cat > "$OUT/appcast.xml" <<XML
   </channel>
 </rss>
 XML
-xmllint --noout "$OUT/appcast.xml"
-cd "$OUT" && /usr/bin/shasum -a 256 "$(basename "$ZIP")" "$(basename "$DMG")" KindlePush.dmg > SHA256SUMS
+xmllint --noout "$OUT/$APPCAST"
+cd "$OUT" && /usr/bin/shasum -a 256 KindlePush-"$VERSION"-macos-*.zip KindlePush-"$VERSION"-macos-*.dmg KindlePush*.dmg | /usr/bin/sort -u -k2 > SHA256SUMS
 ls -la "$OUT"

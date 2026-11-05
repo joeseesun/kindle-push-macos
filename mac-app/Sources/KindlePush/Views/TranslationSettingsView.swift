@@ -121,11 +121,12 @@ struct TranslationSettingsView: View {
 
     private var languageNote: String {
         let name = Lang.name(store.targetLanguage)
-        let rule = t("拖入的书会在本机识别语言。不是\(name)的书会问你要不要翻译成\(name)；每本书行尾的标签都能改成任意语言，这里只是偏好。")
+        let rule = t("拖入的书会在本机识别语言。")
         let choice = store.foreignDefault == .ask
-            ? t("选了默认处理方式后，拖入时直接标好，不再在列表上方询问。")
-            : t("拖入时直接标为「\(t(store.foreignDefault.title))」；每本书行尾的标签仍可单独修改。")
-        return [rule, choice, t("改动立即生效。")].filter { !$0.isEmpty }.joined(separator: I18n.sentenceGap)
+            ? t("不是\(name)的书会在列表上方问你要不要翻译成\(name)；选了默认处理方式，就在拖入时直接标好。")
+            : t("不是\(name)的书拖入时直接标为「\(t(store.foreignDefault.title))」。")
+        let tag = t("每本书行尾的标签都能单独改，包括翻成哪种语言。")
+        return [rule, choice, tag, t("改动立即生效。")].filter { !$0.isEmpty }.joined(separator: I18n.sentenceGap)
     }
 
     private var qualityForm: some View {

@@ -30,11 +30,32 @@
 - **简单的模型设置**：选服务、填 Key（或登录），再从自动读取的模型列表里选；支持 ChatGPT 账号登录、OpenRouter 和词元跳动浏览器授权。
 - **更快、更好的译文**：长章节自动拆段，默认 16 路并行（1–64 可调），费用不变；四种译文风格（自然流畅、忠实准确、文学润色、技术学术）；开译前自动整理全书人名和术语，也可以自己填术语表，各章译名统一。
 
+## 界面一览
+
+<table>
+<tr>
+<td width="50%"><img src="docs/assets/tour/kindles.png" alt="连接面板：勾选要发送的 Kindle，显示在线状态和地址"></td>
+<td width="50%"><img src="docs/assets/tour/settings-language.png" alt="设置 › 语言：偏好翻译语言、外文书默认处理方式、界面语言"></td>
+</tr>
+<tr>
+<td><b>发给几台 Kindle</b><br>连接面板里勾选，每本书发给勾选的每一台；不在线的那台之后可以单独补发。</td>
+<td><b>语言</b><br>外文书拖入时自动识别，按这里的偏好标成「中英对照」或「仅中文」；界面可选中文或英文。</td>
+</tr>
+<tr>
+<td><img src="docs/assets/tour/settings-service.png" alt="设置 › 翻译服务：选服务、填 API Key、选模型、翻译组件状态"></td>
+<td><img src="docs/assets/tour/settings-quality.png" alt="设置 › 质量与速度：译文风格、术语表、同时翻译几路"></td>
+</tr>
+<tr>
+<td><b>翻译服务</b><br>选服务、填 Key，模型列表自动读取。Key 存在 macOS 钥匙串。</td>
+<td><b>质量与速度</b><br>四种译文风格、自填术语表，长章节拆段并行翻译。</td>
+</tr>
+</table>
+
 ## 使用条件
 
 | 项目 | 要求 |
 | --- | --- |
-| Mac | macOS 14 或更新；提供 Apple Silicon / arm64 预编译包 |
+| Mac | macOS 14 或更新。Apple 芯片版已实测；Intel 版（`KindlePush-Intel.dmg`）只验证了打包和公证，未在 Intel Mac 上运行过 |
 | Kindle | 已越狱、已经安装并运行过 KOReader，包含 SSH / Dropbear 插件 |
 | 网络 | Mac 和 Kindle 在同一个可互通局域网，Kindle 开启 Wi-Fi、运行 KOReader |
 | 首次配置 | 在应用里插一次 USB 写入接收配置，再一键配对；不用开终端 |
@@ -117,6 +138,8 @@ python3 -m unittest discover -s wifi-push -p 'test_*.py' -v
 - [bilingual_book_maker](https://github.com/yihong0618/bilingual_book_maker)：EPUB 双语翻译（隔离安装固定版本 1.3.2）。
 
 ## English
+
+<p align="center"><img src="docs/assets/tour/main-en.png" width="720" alt="Kindle Push in English: books translating, sending and delivered"></p>
 
 This fork of [chasepal/kindle-push-macos](https://github.com/chasepal/kindle-push-macos) adds bilingual EPUB translation using `bilingual_book_maker` 1.3.2. Drag in an EPUB: its language is detected locally, and a foreign book can become a side-by-side edition or a translation only, in any of 20 languages. Preview three body paragraphs, then translate the complete book and send it over Wi-Fi to one or several paired KOReader Kindles. The original EPUB is preserved. Failed or cancelled jobs are never automatically sent.
 
