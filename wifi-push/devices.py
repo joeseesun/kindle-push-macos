@@ -4,6 +4,9 @@ All devices share this Mac's one client key; each has its own host-key alias in 
 (`kindle-push` for the first one, as earlier versions wrote it), so StrictHostKeyChecking still
 pins every connection to the Kindle it was meant for. The list lives in config.json; `host`
 there stays the current device's address for the command line.
+
+`selected` is the set of Kindles a book goes to; `current` is always one of them, the one the
+connection status follows. With one selected, the two are the same and it behaves as before.
 """
 import json
 import re
@@ -55,10 +58,31 @@ def load():
     return devices, current
 
 
-def save(devices, current):
+def selected():
+    """Ids of the Kindles books go to, in list order. Never empty while any Kindle is paired."""
+    devices, chosen = load()
+    wanted = _read().get('selected') or []
+    ids = [d['id'] for d in devices if d['id'] in wanted]
+    return ids or ([chosen] if chosen else [])
+
+
+def set_selected(ids):
+    """Choose which Kindles books go to. The current one stays if it is still chosen."""
+    devices, chosen = load()
+    ids = [d['id'] for d in devices if d['id'] in ids]
+    if not ids:
+        raise ValueError('至少要选一台 Kindle。')
+    save(devices, chosen if chosen in ids else ids[0], ids)
+    return ids
+
+
+def save(devices, current, chosen_set=None):
     config = _read()
+    existing = {d['id'] for d in devices}
+    wanted = [i for i in (chosen_set if chosen_set is not None else config.get('selected') or []) if i in existing]
     config['devices'] = devices
     config['current'] = current
+    config['selected'] = wanted or ([current] if current else [])
     chosen = next((d for d in devices if d['id'] == current), None)
     config['host'] = chosen['host'] if chosen else ''
     if not chosen:
@@ -117,7 +141,14 @@ def update(device_id, **fields):
                 device['name'] = name
             if 'host' in fields:
                 device['host'] = fields['host']
-            save(devices, device_id if fields.get('select') else chosen)
+            if fields.get('select'):
+                # One selected: it simply moves. Several: the set is kept, and this one joins it.
+                wanted = _read().get('selected') or []
+                wanted = [i for i in wanted if any(d['id'] == i for d in devices)]
+                keep = wanted + [device_id] if len(wanted) > 1 and device_id not in wanted else (wanted if len(wanted) > 1 else [device_id])
+                save(devices, device_id, keep)
+            else:
+                save(devices, chosen)
             return device
     raise ValueError('没有这台 Kindle 的配对记录。')
 
@@ -134,9 +165,10 @@ def clean_name(name):
     return re.sub(r'\s+', ' ', name or '').strip()[:30]
 
 
-def public(device, chosen=None, online=None):
+def public(device, chosen=None, online=None, targets=None):
     item = {'id': device['id'], 'name': device['name'], 'host': device.get('host', ''),
-            'current': device['id'] == chosen}
+            'current': device['id'] == chosen,
+            'selected': device['id'] in targets if targets is not None else device['id'] == chosen}
     if online is not None:
         item['online'] = online
     return item

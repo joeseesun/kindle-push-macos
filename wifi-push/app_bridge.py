@@ -81,8 +81,13 @@ def ping(host, device):
     raise ValueError(NO_ANSWER)
 
 
-def verify(host, expected=None):
-    """Connect to the paired Kindle at `host` (the one with id `expected`, when given) and make it current.
+class Away(ValueError):
+    """The Kindle is not on this network. Sending to the others can still go ahead."""
+
+
+def verify(host, expected=None, select=True):
+    """Connect to the paired Kindle at `host` (the one with id `expected`, when given) and, unless
+    `select` is off, make it current.
 
     With `expected`, SSH itself checks the host key, so no separate scan is needed; a different
     device at that address fails the handshake and nothing is sent."""
@@ -102,8 +107,24 @@ def verify(host, expected=None):
             raise ValueError(MISMATCH)
     if ping(host, device) not in kp.RECEIVER_VERSIONS:
         raise ValueError('Kindle 接收服务没有正常响应，请重新打开 KOReader。')
-    dv.update(device['id'], host=host, select=True)
+    dv.update(device['id'], host=host, select=select)
     return host, device
+
+
+def reach(device, host=''):
+    """Where `device` is now: `host` or its last address, else wherever a scan finds it. Never changes the selection."""
+    for address in dict.fromkeys(a for a in (host, device.get('host')) if a):
+        try:
+            return verify(address, device['id'], select=False)
+        except (ValueError, OSError, subprocess.SubprocessError):
+            pass
+    try:
+        found = scan([device])
+    except ValueError:
+        found = {}
+    if device['id'] in found:
+        return verify(found[device['id']], device['id'], select=False)
+    raise Away(f'「{device["name"]}」不在这个 Wi-Fi 里')
 
 
 def local_candidates():
@@ -188,6 +209,10 @@ def discover(force_scan=False):
     """Connect to the Kindle chosen last time, or, when it is away, to another paired one nearby."""
     known = paired()
     chosen = dv.current()
+    # Several Kindles chosen: look only among them, and never send somewhere nobody ticked.
+    targets = dv.selected()
+    if len(targets) > 1:
+        known = [d for d in known if d['id'] in targets]
     if chosen and chosen.get('host') and not force_scan:
         try:
             return verify(chosen['host'], chosen['id'])
@@ -219,7 +244,8 @@ def device_list(full_scan=False):
             return bool(host) and reachable(host, 0.8) and (identify(host, [device]) is not None)
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
             online = {d['id'] for d, ok in zip(known, pool.map(here, known)) if ok}
-    return [dv.public(d, chosen, d['id'] in online) for d in known]
+    targets = dv.selected()
+    return [dv.public(d, chosen, d['id'] in online, targets) for d in known]
 
 
 def select(device_id):
@@ -265,9 +291,11 @@ def handle(args):
         if command == 'translation-settings': return tr.public_settings()
         if command == 'translation-save': return tr.save_settings(**json.loads(args[1]))
         if command == 'translation-install': return tr.install()
-        if command == 'translation-start': return tr.start(args[1], len(args) > 2 and args[2] == 'preview', args[3] if len(args) > 3 else 'bilingual')
+        # translation-start PATH preview|full [bilingual|target-only] [zh|en|ja…]
+        if command == 'translation-start': return tr.start(args[1], len(args) > 2 and args[2] == 'preview', args[3] if len(args) > 3 else 'bilingual',
+                                                           args[4] if len(args) > 4 else 'zh')
         if command == 'translation-progress': return tr.progress(args[1])
-        if command == 'translation-find': return tr.find(args[1])
+        if command == 'translation-find': return tr.find(args[1], args[2] if len(args) > 2 else 'zh')
         if command == 'translation-cancel': return tr.cancel(args[1])
         raise ValueError('未知翻译操作。')
     if command == 'tidy-names':
@@ -290,7 +318,7 @@ def handle(args):
     if command in {'discover', 'scan', 'connect'}:
         before = dv.current()
         host, device = verify(args[1]) if command == 'connect' else discover(command == 'scan')
-        if command != 'connect' and before and before['id'] != device['id']:
+        if command != 'connect' and before and before['id'] != device['id'] and len(dv.selected()) <= 1:
             # The chosen Kindle is away: say so, never switch silently.
             return connected(host, device, f'「{before["name"]}」不在这个 Wi-Fi 里，已改为发到「{device["name"]}」')
         return connected(host, device)
@@ -311,6 +339,9 @@ def handle(args):
                          message='配对成功')
     if command == 'select':
         return connected(*select(args[1]))
+    if command == 'targets':
+        dv.set_selected(args[1:])
+        return {'ok': True, 'devices': device_list()}
     if command == 'rename':
         dv.update(args[1], name=args[2])
         return {'ok': True, 'devices': device_list()}
@@ -324,7 +355,10 @@ def handle(args):
         return {'ok': True, 'output': str(output), 'message': '已保存到本机', 'details': log.getvalue()}
     if command == 'send':
         # The id pins the send to the Kindle the user chose, wherever its address has moved.
-        host, device = verify(args[1], args[3] if len(args) > 3 else None)
+        try:
+            host, device = reach(dv.find(args[3]), args[1]) if len(args) > 3 else verify(args[1])
+        except Away as error:
+            return {'ok': False, 'state': 'away', 'message': str(error)}
         source = Path(args[2])
         log = io.StringIO()
         with contextlib.redirect_stdout(log):

@@ -5,6 +5,44 @@ import app_bridge as bridge
 
 
 class DiscoveryTests(unittest.TestCase):
+    def device(self, id, host=''):
+        return {'id': id, 'name': id.upper(), 'alias': 'kindle-push', 'key': 'key-' + id, 'host': host}
+
+    def test_reach_never_changes_the_selection_and_finds_a_moved_kindle(self):
+        device = self.device('k2', '192.168.1.3')
+        def verify(host, expected, select=True):
+            self.assertFalse(select)
+            if host == '192.168.1.9':
+                return host, device
+            raise ValueError('gone')
+        with patch.object(bridge, 'verify', side_effect=verify), \
+             patch.object(bridge, 'scan', return_value={'k2': '192.168.1.9'}):
+            self.assertEqual(bridge.reach(device)[0], '192.168.1.9')
+
+    def test_away_kindle_is_reported_so_the_others_can_go_ahead(self):
+        device = self.device('k2', '192.168.1.3')
+        with patch.object(bridge, 'verify', side_effect=ValueError('gone')), \
+             patch.object(bridge, 'scan', return_value={}), \
+             patch.object(bridge.dv, 'find', return_value=device):
+            result = bridge.handle(['send', '', '/tmp/book.epub', 'k2'])
+        self.assertEqual((result['ok'], result['state']), (False, 'away'))
+        self.assertIn('K2', result['message'])
+
+    def test_discover_stays_within_the_kindles_ticked(self):
+        known = [self.device('k1'), self.device('k2'), self.device('k3')]
+        seen = {}
+        def scan(devices):
+            seen['ids'] = [d['id'] for d in devices]
+            return {'k3': '192.168.1.4'}
+        with patch.object(bridge, 'paired', return_value=known), \
+             patch.object(bridge.dv, 'current', return_value=known[0]), \
+             patch.object(bridge.dv, 'selected', return_value=['k1', 'k2']), \
+             patch.object(bridge.dv, 'update'), \
+             patch.object(bridge, 'scan', side_effect=scan):
+            with self.assertRaises(ValueError):
+                bridge.discover()
+        self.assertEqual(seen['ids'], ['k1', 'k2'])
+
     def test_status_reads_saved_host(self):
         # Regression: a local named `config` in handle() shadowed config() and broke every status call.
         with patch.object(bridge, 'config', return_value={'host': '192.168.1.42'}), \

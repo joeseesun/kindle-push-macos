@@ -54,11 +54,9 @@ struct KindlePushApp: App {
                 Button("发送到 Kindle") { Task { await store.send() } }
                     .keyboardShortcut(.return, modifiers: .command)
                     .disabled(store.queueable.isEmpty)
-                Button(store.translateBooks ? "翻译并保存到本机" : "保存到本机") { Task { await store.saveLocally() } }
+                Button("保存到本机") { Task { await store.saveLocally() } }
                     .keyboardShortcut(.return, modifiers: [.command, .option])
                     .disabled(store.queueable.isEmpty)
-                Button("先试译 3 段") { Task { await store.preview() } }
-                    .disabled(store.translation.running || !store.translateBooks || !store.previewAvailable)
                 Button(store.quick.running ? "停止发送" : "停止翻译") {
                     if store.quick.running { store.stopSending() } else { store.stopTranslation() }
                 }

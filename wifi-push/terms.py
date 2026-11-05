@@ -102,6 +102,17 @@ PROMPT = """你在为一本英文书的中译本统一译名。书名：{title}�
 只输出 JSON：{{"terms": [{{"en": "原文", "zh": "译名", "note": "男"}}]}}，不要解释。
 
 {items}"""
+# Any other target: the same rules, asked in English, with the rendering in that language.
+PROMPT_OTHER = """You are fixing the names for a {language} translation of a book. Title: {title}; author: {author}.
+Below are capitalised phrases that recur in the book, each with its count and one example sentence. Pick out the names of people, places, organisations and works, and terms the book coins, and give each one its rendering in {language}:
+- Use the established rendering where there is one; otherwise transliterate the usual way for {language}.
+- A full name and the surname alone must agree.
+- Leave out ordinary words, titles, months and weekdays, nationality or language adjectives, words capitalised only because they start a sentence, and words that are only part of a longer listed name.
+- When unsure, leave it out.
+- "note" is short: a person's gender (male / female) when the example shows it, or an alias; otherwise empty.
+Output only JSON: {{"terms": [{{"en": "original", "zh": "rendering in {language}", "note": ""}}]}}, with no explanation.
+
+{items}"""
 
 
 # Ways endpoints spell "answer without reasoning first"; a 400 moves to the next one.
@@ -109,13 +120,21 @@ NO_THINKING = ({'reasoning_effort': 'none'}, {'enable_thinking': False},
                {'thinking': {'type': 'disabled'}}, {})
 
 
-def ask(base, model, key, title, author, items, deadline=120, first_token=25):
+def prompt(title, author, items, language=''):
+    """The glossary request; Chinese has its own, any other target is named in the English one."""
+    lines = '\n'.join(f"{i['term']}（{i['count']}次）：{i['example']}" if not language
+                      else f"{i['term']} ({i['count']}x): {i['example']}" for i in items)
+    if not language:
+        return PROMPT.format(title=title or '未知', author=author or '未知', items=lines)
+    return PROMPT_OTHER.format(language=language, title=title or 'unknown', author=author or 'unknown', items=lines)
+
+
+def ask(base, model, key, title, author, items, deadline=120, first_token=25, language=''):
     """The model's reply, streamed. Some gateways now and then hold a request open without ever
     answering it while the same request sent again returns in seconds, so a request that has
     produced nothing after `first_token` seconds is dropped and sent again, until `deadline`."""
-    lines = '\n'.join(f"{i['term']}（{i['count']}次）：{i['example']}" for i in items)
     body = {'model': model, 'temperature': 0.2, 'max_tokens': 6000, 'stream': True,
-            'messages': [{'role': 'user', 'content': PROMPT.format(title=title or '未知', author=author or '未知', items=lines)}]}
+            'messages': [{'role': 'user', 'content': prompt(title, author, items, language)}]}
     end = time.monotonic() + deadline
     controls = list(NO_THINKING)
     while controls and time.monotonic() < end:
@@ -146,8 +165,8 @@ def ask(base, model, key, title, author, items, deadline=120, first_token=25):
     raise TimeoutError('glossary took too long')
 
 
-def parse(reply, allowed):
-    """`en -> zh` lines for terms the model was actually asked about."""
+def parse(reply, allowed, chinese=True):
+    """`en -> zh` lines for terms the model was actually asked about (`zh` in the target language)."""
     start, end = reply.find('{'), reply.rfind('}')
     if start < 0 or end <= start:
         return []
@@ -162,7 +181,8 @@ def parse(reply, allowed):
             continue
         en, zh = str(item.get('en', '')).strip(), str(item.get('zh', '')).strip()
         # A rendering must be Chinese, short, and safe for the engine's one-line format.
-        if (en not in allowed or en in seen or not zh or len(zh) > 30 or not re.search(r'[一-鿿]', zh)
+        if (en not in allowed or en in seen or not zh or len(zh) > (30 if chinese else 60)
+                or (chinese and not re.search(r'[一-鿿]', zh)) or (not chinese and zh == en)
                 or any(c in zh + en for c in '#\n\r') or '->' in zh or '→' in zh):
             continue
         seen.add(en)
@@ -179,13 +199,17 @@ def merge(user, auto):
     return '\n'.join([line for line in [user.strip(), '# 自动整理的人名和术语'] if line] + extra) if extra else user.strip()
 
 
-def build(path, base, model, key):
-    """The automatic lines for one book; [] when the book has too few names or anything fails."""
+def build(path, base, model, key, goal='zh'):
+    """The automatic lines for one book; [] when the book has too few names or anything fails.
+    Names are found by Latin capitals, so a Chinese or Japanese book simply gets no list."""
     try:
         items = candidates(book_text(path))
         if len(items) < 3:
             return []
         title, author = book_meta(path)
-        return parse(ask(base, model, key, title, author, items), [i['term'] for i in items])
+        import languages
+        language = '' if languages.target(goal) == 'zh' else languages.TARGETS[languages.target(goal)][3]
+        return parse(ask(base, model, key, title, author, items, language=language), [i['term'] for i in items],
+                     chinese=languages.chinese(goal))
     except Exception:
         return []

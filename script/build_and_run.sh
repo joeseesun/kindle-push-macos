@@ -2,7 +2,12 @@
 set -euo pipefail
 MODE="${1:-run}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-APP_BUNDLE="$ROOT_DIR/mac-app/dist/乔木 Kindle 助手.app"
+# Built aside and swapped in at the end. Never write into the bundle in place: overwriting the
+# binary of a copy that is running makes macOS kill it (SIGKILL, Code Signature Invalid).
+FINAL_BUNDLE="$ROOT_DIR/mac-app/dist/乔木 Kindle 助手.app"
+STAGE="$ROOT_DIR/mac-app/dist/.staging"
+rm -rf "$STAGE"; mkdir -p "$STAGE"
+APP_BUNDLE="$STAGE/乔木 Kindle 助手.app"
 CONTENTS="$APP_BUNDLE/Contents"
 if [ "$MODE" != "--build-only" ]; then /usr/bin/pkill -x KindlePush >/dev/null 2>&1 || true; fi
 cd "$ROOT_DIR/mac-app"
@@ -25,7 +30,7 @@ if ! /usr/bin/otool -l "$CONTENTS/MacOS/KindlePush" | grep -q "@executable_path/
   /usr/bin/install_name_tool -add_rpath "@executable_path/../Frameworks" "$CONTENTS/MacOS/KindlePush"
 fi
 cp "$ROOT_DIR/wifi-push/kindle_push.py" "$ROOT_DIR/wifi-push/app_bridge.py" "$ROOT_DIR/wifi-push/markdown_support.py" "$ROOT_DIR/wifi-push/devices.py" "$ROOT_DIR/wifi-push/setup_device.py" "$ROOT_DIR/wifi-push/kindle-receive.sh" "$ROOT_DIR/wifi-push/ebook.css" "$CONTENTS/Resources/"
-cp "$ROOT_DIR/wifi-push/translation.py" "$ROOT_DIR/wifi-push/accounts.py" "$ROOT_DIR/wifi-push/bookinfo.py" "$ROOT_DIR/wifi-push/names.py" "$ROOT_DIR/wifi-push/terms.py" "$ROOT_DIR/wifi-push/chunks.py" "$ROOT_DIR/wifi-push/polish.py" "$ROOT_DIR/wifi-push/pdfpages.py" "$CONTENTS/Resources/"
+cp "$ROOT_DIR/wifi-push/translation.py" "$ROOT_DIR/wifi-push/accounts.py" "$ROOT_DIR/wifi-push/bookinfo.py" "$ROOT_DIR/wifi-push/names.py" "$ROOT_DIR/wifi-push/terms.py" "$ROOT_DIR/wifi-push/chunks.py" "$ROOT_DIR/wifi-push/polish.py" "$ROOT_DIR/wifi-push/pdfpages.py" "$ROOT_DIR/wifi-push/languages.py" "$CONTENTS/Resources/"
 cp "$ROOT_DIR/mac-app/Assets/AppIcon.icns" "$CONTENTS/Resources/AppIcon.icns"
 # About tab: QR codes (bundled so they work offline) and third-party licenses.
 rm -rf "$CONTENTS/Resources/About"; cp -R "$ROOT_DIR/mac-app/Assets/About" "$CONTENTS/Resources/About"
@@ -43,8 +48,8 @@ cat > "$CONTENTS/Info.plist" <<'PLIST'
 <key>CFBundleName</key><string>乔木 Kindle 助手</string>
 <key>CFBundleDisplayName</key><string>乔木 Kindle 助手</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>1.13.0</string>
-<key>CFBundleVersion</key><string>17</string>
+<key>CFBundleShortVersionString</key><string>1.14.0</string>
+<key>CFBundleVersion</key><string>18</string>
 <key>SUFeedURL</key><string>https://github.com/joeseesun/kindle-push-macos/releases/latest/download/appcast.xml</string>
 <key>SUPublicEDKey</key><string>ftyDAv8Qvb8tv4nf5jnMWtCgIi9yVI2IM6p+qhrKz90=</string>
 <key>SUEnableAutomaticChecks</key><true/>
@@ -73,6 +78,11 @@ for item in "$SPK/XPCServices/Installer.xpc" "$SPK/XPCServices/Downloader.xpc" "
   if [ -e "$item" ]; then /usr/bin/codesign --force --options runtime $TS --preserve-metadata=entitlements --sign "${IDENTITY:--}" "$item"; fi
 done
 /usr/bin/codesign --force --options runtime $TS --sign "${IDENTITY:--}" "$APP_BUNDLE"
+# The swap: a running copy keeps the files it has open; the next launch gets the new build.
+if [ -e "$FINAL_BUNDLE" ]; then mv "$FINAL_BUNDLE" "$STAGE/previous.app"; fi
+mv "$APP_BUNDLE" "$FINAL_BUNDLE"
+rm -rf "$STAGE"
+APP_BUNDLE="$FINAL_BUNDLE"; CONTENTS="$APP_BUNDLE/Contents"
 case "$MODE" in
   --build-only) ;;
   run) /usr/bin/open -n "$APP_BUNDLE" ;;

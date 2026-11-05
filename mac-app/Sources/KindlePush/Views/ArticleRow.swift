@@ -15,7 +15,7 @@ struct ArticleRow: View {
                     Text(article.title).font(.body.weight(.semibold)).lineLimit(1).truncationMode(.tail)
                         .help(article.path)
                     if article.bilingual == true {
-                        Text(article.chineseOnly == true ? "中文译本" : "中英对照").font(.caption2.weight(.semibold)).foregroundStyle(Color.ink)
+                        Text(translatedLabel).font(.caption2.weight(.semibold)).foregroundStyle(Color.ink)
                             .padding(.horizontal, 6).padding(.vertical, 1.5)
                             .background(Color.ink.opacity(0.08), in: Capsule())
                             .fixedSize()
@@ -51,6 +51,7 @@ struct ArticleRow: View {
                 .accessibilityLabel("更多操作")
                 .opacity(hovering || selected ? 1 : 0)
             }
+            if showsChoice { TranslationChoice(article: article, store: store) }
             StatusChip(article: article)
         }
         .padding(.vertical, 8).padding(.horizontal, 4)
@@ -58,6 +59,17 @@ struct ArticleRow: View {
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.12), value: hovering)
         .animation(.easeOut(duration: 0.3), value: article.progress)
+    }
+
+    /// The menu tag: foreign EPUBs that can still be changed. Books in the target language get none.
+    private var showsChoice: Bool {
+        store.translatable(article) && article.status != "已发送" && article.status != "排队中" && article.phase != .working
+            && !store.active.contains(article.id)
+    }
+
+    private var translatedLabel: String {
+        let goal = article.translatedTo ?? "zh"
+        return article.chineseOnly == true ? Lang.name(goal) + "译本" : Lang.pairLabel(article.language ?? "", goal)
     }
 
     private var revealHelp: String {
@@ -69,7 +81,8 @@ struct ArticleRow: View {
     private var detail: String? {
         switch article.phase {
         case .done:
-            if article.details.contains("提示：") { return article.details }
+            // Several Kindles: which ones got it matters more than the folder, which is the same on each.
+            if article.details.contains("提示：") || article.details.hasPrefix("已送达") { return article.details }
             return "Kindle › 我的文章 › " + article.preferredURL.lastPathComponent
         case .ready where article.status == "已保存":
             let url = article.preferredURL
@@ -79,10 +92,11 @@ struct ArticleRow: View {
         }
     }
 
-    /// Author, format and folder: what tells two books apart at a glance.
+    /// Author, language, format and folder: what tells two books apart at a glance.
     private var metaLine: String {
         let label = FileBadge(format: article.format, sent: false).label
-        return [article.author, label, article.author == nil || article.author?.isEmpty == true ? article.folder : nil]
+        let language = article.language.flatMap { $0.isEmpty ? nil : Lang.name($0) }
+        return [article.author, language, label, article.author == nil || article.author?.isEmpty == true ? article.folder : nil]
             .compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
     }
 
@@ -111,6 +125,12 @@ struct ArticleActions: View {
             Button("在访达中显示原文件") { store.revealOriginal(ids) }
         } else {
             Button("在访达中显示") { store.reveal(ids) }
+        }
+        if let single, store.translatable(single), single.language != store.goal(of: single) {
+            Divider()
+            Button("先试译 3 段") { Task { await store.preview(single.id) } }
+                .disabled(store.translation.running || single.phase == .working || single.status == "排队中")
+                .help("只翻译 3 段正文，在访达里打开给你检查；不发送")
         }
         Divider()
         if items.contains(where: { $0.status == "排队中" }) {
@@ -211,6 +231,7 @@ private struct StatusChip: View {
         switch article.status {
         case "等待发送": "待发送"
         case "已发送": "已送达"
+        case "失败" where article.deliveredTo?.isEmpty == false: "部分送达"
         default: article.status
         }
     }
@@ -222,5 +243,77 @@ private struct StatusChip: View {
         case .failed: .orange
         case .waiting, .stopped: .secondary
         }
+    }
+}
+
+/// "中英对照 ▾": what this book becomes. Two questions in one menu: which version, and into which language.
+private struct TranslationChoice: View {
+    let article: Article
+    @ObservedObject var store: PushStore
+
+    /// Four languages at hand: the preference, this book's, the last few picked, then the common ones;
+    /// never the book's own language.
+    private var quick: [String] {
+        var codes: [String] = []
+        for code in [store.targetLanguage, store.goal(of: article)] + store.recentTargets + ["en", "zh", "ja", "zh-hant"]
+        where !codes.contains(code) && code != article.language { codes.append(code) }
+        return Array(codes.prefix(4))
+    }
+
+    var body: some View {
+        let current = store.mode(of: article)
+        let goal = store.goal(of: article)
+        let sameLanguage = article.language == goal
+        Menu {
+            Section("版本") {
+                Button { store.choose(.original, for: [article.id]) } label: {
+                    check(current == .original, "原文，不翻译")
+                }
+                if !sameLanguage {
+                    ForEach([OutputMode.bilingual, .targetOnly], id: \.self) { mode in
+                        Button { store.choose(mode, for: [article.id]) } label: {
+                            check(current == mode, store.title(mode, for: article))
+                        }
+                    }
+                }
+            }
+            Section("翻译成") {
+                ForEach(quick, id: \.self) { code in
+                    Button { store.translate([article.id], into: code) } label: {
+                        check(current != .original && goal == code,
+                              Lang.picker(code) + (code == store.targetLanguage ? "（偏好）" : ""))
+                    }
+                }
+                Menu("更多语言") {
+                    ForEach(Lang.targets.filter { !quick.contains($0.code) && $0.code != article.language }, id: \.code) { target in
+                        Button(target.picker) { store.translate([article.id], into: target.code) }
+                    }
+                }
+            }
+            if current != .original {
+                Divider()
+                Button("先试译 3 段") { Task { await store.preview(article.id) } }
+                    .disabled(store.translation.running)
+            }
+        } label: {
+            HStack(spacing: 3) {
+                Text(store.title(current, for: article))
+                Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold))
+            }
+            .font(.caption.weight(.medium))
+            .foregroundStyle(current == .original ? Color.secondary : Color.ink)
+            .padding(.horizontal, 8).padding(.vertical, 3)
+            .background(Color.primary.opacity(current == .original ? 0 : 0.08), in: Capsule())
+            .overlay(Capsule().strokeBorder(Color.primary.opacity(current == .original ? 0.14 : 0.2), lineWidth: 0.5))
+            .contentShape(Capsule())
+        }
+        // .button + .plain keeps the label as drawn; .borderlessButton drops the capsule and moves the chevron.
+        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+        .help(current == .original ? "发送原文。点开可以翻译成任意语言" : "翻译成\(Lang.name(goal))后再发送或保存。点开可以换版本或语言")
+        .accessibilityLabel("输出：\(store.title(current, for: article))")
+    }
+
+    @ViewBuilder private func check(_ on: Bool, _ title: String) -> some View {
+        if on { Label(title, systemImage: "checkmark") } else { Text(title) }
     }
 }

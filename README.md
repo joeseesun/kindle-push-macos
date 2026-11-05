@@ -21,12 +21,12 @@
 - **Markdown → EPUB**：保留标题、作者、目录、列表、表格、代码和脚注，加入适合小屏阅读的样式。
 - **Obsidian 支持**：双链转为显示文字，图片打包到 EPUB，支持整篇笔记嵌入和提示块。
 - **拖放与批量发送**：整个窗口都能拖入，记录发送结果，失败可重试。翻译和普通发送分两条队列同时进行，长时间翻译时其他书照常发送、保存和整理。
-- **只保存到本机**：不连 Kindle 也能用，「保存到本机」只转换，「翻译并保存」只翻译，结果在访达中选中。
+- **只保存到本机**：不连 Kindle 也能用，点「保存到本机」，原文转换、要翻译的书先翻译，结果在访达中选中。
 - **换 Wi-Fi 后寻找设备**：先尝试上次地址，再寻找已配对的 Kindle；也可手动填写 IP。
 - **发送后校验**：读回远端 EPUB，比较 SHA-256，确认传输一致。
 - **整理文件名**：去掉 z-library、1lib 等来源标记、下划线和多余空格、「2017 最新版」「第二版」这类后缀。发到 Kindle 和保存到本机的文件自动用干净的名字；「整理文件名…」（⌘E）还能预览、逐个修改后重命名原文件，可选「智能精简」只留主书名、「保守清理」保留副标题，也可以加上作者。只处理电子书，笔记和文档保留原名。
 - **原文不改动**：只读选择的文章及其引用附件，转换副本保存在本机；只有在「整理文件名」里确认后才会重命名原文件。
-- **EPUB 中文翻译**：可选「中英对照」（原文与简体中文逐段对照）或「仅中文」；先试译 3 段正文，再翻译整本，发送或保存到本机；保留图片与目录。支持取消、恢复检查点和复用已完成译本；失败或取消的译本不自动发送。
+- **外文 EPUB 翻译**：拖入时在本机识别书的语言，外文书在列表上方一键选「中英对照」（原文与译文逐段对照）或「仅中文」，每本书行尾的标签可单独改；每本书都能单独选翻成哪种语言（English、日本語、繁體中文等 20 种），设置里的只是偏好；不接 Kindle 也能翻译后保存到本机。右键可先试译 3 段，原文书直接发、要翻译的书译完自动发；保留图片与目录。支持取消、恢复检查点和复用已完成译本；失败或取消的译本不自动发送。
 - **简单的模型设置**：选服务、填 Key（或登录），再从自动读取的模型列表里选；支持 ChatGPT 账号登录、OpenRouter 和词元跳动浏览器授权。
 - **更快、更好的译文**：长章节自动拆段，默认 16 路并行（1–64 可调），费用不变；四种译文风格（自然流畅、忠实准确、文学润色、技术学术）；开译前自动整理全书人名和术语，也可以自己填术语表，各章译名统一。
 
@@ -39,7 +39,7 @@
 | Kindle | 已越狱、已经安装并运行过 KOReader，包含 SSH / Dropbear 插件 |
 | 网络 | Mac 和 Kindle 在同一个可互通局域网，Kindle 开启 Wi-Fi、运行 KOReader |
 | 首次配置 | 在应用里插一次 USB 写入接收配置，再一键配对；不用开终端 |
-| 多台 Kindle | 一台 Mac 可以配对多台 Kindle，在连接面板里点一下就切换发给谁 |
+| 多台 Kindle | 一台 Mac 可以配对多台 Kindle，在连接面板勾选发给哪几台；勾选多台时，每本书都会发给每一台 |
 
 实机测试设备：Kindle Paperwhite 3 / 第七代，固件 5.16.2.1.1，KOReader v2026.07.1。其他型号、旧版 KOReader 和 Intel Mac 尚未实机验证。
 
@@ -56,7 +56,7 @@
 ## 把英文 EPUB 翻译成中文对照
 
 1. 打开齿轮「翻译设置」，安装翻译组件，选一个翻译服务：可以**用 ChatGPT 账号登录**（用套餐额度，不按 API 计费），也可以选 DeepSeek、OpenAI、Gemini、Kimi、通义千问、豆包、OpenRouter、词元跳动等，或本机的 Ollama / LM Studio。填好 Key 后从列表里选模型。API Key 保存在 macOS 钥匙串。
-2. 拖入 EPUB，在底部选「中英对照」或「仅中文」，点击「先试译 3 段」检查正文译文。试译不会发送；整本与试译的缓存分开。
+2. 拖入外文 EPUB，在列表上方的提示条选「中英对照」或「仅中文」（行尾标签可单本修改）；想先看译文，右键这本书选「先试译 3 段」。试译不会发送；整本与试译的缓存分开。
 3. 点击「翻译并发送」。完成后在 Kindle 的 `documents/我的文章` 阅读；本机副本在「查看已转换文件」。
 
 在「翻译设置 › 质量与速度」里可以选译文风格、填术语表（每行 `原文 -> 译名`）、设置同时翻译几章。
@@ -119,8 +119,8 @@ python3 -m unittest discover -s wifi-push -p 'test_*.py' -v
 
 ## English
 
-This fork of [chasepal/kindle-push-macos](https://github.com/chasepal/kindle-push-macos) adds bilingual EPUB translation using `bilingual_book_maker` 1.3.2. Drag in an EPUB, select the bilingual edition, preview three body paragraphs, then translate the complete book and send it over Wi-Fi to a paired KOReader Kindle. The original EPUB is preserved. Failed or cancelled jobs are never automatically sent.
+This fork of [chasepal/kindle-push-macos](https://github.com/chasepal/kindle-push-macos) adds bilingual EPUB translation using `bilingual_book_maker` 1.3.2. Drag in an EPUB: its language is detected locally, and a foreign book can become a side-by-side edition or a translation only, in any of 20 languages. Preview three body paragraphs, then translate the complete book and send it over Wi-Fi to one or several paired KOReader Kindles. The original EPUB is preserved. Failed or cancelled jobs are never automatically sent.
 
 Requires macOS 14+, Homebrew Python 3.10+, Pandoc 3.8+, a jailbroken Kindle with KOReader SSH, and an OpenAI-compatible translation API. Install the translation component from the settings panel; configure the endpoint, model (DeepSeek Flash by default) and API key. Keys stay in macOS Keychain. Translation sends book text to the selected service and may incur charges; direct transfers stay local. Checkpoints and generated books stay outside the repository. Background translation continues after closing the app; re-add the same file to resume. Download the ad-hoc signed Apple Silicon app from this fork's Releases. Developer ID notarization, Intel device testing and long-book acceptance are not claimed. See [translation documentation](docs/TRANSLATION.md) and the MIT license. Upstream authorship is retained.
 
-本项目自有代码使用 [MIT](LICENSE) 许可。KOReader、SimpleUI、Pandoc 按各自许可证分发，本仓库不打包这些项目的程序或代码。应用图标由 AI 生成，源图与提示词位于 `mac-app/Assets/`。
+本项目自有代码使用 [MIT](LICENSE) 许可。KOReader、SimpleUI、Pandoc 按各自许可证分发，本仓库不打包这些项目的程序或代码。应用图标由代码绘制，脚本和源图位于 `mac-app/Assets/`。

@@ -1,7 +1,7 @@
 import SwiftUI
 import AppKit
 
-enum SettingsTab: Hashable { case service, quality, about }
+enum SettingsTab: Hashable { case language, service, quality, about }
 
 enum Links {
     static let repo = URL(string: "https://github.com/joeseesun/kindle-push-macos")!

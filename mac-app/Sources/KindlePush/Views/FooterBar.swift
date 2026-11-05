@@ -12,16 +12,22 @@ struct FooterBar: View {
             }
             Divider()
             HStack(alignment: .center, spacing: 14) {
-                modePicker
+                summary
                 Spacer(minLength: 8)
                 if store.quick.running { sendingControls }
                 if store.currentJob != nil {
-                    Button("停止翻译") { store.stopTranslation() }.buttonStyle(.inkOutline).controlSize(.large)
+                    Button("停止翻译") { store.stopTranslation() }.buttonStyle(.inkOutline).controlSize(.large).fixedSize()
                         .help("停止正在翻译的书；已完成的进度保留，排队的书回到待发送（⌘.）")
                 }
-                // While the chosen queue runs, the buttons only reappear for books that can join it.
-                if !laneRunning { secondaryButton }
-                if !laneRunning || !store.queueable.isEmpty { sendButton }
+                // While a queue runs, only "add to queue" stays, so the stop buttons and progress have room.
+                // No Kindle paired: this is a translation tool first, so saving is the main button.
+                if store.setupNeeded && !store.busy {
+                    sendButton.buttonStyle(.inkOutline)
+                    secondaryButton.buttonStyle(.ink)
+                } else {
+                    if !store.busy { secondaryButton.buttonStyle(.inkOutline) }
+                    if !store.busy || !store.queueable.isEmpty { sendButton.buttonStyle(.ink) }
+                }
             }
             .padding(.horizontal, 18).padding(.vertical, 14)
         }
@@ -29,49 +35,50 @@ struct FooterBar: View {
         .animation(.easeOut(duration: 0.2), value: store.notice)
     }
 
-    private var modePicker: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Picker("版本", selection: $store.outputMode) {
-                ForEach(OutputMode.allCases, id: \.self) { Text($0.title).tag($0) }
-            }
-            .pickerStyle(.segmented).labelsHidden().fixedSize()
-            if store.busy { progress } else { caption }
+    /// What pressing the buttons will do, or how the queues are getting on.
+    private var summary: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if store.busy { progress }
+            if !store.busy || !store.queueable.isEmpty { caption }
         }
+        // Gives way to the buttons, which keep their size: a squeezed button loses its text, not a line of status.
+        .frame(alignment: .leading)
     }
 
     @ViewBuilder private var caption: some View {
-        if !store.translateBooks, let reason = store.nothingToSendReason {
+        let originals = store.plannedOriginals.count
+        let translations = store.plannedTranslations.count
+        if let reason = store.nothingToSendReason {
+            // The buttons are disabled; say why and what to do, instead of leaving them grey.
             Label(reason, systemImage: "tray").font(.caption).foregroundStyle(.secondary)
-        } else if !store.translateBooks {
-            Label("本机排版，经 Wi‑Fi 直传，不经过云端", systemImage: "lock")
-                .font(.caption).foregroundStyle(.secondary)
-        } else if store.translationReady == false {
+        } else if store.queueable.isEmpty {
+            EmptyView()
+        } else if translations > 0 && store.translationReady == false {
             HStack(spacing: 4) {
-                Label("还没安装翻译组件", systemImage: "exclamationmark.triangle")
+                Label("\(translations) 本要翻译，还没安装翻译组件", systemImage: "exclamationmark.triangle")
                 SettingsLink { Text("去设置") }.buttonStyle(.inkLink)
             }
             .font(.caption).foregroundStyle(.orange)
-        } else if let reason = store.nothingToSendReason {
-            // The buttons are disabled; say why and what to do, instead of leaving them grey.
-            Label(reason, systemImage: "tray").font(.caption).foregroundStyle(.secondary)
-        } else if store.nonEpubPending {
-            Label("翻译只处理 EPUB，其他格式请切到「原文」发送", systemImage: "exclamationmark.triangle")
-                .font(.caption).foregroundStyle(.orange)
+        } else if translations == 0 {
+            Label("\(originals) 本原文 · 本机排版，经 Wi‑Fi 直传，不经过云端", systemImage: "lock")
+                .font(.caption).foregroundStyle(.secondary)
         } else {
-            HStack(spacing: 6) {
-                Label(store.translationProvider == "chatgpt" ? "用 ChatGPT 套餐额度翻译" : "正文发给翻译模型，按用量计费", systemImage: "globe")
-                    .foregroundStyle(.secondary)
-                Text("·").foregroundStyle(.tertiary)
-                // A one-off check before a long run: a link, not a third button.
-                Button("先试译 3 段") { Task { await store.preview() } }
-                    .buttonStyle(.inkLink).disabled(store.translation.running || !store.previewAvailable)
-                    .help("只翻译 3 段正文，在访达里打开给你检查；不发送")
-            }
-            .font(.caption).fixedSize()
+            let time = store.translationMinutes.map { "（约 \(Self.duration($0))）" } ?? ""
+            let parts = (originals > 0 ? ["\(originals) 本原文"] : []) + ["\(translations) 本翻译\(time)"]
+            Label(parts.joined(separator: " · "), systemImage: "globe")
+                .font(.caption).foregroundStyle(.secondary)
+                .help(store.translationProvider == "chatgpt" ? "要翻译的书用 ChatGPT 套餐额度翻译，译完自动发送"
+                      : "要翻译的书正文发给翻译模型，按用量计费；译完自动发送。时间按书的篇幅粗估")
         }
     }
 
-    /// One line per running queue, under the version picker; the picker stays usable.
+    static func duration(_ minutes: Int) -> String {
+        if minutes < 60 { return "\(minutes) 分钟" }
+        let hours = (Double(minutes) / 60 * 2).rounded() / 2
+        return hours == hours.rounded() ? "\(Int(hours)) 小时" : String(format: "%.1f 小时", hours)
+    }
+
+    /// One line per running queue.
     private var progress: some View {
         VStack(alignment: .leading, spacing: 4) {
             if store.translation.running { line(store.translationProgress, store.translation.activity) }
@@ -81,8 +88,8 @@ struct FooterBar: View {
 
     private func line(_ value: Double, _ text: String) -> some View {
         HStack(spacing: 8) {
-            ProgressView(value: value).tint(.ink).progressViewStyle(.linear).frame(width: 90)
-            Text(text).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.tail)
+            ProgressView(value: value).tint(.ink).progressViewStyle(.linear).frame(width: 64)
+            Text(text).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.tail).help(text)
         }
         .frame(maxWidth: 380, alignment: .leading)
     }
@@ -92,7 +99,7 @@ struct FooterBar: View {
     @ViewBuilder private var sendingControls: some View {
         if store.sendingID != nil {
             Button("取消这本") { store.stopSending(now: true) }
-                .buttonStyle(.inkOutline).controlSize(.large)
+                .buttonStyle(.inkOutline).controlSize(.large).fixedSize()
                 .help("断开正在传的这本，Kindle 上不会留下半个文件；后面的书也不再发送")
         }
         if store.sendStopRequested {
@@ -105,44 +112,50 @@ struct FooterBar: View {
             Button { store.stopSending() } label: {
                 Label("停止发送", systemImage: "stop.fill")
             }
-            .buttonStyle(.ink).controlSize(.large)
+            .buttonStyle(.ink).controlSize(.large).fixedSize()
             .help("正在传的这本照常传完并校验，排队的书回到待发送（⌘.）")
         }
     }
 
-    /// The queue the buttons feed in the chosen version.
-    private var laneRunning: Bool { store.translateBooks ? store.translation.running : store.quick.running }
-
     /// Saving is as common as sending, so it is a button of its own, not a menu item. No Kindle needed.
     private var secondaryButton: some View {
         Button { Task { await store.saveLocally() } } label: {
-            Label(store.translateBooks ? "翻译并保存" : "保存到本机", systemImage: "square.and.arrow.down")
+            Label("保存到本机", systemImage: "square.and.arrow.down")
         }
-        .buttonStyle(.inkOutline).controlSize(.large).disabled(sendDisabled)
-        .help(store.nothingToSendReason ?? "保存到本机，完成后在访达中选中；不需要连接 Kindle（⌥⌘↩）")
+        .controlSize(.large).disabled(sendDisabled).fixedSize()
+        .help(store.nothingToSendReason ?? "保存到本机（要翻译的书先翻译），完成后在访达中选中；不需要连接 Kindle（⌥⌘↩）")
     }
 
     /// Enabled whenever there is something new to queue, even while another queue runs.
     private var sendDisabled: Bool {
-        store.queueable.isEmpty || (store.translateBooks && store.translationReady == false)
+        store.queueable.isEmpty || (store.translationReady == false && store.plannedOriginals.isEmpty)
+    }
+
+    private var sendHelp: String {
+        let names = store.targets.map(\.name).joined(separator: "、")
+        return (names.isEmpty ? "" : "每本书都发给 \(names)。") + "原文直接发送，要翻译的书译完自动发送（⌘↩）"
     }
 
     private var sendButton: some View {
         Button { Task { await store.send() } } label: {
             HStack(spacing: 7) {
-                Image(systemName: laneRunning ? "plus" : "paperplane.fill")
-                Text(laneRunning ? "加入队列" : store.translateBooks ? "翻译并发送" : "发送到 Kindle")
+                Image(systemName: store.busy ? "plus" : "paperplane.fill")
+                // Both queues running leaves little room: "+ 2" still says it, with the words in the tooltip.
+                if !(store.translation.running && store.quick.running) {
+                    Text(store.busy ? "加入队列" : store.targets.isEmpty ? "发送到 Kindle" : "发送到 \(store.targets.count) 台 Kindle")
+                }
                 if !store.queueable.isEmpty {
                     Text("\(store.queueable.count)").font(.callout.weight(.semibold)).monospacedDigit()
                         .padding(.horizontal, 6).padding(.vertical, 1)
-                        .background(Color.onInk.opacity(0.2), in: Capsule())
+                        .background(Color.gray.opacity(0.35), in: Capsule())
                 }
             }
             .padding(.horizontal, 6)
         }
-        .buttonStyle(.ink).controlSize(.large)
+        .controlSize(.large).fixedSize()
         .disabled(sendDisabled)
-        .help(store.nothingToSendReason ?? (laneRunning ? "加入正在进行的队列（⌘↩）" : "⌘↩"))
+        .accessibilityLabel(store.busy ? "加入队列" : "发送到 Kindle")
+        .help(store.nothingToSendReason ?? (store.busy ? "加入正在进行的队列（⌘↩）" : sendHelp))
     }
 }
 

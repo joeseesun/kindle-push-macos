@@ -33,10 +33,17 @@ final class PushStore: ObservableObject {
     @Published var setupNeeded = false
     @Published var translationReady: Bool?
     @Published var translationProvider = ""
-    @Published var outputMode: OutputMode = OutputMode.saved {
-        didSet { UserDefaults.standard.set(outputMode.rawValue, forKey: "outputMode") }
+    /// What foreign books are translated into. Books already in this language get no translation UI.
+    @Published var targetLanguage: String = UserDefaults.standard.string(forKey: "targetLanguage") ?? "zh" {
+        didSet { UserDefaults.standard.set(targetLanguage, forKey: "targetLanguage"); applyDefault(); save() }
     }
-    var translateBooks: Bool { outputMode != .original }
+    /// What a foreign book gets when it is added; `.ask` shows the prompt above the list.
+    @Published var foreignDefault: ForeignDefault = ForeignDefault.saved {
+        didSet { UserDefaults.standard.set(foreignDefault.rawValue, forKey: "foreignDefault"); applyDefault(); save() }
+    }
+    @Published var translationWorkers = 16
+    /// Books a queue has taken and not finished: translated and waiting to be sent counts too.
+    @Published var active: Set<UUID> = []
     @Published var currentJob: String?
     @Published var settingsTab: SettingsTab = .service
     private var stopRequested = false
@@ -46,6 +53,8 @@ final class PushStore: ObservableObject {
     /// The book being transferred right now, for "cancel this one".
     @Published var sendingID: UUID?
     private var started = false
+    /// Kindles found away during a batch, until when not to search for them again.
+    private var awayUntil: [String: Date] = [:]
 
     init() {
         if let data = UserDefaults.standard.data(forKey: "history"),
@@ -56,56 +65,136 @@ final class PushStore: ObservableObject {
                 var item = item
                 if ["发送中", "翻译中", "试译中"].contains(item.status) { item.status = "等待继续" }
                 if item.status == "排队中" { item.status = "等待发送" }
+                // Translated in 1.13, when the footer chose the version for every book.
+                if item.bilingual == true && item.choice == nil {
+                    item.choice = item.chineseOnly == true ? .targetOnly : .bilingual
+                    item.translatedTo = item.translatedTo ?? "zh"
+                }
                 return item
             }
         }
+        // 1.14 moved the footer's version into the default for foreign books; write it down once.
+        UserDefaults.standard.set(foreignDefault.rawValue, forKey: "foreignDefault")
         updateBadge()
         Task { await loadBookInfo() }
     }
 
-    /// Titles, authors and covers for items that do not have them yet.
+    /// Titles, authors, covers and languages for items that do not have them yet.
     func loadBookInfo() async {
-        for article in articles where article.bookTitle == nil {
+        for article in articles where article.bookTitle == nil || (article.format == "EPUB" && article.language == nil) {
             let response = await Bridge.call(["book-info", article.path])
             guard let index = articles.firstIndex(where: { $0.id == article.id }) else { continue }
             if response.ok {
                 articles[index].bookTitle = response.title ?? ""
                 articles[index].author = response.author
                 articles[index].cover = response.cover
-            } else { articles[index].bookTitle = "" }
+                articles[index].language = response.language ?? ""
+                articles[index].textSize = response.textSize
+            } else { articles[index].bookTitle = ""; articles[index].language = "" }
             if articles[index].format == "PDF", articles[index].cover == nil {
                 articles[index].cover = await Covers.pdf(articles[index].path)
             }
         }
+        applyDefault()
         save()
     }
 
+    // MARK: Translation per book
+
+    /// An EPUB whose language has been read, not yet sent: any of these can be translated into any language.
+    func translatable(_ article: Article) -> Bool {
+        article.format == "EPUB" && article.language != nil
+    }
+    /// The language this book goes into: its own choice, else the preference from settings.
+    func goal(of article: Article) -> String { article.target ?? targetLanguage }
+    /// A book in another language than the preference, not yet decided: what the prompt asks about.
+    func isForeign(_ article: Article) -> Bool {
+        guard translatable(article), let language = article.language, !language.isEmpty else { return false }
+        return language != targetLanguage
+    }
+    /// What sending does with this book now. A book is never "translated" into its own language.
+    func mode(of article: Article) -> OutputMode {
+        guard translatable(article), article.language != goal(of: article) else { return .original }
+        return article.choice ?? .original
+    }
+    /// The words for a mode on this book: 中英对照, 英日对照, 仅中文…
+    func title(_ mode: OutputMode, for article: Article) -> String {
+        mode.title(from: article.language ?? "", to: goal(of: article))
+    }
+    /// Foreign books waiting for a decision: what the prompt above the list asks about.
+    var undecided: [Article] {
+        articles.filter { isForeign($0) && $0.choice == nil && $0.target == nil && $0.status != "已发送"
+            && $0.status != "排队中" && $0.phase != .working && !active.contains($0.id) }
+    }
+    func choose(_ mode: OutputMode, for ids: Set<UUID>) {
+        for index in articles.indices where ids.contains(articles[index].id) {
+            // Another version of the book: Kindles that got the old one have not got this one.
+            if articles[index].choice != mode { articles[index].deliveredTo = nil }
+            articles[index].choice = mode
+        }
+        save()
+    }
+    /// Translate these books into `code`; a book that was going as it is becomes bilingual.
+    func translate(_ ids: Set<UUID>, into code: String) {
+        for index in articles.indices where ids.contains(articles[index].id) {
+            articles[index].target = code == targetLanguage ? nil : code
+            articles[index].deliveredTo = nil
+            if articles[index].choice == nil || articles[index].choice == .original { articles[index].choice = .bilingual }
+        }
+        remember(code); save()
+    }
+    /// The last languages picked, newest first: shown first in the menu, after the preference.
+    @Published private(set) var recentTargets: [String] = UserDefaults.standard.stringArray(forKey: "recentTargets") ?? []
+    private func remember(_ code: String) {
+        recentTargets = Array(([code] + recentTargets.filter { $0 != code }).prefix(3))
+        UserDefaults.standard.set(recentTargets, forKey: "recentTargets")
+    }
+    /// With a default chosen in settings, foreign books are marked as they arrive and nothing asks.
+    private func applyDefault() {
+        guard let mode = foreignDefault.mode else { return }
+        for index in articles.indices where articles[index].choice == nil && isForeign(articles[index]) {
+            articles[index].choice = mode
+        }
+    }
+    /// Books the buttons would start now, split by what happens to them.
+    var plannedOriginals: [Article] { queueable.filter { mode(of: $0) == .original } }
+    var plannedTranslations: [Article] { queueable.filter { mode(of: $0) != .original } }
+    /// A rough time for the translations about to start: they run one book after another.
+    var translationMinutes: Int? {
+        let books = plannedTranslations
+        guard !books.isEmpty, books.allSatisfy({ $0.textSize != nil }) else { return nil }
+        let bytes = books.reduce(0) { $0 + ($1.textSize ?? 0) }
+        let workers = translationProvider == "chatgpt" ? 1 : max(1, translationWorkers)
+        // About 5 KB of XHTML per worker and minute, from runs on DeepSeek; a guess, shown as one.
+        return max(1, Int((Double(bytes) / Double(5000 * workers)).rounded()))
+    }
+
     var pendingCount: Int { articles.filter { $0.status != "已发送" }.count }
-    var previewAvailable: Bool { articles.contains { $0.format == "EPUB" && $0.status != "已发送" } }
     /// How far each queue has got; translation counts the book being translated right now.
     var translationProgress: Double {
         let current = articles.first { $0.status == "翻译中" }?.progress ?? 0
         return min(1, (Double(translation.completed) + current) / Double(max(translation.total, 1)))
     }
     var quickProgress: Double { min(1, Double(quick.completed) / Double(max(quick.total, 1))) }
-    /// Books the main buttons would start now in this mode: not sent, not already queued or running.
+    /// Books the main buttons would start now: not sent, not already queued or running.
     var queueable: [Article] {
-        articles.filter { $0.status != "已发送" && $0.status != "排队中" && $0.phase != .working
-            && (outputMode == .original || $0.format == "EPUB") }
+        articles.filter { $0.status != "已发送" && $0.status != "排队中" && $0.phase != .working && !active.contains($0.id) }
     }
     var sentCount: Int { articles.count - pendingCount }
     /// Why the send and save buttons are disabled, in words; nil when they are not.
     var nothingToSendReason: String? {
         guard queueable.isEmpty, !busy, !articles.isEmpty else { return nil }
         if pendingCount == 0 { return "都已送达。拖入新的书，或右键一本书「放回待发送」再发一次" }
-        if translateBooks && !articles.contains(where: { $0.status != "已发送" && $0.format == "EPUB" }) {
-            return nil   // nonEpubPending explains this one
-        }
         return "没有可发送的书"
     }
-    var nonEpubPending: Bool { articles.contains { $0.status != "已发送" && $0.format != "EPUB" } }
+    /// The Kindles a book goes to when several are ticked; empty means just the connected one.
+    var targets: [KindleDevice] {
+        let ticked = devices.filter { $0.selected == true }
+        return ticked.count > 1 ? ticked : []
+    }
     var connectionTitle: String {
         if searching { return "正在寻找…" }
+        if !targets.isEmpty { return "\(targets.count) 台 Kindle" }
         if connected { return deviceName.isEmpty ? "我的 Kindle" : deviceName }
         return setupNeeded ? "需要首次配置" : "未连接 Kindle"
     }
@@ -142,8 +231,9 @@ final class PushStore: ObservableObject {
                 // Leave a queued or running book alone; otherwise adding again means "send again".
                 guard articles[index].status != "排队中", articles[index].phase != .working else { continue }
                 articles[index].status = "等待发送"; articles[index].bookTitle = nil
-                articles[index].details = ""
+                articles[index].details = ""; articles[index].deliveredTo = nil
                 articles[index].output = nil; articles[index].bilingual = false
+                articles[index].choice = nil; articles[index].language = nil; articles[index].target = nil
             } else { articles.append(Article(path: path)) }
         }
         Task { await loadBookInfo() }
@@ -268,6 +358,8 @@ final class PushStore: ObservableObject {
     func retry(_ id: UUID) {
         guard let index = articles.firstIndex(where: { $0.id == id }),
               articles[index].status != "排队中", articles[index].phase != .working else { return }
+        // Fully delivered and put back: send it again everywhere. Partly delivered: only to the rest.
+        if articles[index].status == "已发送" { articles[index].deliveredTo = nil }
         articles[index].status = "等待发送"; articles[index].details = ""; save()
     }
 
@@ -281,6 +373,7 @@ final class PushStore: ObservableObject {
             host = status.host ?? ""; manualHost = host
             deviceName = status.device ?? ""; deviceId = status.deviceId ?? ""
             await findConnection(manual: false, report: false)
+            await refreshDevices()
         } else {
             setupNeeded = true
             connectionIssue = status.message ?? "还没完成首次配置。"
@@ -291,16 +384,18 @@ final class PushStore: ObservableObject {
     /// Translations that kept running, or finished, while the app was closed: show them again.
     private func resumeTranslations() async {
         for article in articles where article.format == "EPUB" && ["等待继续", "翻译中"].contains(article.status) {
-            let found = await Bridge.call(["translation-find", article.path])
+            let goal = article.translatedTo ?? self.goal(of: article)
+            let found = await Bridge.call(["translation-find", article.path, goal])
             guard found.ok, let index = articles.firstIndex(where: { $0.id == article.id }) else { continue }
             switch found.state {
             case "queued", "running":
                 guard !translation.running else { continue }
                 translation.reset(total: 1); stopRequested = false
                 articles[index].status = "翻译中"
-                articles[index].chineseOnly = found.mode == "chinese"
+                let mode = OutputMode(legacy: found.mode ?? "") ?? .bilingual
+                articles[index].chineseOnly = mode == .targetOnly; articles[index].translatedTo = goal
                 translation.activity = "正在翻译：\(article.title)"
-                let output = await follow(article.id, from: found, preview: false, mode: found.mode == "chinese" ? .chinese : .bilingual)
+                let output = await follow(article.id, from: found, preview: false, mode: mode, target: goal)
                 if output != nil { translationFinished(article.id) }
                 else if !stopRequested, let failed = articles.first(where: { $0.id == article.id }) {
                     notice = failed.details; isError = true
@@ -310,7 +405,7 @@ final class PushStore: ObservableObject {
                 await runQueuedTranslations()
             case "done":
                 articles[index].output = found.output; articles[index].bilingual = true
-                articles[index].chineseOnly = found.mode == "chinese"
+                articles[index].chineseOnly = found.mode != "bilingual"; articles[index].translatedTo = goal
                 articles[index].status = "翻译完成"
                 translationFinished(article.id)
             default:
@@ -321,9 +416,9 @@ final class PushStore: ObservableObject {
 
     private func translationFinished(_ id: UUID) {
         guard let index = articles.firstIndex(where: { $0.id == id }) else { return }
-        articles[index].details = "中文对照版已生成 · 点「翻译并发送」送到 Kindle"
+        articles[index].details = "译本已生成 · 点「发送到 Kindle」送到 Kindle"
         save()
-        announce("《\(articles[index].title)》翻译完成。点「翻译并发送」会直接用这份译本。", error: false)
+        announce("《\(articles[index].title)》翻译完成。点「发送到 Kindle」会直接用这份译本。", error: false)
         if !NSApp.isActive { NSApp.requestUserAttention(.informationalRequest) }
     }
 
@@ -331,6 +426,7 @@ final class PushStore: ObservableObject {
         let response = await Bridge.call(["translation-settings"])
         translationReady = response.runtimeReady ?? false
         translationProvider = response.provider ?? ""
+        translationWorkers = response.workers ?? 16
     }
 
     func connect(manual: Bool = false) async {
@@ -371,24 +467,27 @@ final class PushStore: ObservableObject {
         let response = await Bridge.call(scan ? ["devices", "scan"] : ["devices"])
         guard response.ok else { return }
         devices = response.devices ?? []
-        // The chosen Kindle came online after the last search: connect without another click.
-        if !connected, !searching, devices.contains(where: { $0.current && $0.online == true }) {
+        // A chosen Kindle came online after the last search: connect without another click.
+        if !connected, !searching, devices.contains(where: { $0.selected == true && $0.online == true }) {
             checkingDevices = false
             await connect()
         }
     }
 
-    /// Send to another paired Kindle from now on. Not while books are on their way.
-    func choose(_ device: KindleDevice) async {
-        guard !searching, !busy, device.id != deviceId || !connected else { return }
-        connected = false; searching = true
-        deviceName = device.name; deviceId = device.id
-        activity = "正在连接 \(device.name)…"
-        let response = await Bridge.call(["select", device.id])
-        searching = false
-        apply(response, report: true)
-        if connected && isError { dismissNotice() }
-        await refreshDevices()
+    /// Tick or untick a Kindle. At least one stays ticked. Books already queued keep the Kindles
+    /// they were queued for, so this is safe while a queue runs.
+    func toggle(_ device: KindleDevice) async {
+        guard !searching, let index = devices.firstIndex(where: { $0.id == device.id }) else { return }
+        let ticked = devices[index].selected == true
+        if ticked && devices.filter({ $0.selected == true }).count == 1 { return }
+        devices[index].selected = !ticked
+        let ids = devices.filter { $0.selected == true }.map(\.id)
+        let response = await Bridge.call(["targets"] + ids)
+        guard response.ok else { notice = response.message ?? "没有改成。"; isError = true; await refreshDevices(); return }
+        devices = response.devices ?? devices
+        if let current = devices.first(where: \.current) { deviceName = current.name; deviceId = current.id }
+        // The connection status follows what is ticked now.
+        if !busy { await connect() }
     }
 
     // MARK: Adding a Kindle
@@ -442,36 +541,57 @@ final class PushStore: ObservableObject {
     /// Convert or translate without a Kindle: the result stays on this Mac.
     func saveLocally() async { await enqueue(deliver: false) }
 
-    /// Queues every ready book for the chosen version. Translations go to their own queue;
-    /// pressing again while a queue runs adds to it instead of waiting.
+    /// Queues every ready book as it is marked: originals go straight out, translations go to their
+    /// own queue and are sent when done. Pressing again while a queue runs adds to it instead of waiting.
     private func enqueue(deliver: Bool) async {
-        let mode = outputMode
-        guard !queueable.isEmpty else {
-            if mode != .original && nonEpubPending {
-                notice = "翻译只支持 EPUB。其他格式请切回「原文」发送或保存。"; isError = true
+        guard !queueable.isEmpty else { return }
+        // Undecided books go as they are; the prompt was there to change that.
+        var skipped = 0
+        if translationReady == false {
+            skipped = plannedTranslations.count
+            if skipped > 0 && plannedOriginals.isEmpty {
+                notice = "还没安装翻译组件。请先在翻译设置里安装，或把这些书改成「原文」。"; isError = true
+                return
             }
-            return
         }
         if deliver {
+            // A fresh press tries every Kindle again, including one that was away earlier.
+            awayUntil = [:]
             // Revalidate every time; recover automatically after a Wi-Fi change.
             await findConnection(manual: false, report: !busy)
             guard connected else { notice = connectionIssue; isError = true; return }
         }
         // Read again after the search: books may have been removed or queued meanwhile.
-        let jobs = queueable.map { Job(id: $0.id, deliver: deliver, mode: mode) }
+        // Each job remembers the Kindles ticked now; changing them later affects later books only.
+        let kindles = deliver ? targets : []
+        let jobs = queueable.map { Job(id: $0.id, deliver: deliver, mode: mode(of: $0), target: goal(of: $0), kindles: kindles) }
+            .filter { translationReady != false || $0.mode == .original }
         guard !jobs.isEmpty else { return }
         for job in jobs {
             guard let index = articles.firstIndex(where: { $0.id == job.id }) else { continue }
             articles[index].status = "排队中"; articles[index].details = ""
         }
         if isError { dismissNotice() }
+        if skipped > 0 { notice = "\(skipped) 本要翻译的书没有开始：还没安装翻译组件。"; isError = true }
         save()
-        if mode == .original {
-            if quick.running { quick.queue += jobs; quick.total += jobs.count }
-            else { quick.reset(total: jobs.count); quick.queue = jobs; await runQuick() }
-        } else {
-            if translation.running { translation.queue += jobs; translation.total += jobs.count }
-            else { translation.reset(total: jobs.count); translation.queue = jobs; await runTranslation() }
+        let originals = jobs.filter { $0.mode == .original }
+        let translations = jobs.filter { $0.mode != .original }
+        // Both queues at once: a long translation never holds up the books that go as they are.
+        await withTaskGroup(of: Void.self) { group in
+            if !translations.isEmpty {
+                if translation.running { translation.queue += translations; translation.total += translations.count }
+                else {
+                    translation.reset(total: translations.count); translation.queue = translations
+                    group.addTask { await self.runTranslation() }
+                }
+            }
+            if !originals.isEmpty {
+                if quick.running { quick.queue += originals; quick.total += originals.count }
+                else {
+                    quick.reset(total: originals.count); quick.queue = originals
+                    group.addTask { await self.runQuick() }
+                }
+            }
         }
     }
 
@@ -498,6 +618,7 @@ final class PushStore: ObservableObject {
     private func runQuick() async {
         quick.running = true; sendStopRequested = false; cancelNow = false
         while !sendStopRequested, let (job, index) = next(\.quick) {
+            active.insert(job.id); defer { active.remove(job.id) }
             await deliver(job, index: index, source: articles[index].path, translated: false, lane: \.quick)
         }
         let stopped = sendStopRequested
@@ -532,8 +653,9 @@ final class PushStore: ObservableObject {
     private func runTranslation() async {
         translation.running = true; stopRequested = false
         while let (job, index) = next(\.translation) {
+            active.insert(job.id); defer { active.remove(job.id) }
             if stopRequested { break }
-            guard let output = await translate(index: index, preview: false, mode: job.mode) else {
+            guard let output = await translate(index: index, preview: false, mode: job.mode, target: job.target) else {
                 translation.failures += 1; translation.completed += 1; save(); continue
             }
             if stopRequested { break }
@@ -585,6 +707,10 @@ final class PushStore: ObservableObject {
         }
         articles[index].status = "发送中"
         self[keyPath: lane].activity = "正在发送 \(step)：\(articles[index].title)"
+        if !job.kindles.isEmpty {
+            await deliverToEach(job, source: source, step: step, lane: lane)
+            return
+        }
         sendingID = id
         let response = await Bridge.call(["send", host, source] + (deviceId.isEmpty ? [] : [deviceId]), tag: "send-\(id)")
         sendingID = nil
@@ -599,6 +725,54 @@ final class PushStore: ObservableObject {
         articles[index].output = response.output
         if response.ok { record(articles[index], sentAs: response.output, device: response.device) }
         if response.ok { self[keyPath: lane].sent += 1 } else { self[keyPath: lane].failures += 1 }
+        self[keyPath: lane].completed += 1; save()
+    }
+
+    /// One book to every Kindle ticked when it was queued, in turn. A Kindle that is away does not
+    /// hold up the others; a retry sends only to those that did not get it.
+    private func deliverToEach(_ job: Job, source: String, step: String,
+                               lane: ReferenceWritableKeyPath<PushStore, Lane>) async {
+        let id = job.id
+        var index: Int { articles.firstIndex { $0.id == id } ?? 0 }
+        let waiting = job.kindles.filter { !(articles[index].deliveredTo ?? []).contains($0.id) }
+        var missed: [String] = []
+        for kindle in waiting {
+            // A Kindle already found away is not searched for again for every book in the batch.
+            if let until = awayUntil[kindle.id], until > Date() { missed.append("「\(kindle.name)」不在这个 Wi-Fi 里"); continue }
+            guard articles.contains(where: { $0.id == id }) else { return }
+            articles[index].details = "正在发到「\(kindle.name)」…"
+            self[keyPath: lane].activity = "正在发送 \(step)：\(articles[index].title) → \(kindle.name)"
+            sendingID = id
+            let response = await Bridge.call(["send", kindle.host, source, kindle.id], tag: "send-\(id)")
+            sendingID = nil
+            guard articles.contains(where: { $0.id == id }) else { return }
+            if response.state == "cancelled" {
+                // Those already reached stay recorded; pressing send again carries on from here.
+                articles[index].status = "等待发送"; articles[index].details = "已取消发送"
+                self[keyPath: lane].total -= 1; save(); return
+            }
+            if response.ok {
+                articles[index].deliveredTo = (articles[index].deliveredTo ?? []) + [kindle.id]
+                articles[index].output = response.output
+                record(articles[index], sentAs: response.output, device: response.device ?? kindle.name)
+                save()
+            } else {
+                if response.state == "away" { awayUntil[kindle.id] = Date().addingTimeInterval(120) }
+                missed.append(response.message ?? "「\(kindle.name)」没有发成")
+            }
+        }
+        let names = job.kindles.filter { (articles[index].deliveredTo ?? []).contains($0.id) }.map(\.name)
+        if missed.isEmpty {
+            articles[index].status = "已发送"
+            articles[index].details = "已送达 \(names.joined(separator: "、")) · 校验一致"
+            self[keyPath: lane].sent += 1
+        } else {
+            articles[index].status = "失败"
+            let reached = names.isEmpty ? "" : "已发到 \(names.joined(separator: "、"))；"
+            let reasons = missed.map { $0.hasSuffix("。") ? String($0.dropLast()) : $0 }
+            articles[index].details = reached + reasons.joined(separator: "；") + (names.isEmpty ? "" : "。重试只发给没收到的")
+            self[keyPath: lane].failures += 1
+        }
         self[keyPath: lane].completed += 1; save()
     }
 
@@ -618,17 +792,18 @@ final class PushStore: ObservableObject {
         if !NSApp.isActive { NSApp.requestUserAttention(.informationalRequest) }
     }
 
-    private func translate(index: Int, preview: Bool, mode: OutputMode) async -> String? {
+    private func translate(index: Int, preview: Bool, mode: OutputMode, target: String) async -> String? {
         articles[index].status = preview ? "试译中" : "翻译中"
-        articles[index].details = "正在准备中文对照版…"
+        articles[index].details = "正在准备\(title(mode, for: articles[index]))版…"
         translation.activity = "正在\(preview ? "试译" : "翻译")：\(articles[index].title)"; save()
         let id = articles[index].id
-        let response = await Bridge.call(["translation-start", articles[index].path, preview ? "preview" : "full", mode.engineMode])
-        return await follow(id, from: response, preview: preview, mode: mode)
+        let response = await Bridge.call(["translation-start", articles[index].path, preview ? "preview" : "full",
+                                          mode == .targetOnly ? "target-only" : "bilingual", target])
+        return await follow(id, from: response, preview: preview, mode: mode, target: target)
     }
 
     /// Polls a translation job until it ends; shared by new runs and by jobs found at launch.
-    private func follow(_ id: UUID, from first: BridgeResponse, preview: Bool, mode: OutputMode) async -> String? {
+    private func follow(_ id: UUID, from first: BridgeResponse, preview: Bool, mode: OutputMode, target: String) async -> String? {
         guard articles.contains(where: { $0.id == id }) else { return nil }
         var index: Int { articles.firstIndex { $0.id == id } ?? 0 }
         var response = first
@@ -648,21 +823,36 @@ final class PushStore: ObservableObject {
             return nil
         }
         articles[index].status = preview ? "试译完成" : "翻译完成"
-        articles[index].details = preview ? "已生成 3 段试译，整本翻译会单独处理。" : "中文对照版已生成，正在准备发送。"
-        if !preview { articles[index].bilingual = true; articles[index].chineseOnly = mode == .chinese }
+        articles[index].details = preview ? "已生成 3 段试译，整本翻译会单独处理。" : "译本已生成，正在准备发送。"
+        if !preview {
+            articles[index].bilingual = true; articles[index].chineseOnly = mode == .targetOnly
+            articles[index].translatedTo = target
+        }
         save()
         return output
     }
 
-    func preview() async {
-        guard !translation.running, outputMode != .original, let first = queueable.first,
-              let index = articles.firstIndex(where: { $0.id == first.id }) else { return }
+    /// Three paragraphs of one foreign book, in its chosen layout (bilingual when it goes as it is).
+    func preview(_ id: UUID) async {
+        guard !translation.running, let index = articles.firstIndex(where: { $0.id == id }),
+              translatable(articles[index]), articles[index].language != goal(of: articles[index]),
+              articles[index].phase != .working else { return }
+        guard translationReady != false else {
+            notice = "还没安装翻译组件，请先在翻译设置里安装。"; isError = true; return
+        }
+        let first = articles[index]
+        let mode = first.choice == .targetOnly ? OutputMode.targetOnly : .bilingual
+        let before = (first.status, first.details)
         translation.reset(total: 1); stopRequested = false; dismissNotice()
-        if let output = await translate(index: index, preview: true, mode: outputMode) {
+        if let output = await translate(index: index, preview: true, mode: mode, target: goal(of: first)) {
             NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: output)])
             announce("试译样本已在访达中打开，没有发送到 Kindle。满意后再翻译整本。", error: false)
         } else if let failed = articles.first(where: { $0.id == first.id }) {
             notice = failed.details; isError = !stopRequested
+        }
+        // A preview does not change what the book is waiting for.
+        if let index = articles.firstIndex(where: { $0.id == first.id }), articles[index].status != "失败" {
+            articles[index].status = before.0 == "等待继续" ? "等待发送" : before.0; articles[index].details = before.1; save()
         }
         translation.running = false
         await runQueuedTranslations()
@@ -697,4 +887,7 @@ struct Job {
     let id: UUID
     let deliver: Bool
     let mode: OutputMode
+    var target = "zh"
+    /// Kindles ticked when this was queued. Empty: the connected one, as with a single Kindle.
+    var kindles: [KindleDevice] = []
 }

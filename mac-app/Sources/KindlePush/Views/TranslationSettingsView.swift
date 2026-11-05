@@ -55,12 +55,13 @@ struct TranslationSettingsView: View {
 
     var body: some View {
         TabView(selection: $store.settingsTab) {
+            languageForm.tabItem { Label("语言", systemImage: "character.book.closed") }.tag(SettingsTab.language)
             serviceForm.tabItem { Label("翻译服务", systemImage: "network") }.tag(SettingsTab.service)
             qualityForm.tabItem { Label("质量与速度", systemImage: "wand.and.stars") }.tag(SettingsTab.quality)
             AboutView().tabItem { Label("关于", systemImage: "info.circle") }.tag(SettingsTab.about)
         }
         .safeAreaInset(edge: .bottom) {
-            if store.settingsTab != .about { saveBar }
+            if store.settingsTab != .about && store.settingsTab != .language { saveBar }
         }
         // The gear opens translation settings next time, not the About tab the menu left open.
         .onDisappear { if store.settingsTab == .about { store.settingsTab = .service } }
@@ -83,6 +84,36 @@ struct TranslationSettingsView: View {
         .onChange(of: glossary) { saved = false }
         .onChange(of: serviceID) { saved = false }
         .onChange(of: key) { saved = false }
+    }
+
+    /// Takes effect at once, like the rest of the main window; the service settings have their own Save.
+    private var languageForm: some View {
+        Form {
+            Section {
+                Picker("偏好翻译语言", selection: $store.targetLanguage) {
+                    ForEach(Lang.targets, id: \.code) { target in
+                        Text(target.picker).tag(target.code)
+                    }
+                }
+                Picker("外文书默认", selection: $store.foreignDefault) {
+                    ForEach(ForeignDefault.allCases, id: \.self) { Text($0.title).tag($0) }
+                }
+            } footer: {
+                Text(languageNote)
+                    .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    private var languageNote: String {
+        let name = Lang.name(store.targetLanguage)
+        let rule = "拖入的 EPUB 会在本机识别语言。不是\(name)的书会问你要不要翻译成\(name)；每本书行尾的标签都能改成任意语言，这里只是偏好。"
+        let choice = store.foreignDefault == .ask
+            ? "选了默认处理方式后，拖入时直接标好，不再在列表上方询问。"
+            : "拖入时直接标为「\(store.foreignDefault.title)」；每本书行尾的标签仍可单独修改。"
+        return rule + choice + "改动立即生效。"
     }
 
     private var qualityForm: some View {
