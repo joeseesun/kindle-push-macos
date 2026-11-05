@@ -35,7 +35,6 @@
 | 项目 | 要求 |
 | --- | --- |
 | Mac | macOS 14 或更新；提供 Apple Silicon / arm64 预编译包 |
-| 转换组件 | Homebrew Python 3.10+、Pandoc 3.8+（推荐安装当前版） |
 | Kindle | 已越狱、已经安装并运行过 KOReader，包含 SSH / Dropbear 插件 |
 | 网络 | Mac 和 Kindle 在同一个可互通局域网，Kindle 开启 Wi-Fi、运行 KOReader |
 | 首次配置 | 在应用里插一次 USB 写入接收配置，再一键配对；不用开终端 |
@@ -45,11 +44,10 @@
 
 ## 开始使用
 
-1. 安装转换组件：`brew install python pandoc`。
-2. 从 [Releases](https://github.com/joeseesun/kindle-push-macos/releases/latest) 下载应用 ZIP，解压后放入“应用程序”。
-3. 在应用里点「添加 Kindle」：插 USB 写入接收配置，再在 Wi-Fi 里一键配对（详见[首次配置](docs/SETUP.md)）。发布包不包含任何人的密钥，不能跳过这一步。
-4. 打开 **乔木 Kindle 助手**，拖入文章，点 **发送到 Kindle**。
-5. 在 KOReader 文件浏览器进入 `documents/我的文章` 阅读。
+1. 从 [Releases](https://github.com/joeseesun/kindle-push-macos/releases/latest) 下载应用，放入“应用程序”。不用再装别的，Python 和 Pandoc 都在应用里。
+2. 在应用里点「添加 Kindle」：插 USB 写入接收配置，再在 Wi-Fi 里一键配对（详见[首次配置](docs/SETUP.md)）。发布包不包含任何人的密钥，不能跳过这一步。
+3. 打开 **乔木 Kindle 助手**，拖入文章，点 **发送到 Kindle**。
+4. 在 KOReader 文件浏览器进入 `documents/我的文章` 阅读。
 
 应用目前使用本地 ad-hoc 签名，没有 Apple Developer ID 公证。macOS 可能提示无法验证开发者；是否打开由你自行决定，也可以从源码构建。不会要求全局关闭 Gatekeeper。
 
@@ -97,9 +95,10 @@ EPUB 和会转成 EPUB 的格式（Markdown、TXT、Word、HTML 等）用原来�
 ```sh
 git clone https://github.com/joeseesun/kindle-push-macos.git
 cd kindle-push-macos
-brew install python pandoc
 ./script/build_and_run.sh --verify
 ```
+
+开发构建需要系统里有 Python 和 Pandoc（`brew install python pandoc`），或先运行 `./script/fetch_runtime.sh` 取得和正式版相同的内置副本。
 
 产物为 `mac-app/dist/乔木 Kindle 助手.app`。只编译不启动：`./script/build_and_run.sh --build-only`。
 
@@ -121,6 +120,6 @@ python3 -m unittest discover -s wifi-push -p 'test_*.py' -v
 
 This fork of [chasepal/kindle-push-macos](https://github.com/chasepal/kindle-push-macos) adds bilingual EPUB translation using `bilingual_book_maker` 1.3.2. Drag in an EPUB: its language is detected locally, and a foreign book can become a side-by-side edition or a translation only, in any of 20 languages. Preview three body paragraphs, then translate the complete book and send it over Wi-Fi to one or several paired KOReader Kindles. The original EPUB is preserved. Failed or cancelled jobs are never automatically sent.
 
-Requires macOS 14+, Homebrew Python 3.10+, Pandoc 3.8+, a jailbroken Kindle with KOReader SSH, and an OpenAI-compatible translation API. Install the translation component from the settings panel; configure the endpoint, model (DeepSeek Flash by default) and API key. Keys stay in macOS Keychain. Translation sends book text to the selected service and may incur charges; direct transfers stay local. Checkpoints and generated books stay outside the repository. Background translation continues after closing the app; re-add the same file to resume. Download the ad-hoc signed Apple Silicon app from this fork's Releases. Developer ID notarization, Intel device testing and long-book acceptance are not claimed. See [translation documentation](docs/TRANSLATION.md) and the MIT license. Upstream authorship is retained.
+Requires macOS 14+, a jailbroken Kindle with KOReader SSH, and an OpenAI-compatible translation API. Install the translation component from the settings panel; configure the endpoint, model (DeepSeek Flash by default) and API key. Keys stay in macOS Keychain. Translation sends book text to the selected service and may incur charges; direct transfers stay local. Checkpoints and generated books stay outside the repository. Background translation continues after closing the app; re-add the same file to resume. Download the ad-hoc signed Apple Silicon app from this fork's Releases. Developer ID notarization, Intel device testing and long-book acceptance are not claimed. See [translation documentation](docs/TRANSLATION.md) and the MIT license. Upstream authorship is retained.
 
 本项目自有代码使用 [MIT](LICENSE) 许可。KOReader、SimpleUI、Pandoc 按各自许可证分发，本仓库不打包这些项目的程序或代码。应用图标由代码绘制，脚本和源图位于 `mac-app/Assets/`。

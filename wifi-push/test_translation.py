@@ -20,9 +20,10 @@ def epub(path):
 
 class TranslationTests(unittest.TestCase):
     def setUp(self):
-        awake = patch.object(tr, 'stay_awake')
-        awake.start()
-        self.addCleanup(awake.stop)
+        for name, value in (('stay_awake', None), ('runtime_ready', True)):
+            patcher = patch.object(tr, name, return_value=value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
         self.patches = [patch.object(tr, 'DATA', self.root), patch.object(tr, 'JOBS', self.root / 'jobs'),

@@ -166,6 +166,50 @@ class Locks(unittest.TestCase):
             self.assertEqual(len(set(seen)), 10)
 
 
+class EngineHealth(unittest.TestCase):
+    def setUp(self):
+        self.folder = tempfile.TemporaryDirectory()
+        self.addCleanup(self.folder.cleanup)
+        self.runtime = Path(self.folder.name) / 'runtime'
+        patcher = patch.object(tr, 'RUNTIME', self.runtime)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def make(self, python):
+        (self.runtime / 'bin').mkdir(parents=True)
+        (self.runtime / 'bin/bbook_maker').touch()
+        (self.runtime / 'bin/python3').symlink_to(python)
+
+    def test_missing(self):
+        self.assertFalse(tr.runtime_ready())
+
+    def test_python_that_is_gone_is_not_ready(self):
+        self.make('/nonexistent/python3')
+        with patch.object(tr.subprocess, 'run', side_effect=OSError):
+            self.assertFalse(tr.runtime_ready())
+
+    def test_repaired_when_the_pointer_can_be_fixed(self):
+        self.make('/nonexistent/python3')
+        (self.runtime / 'lib' / f'python{sys.version_info.major}.{sys.version_info.minor}').mkdir(parents=True)
+        answers = iter([False, True])
+        with patch.object(tr, 'engine_runs', side_effect=lambda: next(answers)), patch.object(tr.subprocess, 'run') as run:
+            self.assertTrue(tr.runtime_ready())
+        self.assertIn('--upgrade', run.call_args[0][0])
+
+    def test_another_pythons_environment_is_left_alone(self):
+        self.make('/nonexistent/python3')
+        (self.runtime / 'lib/python2.7').mkdir(parents=True)
+        with patch.object(tr, 'engine_runs', return_value=False), patch.object(tr.subprocess, 'run') as run:
+            self.assertFalse(tr.runtime_ready())
+        run.assert_not_called()
+
+    def test_healthy_does_not_touch_it(self):
+        self.make('/usr/bin/true')
+        with patch.object(tr, 'engine_runs', return_value=True), patch.object(tr.subprocess, 'run') as run:
+            self.assertTrue(tr.runtime_ready())
+        run.assert_not_called()
+
+
 class Storage(unittest.TestCase):
     def setUp(self):
         self.folder = tempfile.TemporaryDirectory()

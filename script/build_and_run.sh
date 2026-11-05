@@ -37,6 +37,15 @@ rm -rf "$CONTENTS/Resources/About"; cp -R "$ROOT_DIR/mac-app/Assets/About" "$CON
 cp "$ROOT_DIR/THIRD_PARTY_NOTICES.md" "$ROOT_DIR/LICENSE" "$CONTENTS/Resources/"
 # Ink accent (no system blue). Compiled from mac-app/Assets/Colors.xcassets by script/make_assets.sh.
 cp "$ROOT_DIR/mac-app/Assets/Assets.car" "$CONTENTS/Resources/Assets.car"
+# Python and Pandoc, so nothing has to be installed. A release must have them (./script/fetch_runtime.sh);
+# a dev build without them falls back to Homebrew's.
+VENDOR="$ROOT_DIR/mac-app/vendor/$(/usr/bin/uname -m)"
+if [ "$BUILD_CONFIGURATION" = "release" ] || [ -d "$VENDOR" ]; then
+  "$ROOT_DIR/script/fetch_runtime.sh"
+  mkdir -p "$CONTENTS/Resources/runtime"
+  /usr/bin/ditto "$VENDOR/python" "$CONTENTS/Resources/runtime/python"
+  cp "$VENDOR/pandoc" "$CONTENTS/Resources/runtime/pandoc"
+fi
 cat > "$CONTENTS/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -48,8 +57,8 @@ cat > "$CONTENTS/Info.plist" <<'PLIST'
 <key>CFBundleName</key><string>乔木 Kindle 助手</string>
 <key>CFBundleDisplayName</key><string>乔木 Kindle 助手</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>1.15.0</string>
-<key>CFBundleVersion</key><string>21</string>
+<key>CFBundleShortVersionString</key><string>1.16.0</string>
+<key>CFBundleVersion</key><string>22</string>
 <key>SUFeedURL</key><string>https://github.com/joeseesun/kindle-push-macos/releases/latest/download/appcast.xml</string>
 <key>SUPublicEDKey</key><string>ftyDAv8Qvb8tv4nf5jnMWtCgIi9yVI2IM6p+qhrKz90=</string>
 <key>SUEnableAutomaticChecks</key><true/>
@@ -77,6 +86,16 @@ for item in "$SPK/XPCServices/Installer.xpc" "$SPK/XPCServices/Downloader.xpc" "
             "$CONTENTS/Frameworks/Sparkle.framework"; do
   if [ -e "$item" ]; then /usr/bin/codesign --force --options runtime $TS --preserve-metadata=entitlements --sign "${IDENTITY:--}" "$item"; fi
 done
+# Everything executable inside the runtime, libraries first. Python needs library validation off:
+# the translation engine's wheels are installed later, by pip, and carry no signature of ours.
+RUNTIME="$CONTENTS/Resources/runtime"
+if [ -d "$RUNTIME" ]; then
+  /usr/bin/find "$RUNTIME/python" -type f \( -name '*.so' -o -name '*.dylib' \) -print0 |
+    /usr/bin/xargs -0 -P 8 -n 8 /usr/bin/codesign --force --options runtime $TS --sign "${IDENTITY:--}"
+  /usr/bin/codesign --force --options runtime $TS --sign "${IDENTITY:--}" "$RUNTIME/pandoc"
+  /usr/bin/codesign --force --options runtime $TS --entitlements "$ROOT_DIR/script/python.entitlements" --sign "${IDENTITY:--}" \
+    "$(/usr/bin/readlink -f "$RUNTIME/python/bin/python3")"
+fi
 /usr/bin/codesign --force --options runtime $TS --sign "${IDENTITY:--}" "$APP_BUNDLE"
 # The swap: a running copy keeps the files it has open; the next launch gets the new build.
 if [ -e "$FINAL_BUNDLE" ]; then mv "$FINAL_BUNDLE" "$STAGE/previous.app"; fi

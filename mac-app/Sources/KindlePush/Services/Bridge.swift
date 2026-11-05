@@ -44,11 +44,13 @@ enum Bridge {
                 return BridgeResponse(ok: false, message: "应用组件不完整，请重新安装。")
             }
             let process = Process()
-            let python = ["/opt/homebrew/bin/python3", "/usr/local/bin/python3"].first {
+            // The copy inside the app; only a build without it (from source) looks elsewhere.
+            let python = [resources.appendingPathComponent("runtime/python/bin/python3").path,
+                          "/opt/homebrew/bin/python3", "/usr/local/bin/python3"].first {
                 FileManager.default.isExecutableFile(atPath: $0)
             }
             guard let python else {
-                return BridgeResponse(ok: false, message: "请先安装 Homebrew Python 和 Pandoc，参见项目安装文档。")
+                return BridgeResponse(ok: false, message: "应用不完整，请重新下载安装。从源码构建需要 Homebrew Python 和 Pandoc，参见项目安装文档。")
             }
             process.executableURL = URL(fileURLWithPath: python)
             process.arguments = ["-B", resources.appendingPathComponent("app_bridge.py").path] + arguments
@@ -56,6 +58,10 @@ enum Bridge {
             var environment = ProcessInfo.processInfo.environment
             environment["KINDLEPUSH_APP"] = Bundle.main.executablePath
             if let progressFile { environment["KINDLEPUSH_PROGRESS"] = progressFile }
+            // Python caches compiled files beside its sources. Inside the app that breaks the signature,
+            // so they go here, for this process and everything it starts (venv, pip, the engine).
+            let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            environment["PYTHONPYCACHEPREFIX"] = caches.appendingPathComponent("KindlePush/pycache").path
             process.environment = environment
             let output = Pipe()
             process.standardOutput = output
@@ -78,7 +84,7 @@ enum Bridge {
                 }
                 return try JSONDecoder().decode(BridgeResponse.self, from: data)
             } catch {
-                return BridgeResponse(ok: false, message: "无法启动本机转换组件。请确认 Python 和 Pandoc 仍已安装。", details: error.localizedDescription)
+                return BridgeResponse(ok: false, message: "无法启动本机转换组件。请重新下载安装应用。", details: error.localizedDescription)
             }
         }.value
     }
