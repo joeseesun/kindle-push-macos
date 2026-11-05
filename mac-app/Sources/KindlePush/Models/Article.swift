@@ -65,6 +65,39 @@ struct BridgeResponse: Decodable, Sendable {
     var mode: String?
     var remaining: Int?
     var names: [String]?
+    var device: String?
+    var deviceId: String?
+    var devices: [KindleDevice]?
+    var volumes: [KindleVolume]?
+    var candidates: [NewKindle]?
+}
+
+/// A Kindle mounted over USB.
+struct KindleVolume: Decodable, Sendable, Hashable, Identifiable {
+    var path: String
+    var name: String
+    var ready: Bool
+    var installed: Bool
+    var id: String { path }
+}
+
+/// An unpaired Kindle answering on this network.
+struct NewKindle: Decodable, Sendable, Hashable, Identifiable {
+    var host: String
+    var key: String
+    var fingerprint: String
+    var ready: Bool
+    var reason: String?
+    var id: String { key }
+}
+
+/// A paired Kindle. `online` is known only after a check of the network.
+struct KindleDevice: Decodable, Sendable, Hashable, Identifiable {
+    var id: String
+    var name: String
+    var host: String
+    var current: Bool
+    var online: Bool?
 }
 
 enum ArticlePhase { case waiting, working, ready, done, failed, stopped }

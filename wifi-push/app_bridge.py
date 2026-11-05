@@ -12,6 +12,7 @@ import subprocess
 import sys
 from pathlib import Path
 import kindle_push as kp
+import devices as dv
 
 
 def config():
@@ -24,15 +25,11 @@ def valid_host(value):
         raise ValueError('请输入 Kindle 网络信息里的 IPv4 地址，例如 192.168.1.42。')
     return str(ip)
 
-
-def trusted_key():
-    path = kp.DATA / 'known_hosts'
-    if path.exists():
-        for line in path.read_text().splitlines():
-            fields = line.split()
-            if len(fields) >= 3 and fields[0] == 'kindle-push' and fields[1] == 'ssh-ed25519':
-                return fields[2]
-    raise ValueError('缺少已配对 Kindle 的身份记录，请恢复本机 KindlePush 配置。')
+def paired():
+    found = dv.load()[0]
+    if not found:
+        raise ValueError('缺少已配对 Kindle 的身份记录，请恢复本机 KindlePush 配置。')
+    return found
 
 
 def reachable(host, timeout=0.45):
@@ -43,27 +40,38 @@ def reachable(host, timeout=0.45):
         return False
 
 
-def matches_device(host, key):
+def host_key(host):
+    """The ED25519 host key `host` presents on the receiver port, without authenticating."""
     try:
         result = subprocess.run(['/usr/bin/ssh-keyscan', '-T', '2', '-p', '2222', '-t', 'ed25519', host],
                                 capture_output=True, timeout=4)
-        return any(len(parts := line.split()) >= 3 and parts[1] == 'ssh-ed25519' and parts[2] == key
-                   for line in result.stdout.decode().splitlines())
     except (OSError, subprocess.TimeoutExpired):
-        return False
+        return None
+    for line in result.stdout.decode().splitlines():
+        parts = line.split()
+        if len(parts) >= 3 and parts[1] == 'ssh-ed25519':
+            return parts[2]
+    return None
 
 
-def verify(host):
+def identify(host, known):
+    """The paired Kindle at `host`, or None for any other device."""
+    key = host_key(host)
+    return next((d for d in known if d['key'] == key), None) if key else None
+
+
+def verify(host, expected=None):
+    """Connect to the paired Kindle at `host` (the one with id `expected`, when given) and make it current."""
     host = valid_host(host)
     if not reachable(host, 2):
         raise ValueError('没有连上 Kindle。请连接同一个 Wi-Fi，在 Kindle 打开 KOReader；然后点“自动寻找”。')
-    if not matches_device(host, trusted_key()):
+    device = identify(host, paired())
+    if device is None or (expected and device['id'] != expected):
         raise ValueError('这个地址的设备与已配对 Kindle 不一致。请核对 IP；应用没有发送文件。')
-    if kp.ssh({'host': host}, 'ping').strip() not in kp.RECEIVER_VERSIONS:
+    if kp.ssh({'host': host, 'alias': device['alias']}, 'ping').strip() not in kp.RECEIVER_VERSIONS:
         raise ValueError('Kindle 接收服务没有正常响应，请重新打开 KOReader。')
-    kp.get_config(host)
-    return host
-
+    dv.update(device['id'], host=host, select=True)
+    return host, device
 
 def local_candidates():
     """Only active physical LANs; /24 cap on larger LANs plus observed ARP peers."""
@@ -89,27 +97,115 @@ def local_candidates():
     return sorted(candidates - own, key=ipaddress.ip_address)[:1024]
 
 
-def discover(force_scan=False):
-    key = trusted_key()
-    previous = config().get('host', '')
-    if previous and not force_scan:
-        try:
-            return verify(previous)
-        except (ValueError, OSError, subprocess.SubprocessError):
-            pass
+def scan(known):
+    """{device id: host} for every paired Kindle answering on this network."""
     candidates = local_candidates()
     if not candidates:
         raise ValueError('未发现可用局域网。请先连接 Wi-Fi，或在“手动连接”中输入 Kindle IP。')
-    found = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=32) as pool:
-        futures = {pool.submit(reachable, host): host for host in candidates}
-        for future in concurrent.futures.as_completed(futures):
-            if future.result():
-                found.append(futures[future])
-    for host in found:
-        if matches_device(host, key):
-            return verify(host)
-    raise ValueError('未找到已配对的 Kindle。请确认两台设备在同一 Wi-Fi、Kindle 已打开 KOReader；访客网络可能隔离设备。也可以手动输入 IP。')
+    found = {}
+    # A Kindle in Wi-Fi power saving can miss the quick probe; a second, slower pass wakes it.
+    for timeout in (0.45, 1.5):
+        with concurrent.futures.ThreadPoolExecutor(max_workers=64) as pool:
+            open_hosts = [h for h, ok in zip(candidates, pool.map(lambda h: reachable(h, timeout), candidates)) if ok]
+            for host, device in zip(open_hosts, pool.map(lambda h: identify(h, known), open_hosts)):
+                if device and device['id'] not in found:
+                    found[device['id']] = host
+        if found:
+            break
+    return found
+
+
+def unpaired(only=None):
+    """Kindles on this network that answer on the receiver port but are not paired yet.
+
+    `ready` means this Mac's receiver answered, so pairing will work; otherwise the Kindle
+    still needs the receiver written over USB."""
+    import setup_device as setup
+    known = {d['key'] for d in dv.load()[0]}
+    candidates = [valid_host(only)] if only else local_candidates()
+    if not candidates:
+        raise ValueError('未发现可用局域网。请先连接 Wi-Fi。')
+    hosts = []
+    for timeout in (0.45, 1.5):
+        with concurrent.futures.ThreadPoolExecutor(max_workers=64) as pool:
+            hosts = [h for h, ok in zip(candidates, pool.map(lambda h: reachable(h, timeout), candidates)) if ok]
+        if hosts:
+            break
+
+    def check(host):
+        key = host_key(host)
+        if not key or key in known:
+            return None
+        item = {'host': host, 'key': key, 'fingerprint': setup.fingerprint(key), 'ready': False}
+        try:
+            setup.probe(host, key)
+            item['ready'] = True
+        except (ValueError, OSError, subprocess.SubprocessError):
+            item['reason'] = '找到了 KOReader，但还没写入接收配置：先用 USB 连接这台 Kindle。'
+        return item
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+        return [item for item in pool.map(check, hosts) if item]
+
+
+NOT_FOUND = '未找到已配对的 Kindle。请确认两台设备在同一 Wi-Fi、Kindle 已打开 KOReader；访客网络可能隔离设备。也可以手动输入 IP。'
+
+
+def discover(force_scan=False):
+    """Connect to the Kindle chosen last time, or, when it is away, to another paired one nearby."""
+    known = paired()
+    chosen = dv.current()
+    if chosen and chosen.get('host') and not force_scan:
+        try:
+            return verify(chosen['host'], chosen['id'])
+        except (ValueError, OSError, subprocess.SubprocessError):
+            pass
+    found = scan(known)
+    order = [d['id'] for d in known]
+    for device_id, host in found.items():
+        dv.update(device_id, host=host)
+    for device_id in sorted(found, key=lambda i: (i != (chosen or {}).get('id'), order.index(i))):
+        try:
+            return verify(found[device_id], device_id)
+        except (ValueError, OSError, subprocess.SubprocessError):
+            continue
+    raise ValueError(NOT_FOUND)
+
+
+def device_list(full_scan=False):
+    """Paired Kindles and which are on this network: a quick check of each last address, or a full scan."""
+    known, chosen = dv.load()
+    if full_scan and known:
+        online = scan(known)
+        for device_id, host in online.items():
+            dv.update(device_id, host=host)
+        known, chosen = dv.load()
+    else:
+        def here(device):
+            host = device.get('host')
+            return bool(host) and reachable(host, 0.8) and (identify(host, [device]) is not None)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+            online = {d['id'] for d, ok in zip(known, pool.map(here, known)) if ok}
+    return [dv.public(d, chosen, d['id'] in online) for d in known]
+
+
+def select(device_id):
+    """Make `device_id` the Kindle books go to, and connect to it if it is on this network."""
+    device = dv.find(device_id)
+    dv.update(device_id, select=True)
+    if device.get('host'):
+        try:
+            return verify(device['host'], device_id)
+        except (ValueError, OSError, subprocess.SubprocessError):
+            pass
+    found = scan([device])
+    if device_id in found:
+        return verify(found[device_id], device_id)
+    raise ValueError(f'已切换到「{device["name"]}」，但它现在不在这个 Wi-Fi 里。请在这台 Kindle 上打开 KOReader，再点“重新寻找”。')
+
+
+def connected(host, device, message='Kindle 已连接'):
+    return {'ok': True, 'host': host, 'device': device['name'], 'deviceId': device['id'], 'message': message}
 
 
 def handle(args):
@@ -155,25 +251,55 @@ def handle(args):
         missing = [str(p) for p in [Path(kp.PANDOC), kp.DATA / 'id_ed25519', kp.DATA / 'known_hosts'] if not p.exists()]
         if missing:
             raise ValueError('缺少本机组件：' + '、'.join(missing))
-        return {'ok': True, 'host': config().get('host', ''), 'output': str(kp.OUT)}
+        chosen = dv.current()
+        return {'ok': True, 'host': chosen['host'] if chosen else config().get('host', ''), 'output': str(kp.OUT),
+                'device': chosen['name'] if chosen else None, 'deviceId': chosen['id'] if chosen else None}
     if command in {'discover', 'scan', 'connect'}:
-        host = verify(args[1]) if command == 'connect' else discover(command == 'scan')
-        return {'ok': True, 'host': host, 'message': 'Kindle 已连接'}
+        before = dv.current()
+        host, device = verify(args[1]) if command == 'connect' else discover(command == 'scan')
+        if command != 'connect' and before and before['id'] != device['id']:
+            # The chosen Kindle is away: say so, never switch silently.
+            return connected(host, device, f'「{before["name"]}」不在这个 Wi-Fi 里，已改为发到「{device["name"]}」')
+        return connected(host, device)
+    if command == 'devices':
+        return {'ok': True, 'devices': device_list(len(args) > 1 and args[1] == 'scan')}
+    if command in {'usb-volumes', 'usb-install', 'find-new', 'pair'}:
+        import setup_device as setup
+        if command == 'usb-install':
+            if not any(v['path'] == args[1] and v['ready'] for v in setup.kindle_volumes()):
+                raise ValueError('没有在这个磁盘上找到 KOReader。请确认 Kindle 已用 USB 连接，并且运行过 KOReader。')
+            with contextlib.redirect_stdout(io.StringIO()):
+                setup.install_usb(Path(args[1]))
+        if command in {'usb-volumes', 'usb-install'}:
+            return {'ok': True, 'volumes': setup.kindle_volumes()}
+        if command == 'find-new':
+            return {'ok': True, 'candidates': unpaired(args[1] if len(args) > 1 else None)}
+        return connected(*(lambda d: (d['host'], d))(setup.pair(args[1], args[2], args[3] if len(args) > 3 else '')),
+                         message='配对成功')
+    if command == 'select':
+        return connected(*select(args[1]))
+    if command == 'rename':
+        dv.update(args[1], name=args[2])
+        return {'ok': True, 'devices': device_list()}
+    if command == 'forget':
+        dv.forget(args[1])
+        return {'ok': True, 'devices': device_list()}
     if command == 'convert':
         log = io.StringIO()
         with contextlib.redirect_stdout(log):
             output = kp.convert(Path(args[1]))
         return {'ok': True, 'output': str(output), 'message': '已保存到本机', 'details': log.getvalue()}
     if command == 'send':
-        host = verify(args[1])
+        # The id pins the send to the Kindle the user chose, wherever its address has moved.
+        host, device = verify(args[1], args[3] if len(args) > 3 else None)
         source = Path(args[2])
         log = io.StringIO()
         with contextlib.redirect_stdout(log):
             epub = kp.convert(source)
-            sent = kp.send(epub, {'host': host})
+            sent = kp.send(epub, {'host': host, 'alias': device['alias']})
         # A PDF sent as image volumes: point the row at the first volume.
         epub = sent[0] if sent and sent[0] != epub else epub
-        return {'ok': True, 'host': host, 'output': str(epub),
+        return {'ok': True, 'host': host, 'device': device['name'], 'output': str(epub),
                 'message': '已发送并校验', 'details': log.getvalue(),
                 'sha256': hashlib.sha256(epub.read_bytes()).hexdigest()}
     raise ValueError('未知操作。')

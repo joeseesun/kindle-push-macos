@@ -41,12 +41,16 @@ private struct ConnectionPopover: View {
                         .fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
                 }
             }
+            if store.devices.count > 1 {
+                DeviceList(store: store)
+            }
             if store.setupNeeded {
-                InkLink(url: URL(string: "https://github.com/joeseesun/kindle-push-macos/blob/main/docs/SETUP.md")!) {
-                    Label("查看首次配置指南", systemImage: "book")
+                Button { store.showConnection = false; store.showAddKindle = true } label: {
+                    Label("添加 Kindle", systemImage: "plus").frame(maxWidth: .infinity)
                 }
+                .buttonStyle(.ink).controlSize(.large)
             } else {
-                Button { Task { await store.connect() } } label: {
+                Button { Task { await store.connect(); await store.refreshDevices(scan: store.devices.count > 1) } } label: {
                     Label(store.searching ? "正在寻找…" : "重新寻找", systemImage: "arrow.clockwise")
                         .frame(maxWidth: .infinity)
                 }
@@ -65,14 +69,122 @@ private struct ConnectionPopover: View {
                 .disabled(store.searching)
                 Text("IP 在 KOReader › 网络 › 网络信息 里。换 Wi‑Fi 后先试重新寻找；访客网络会隔离设备。")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                if !store.setupNeeded {
+                    Button { store.showConnection = false; store.showAddKindle = true } label: {
+                        Label("添加另一台 Kindle…", systemImage: "plus")
+                    }
+                    .buttonStyle(.inkLink).font(.caption)
+                }
             }
         }
         .padding(18).frame(width: 330)
+        .task { await store.refreshDevices() }
     }
 
     private var detail: String {
         if store.searching { return "正在当前 Wi‑Fi 中寻找已配对的 Kindle" }
         if store.connected { return "已连接 · \(store.host)" }
         return store.connectionIssue.isEmpty ? "打开 KOReader，并连接同一个 Wi‑Fi" : store.connectionIssue
+    }
+}
+
+/// Every paired Kindle: click one to send there from now on.
+private struct DeviceList: View {
+    @ObservedObject var store: PushStore
+    @State private var renaming: KindleDevice?
+    @State private var newName = ""
+    @State private var forgetting: KindleDevice?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("发送到").font(.subheadline.weight(.medium))
+                Spacer()
+                if store.checkingDevices { ProgressView().controlSize(.mini) }
+            }
+            VStack(spacing: 2) {
+                ForEach(store.devices) { device in
+                    DeviceRow(device: device, chosen: device.id == store.deviceId, locked: store.busy || store.searching,
+                              choose: { Task { await store.choose(device) } },
+                              rename: { newName = device.name; renaming = device },
+                              forget: { forgetting = device })
+                }
+            }
+            if store.busy {
+                Text("书正在发送，发完后再切换。").font(.caption).foregroundStyle(.secondary)
+            } else {
+                Text("点一台，之后的书就发给它。").font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .alert("重命名 Kindle", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
+            TextField("名字", text: $newName)
+            Button("取消", role: .cancel) {}
+            Button("保存") {
+                if let device = renaming { Task { await store.rename(device, to: newName) } }
+            }
+            .disabled(newName.trimmingCharacters(in: .whitespaces).isEmpty)
+        }
+        .confirmationDialog("取消配对「\(forgetting?.name ?? "")」？", isPresented: Binding(get: { forgetting != nil }, set: { if !$0 { forgetting = nil } })) {
+            Button("取消配对", role: .destructive) {
+                if let device = forgetting { Task { await store.forget(device) } }
+            }
+        } message: {
+            Text("这台 Kindle 上的书不受影响。以后要再发给它，需要重新配对。")
+        }
+    }
+}
+
+private struct DeviceRow: View {
+    let device: KindleDevice
+    let chosen: Bool
+    let locked: Bool
+    let choose: () -> Void
+    let rename: () -> Void
+    let forget: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Button(action: choose) {
+                HStack(spacing: 10) {
+                    Circle()
+                        .fill(device.online == true ? Color.green : Color.secondary.opacity(0.35))
+                        .frame(width: 7, height: 7)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(device.name).font(.callout.weight(chosen ? .semibold : .regular))
+                        Text(status).font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 8)
+                    if chosen { Image(systemName: "checkmark").font(.caption.weight(.semibold)) }
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(locked)
+            .help(chosen ? "书会发到这台 Kindle" : "改为发到这台 Kindle")
+            Menu {
+                Button("重命名…", action: rename)
+                Button("取消配对…", role: .destructive, action: forget)
+            } label: {
+                Image(systemName: "ellipsis").font(.callout).frame(width: 22, height: 22).contentShape(Rectangle())
+            }
+            .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+            .opacity(hovering ? 1 : 0.45)
+            .help("重命名或取消配对")
+            .accessibilityLabel("管理 \(device.name)")
+        }
+        .padding(.leading, 10).padding(.trailing, 4).padding(.vertical, 6)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.primary.opacity(chosen ? 0.07 : hovering ? 0.04 : 0),
+                    in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+        .onHover { hovering = $0 }
+    }
+
+    private var status: String {
+        switch device.online {
+        case true: return "在线 · \(device.host)"
+        case false: return device.host.isEmpty ? "不在这个 Wi‑Fi" : "不在线 · 上次 \(device.host)"
+        default: return device.host
+        }
     }
 }

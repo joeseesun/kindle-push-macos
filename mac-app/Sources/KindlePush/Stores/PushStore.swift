@@ -7,6 +7,12 @@ final class PushStore: ObservableObject {
     @Published var host = ""
     @Published var manualHost = ""
     @Published var connected = false
+    /// The Kindle books go to, and every paired one.
+    @Published var deviceName = ""
+    @Published var deviceId = ""
+    @Published var devices: [KindleDevice] = []
+    @Published var checkingDevices = false
+    @Published var showAddKindle = false
     /// Translation and everything else run in separate queues, so a translation that takes hours
     /// never holds up sending, saving or tidying the other books.
     @Published var translation = Lane()
@@ -90,7 +96,7 @@ final class PushStore: ObservableObject {
     var nonEpubPending: Bool { articles.contains { $0.status != "已发送" && $0.format != "EPUB" } }
     var connectionTitle: String {
         if searching { return "正在寻找…" }
-        if connected { return "我的 Kindle" }
+        if connected { return deviceName.isEmpty ? "我的 Kindle" : deviceName }
         return setupNeeded ? "需要首次配置" : "未连接 Kindle"
     }
 
@@ -214,6 +220,7 @@ final class PushStore: ObservableObject {
         let status = await Bridge.call(["status"])
         if status.ok {
             host = status.host ?? ""; manualHost = host
+            deviceName = status.device ?? ""; deviceId = status.deviceId ?? ""
             await findConnection(manual: false, report: false)
         } else {
             setupNeeded = true
@@ -280,13 +287,95 @@ final class PushStore: ObservableObject {
         defer { searching = false }
         if report { activity = manual ? "正在连接 Kindle…" : "正在寻找你的 Kindle…" }
         let response = await Bridge.call(manual ? ["connect", manualHost.trimmingCharacters(in: .whitespacesAndNewlines)] : ["discover"])
+        apply(response, report: report)
+    }
+
+    private func apply(_ response: BridgeResponse, report: Bool) {
         if response.ok {
             host = response.host ?? ""; manualHost = host; connected = true
+            deviceName = response.device ?? deviceName; deviceId = response.deviceId ?? deviceId
             setupNeeded = false; connectionIssue = ""
-            if report { activity = "Kindle 已连接" }
+            if report { activity = "\(deviceName.isEmpty ? "Kindle" : deviceName) 已连接" }
+            if let message = response.message, message.contains("已改为发到") { announce(message, error: false) }
         } else {
             connectionIssue = response.message ?? "没有找到 Kindle，请重试。"
             if report { activity = "Kindle 尚未连接" }
+        }
+    }
+
+    /// Paired Kindles for the connection popover. `scan` searches the whole network, which finds
+    /// a Kindle whose address changed; otherwise only each one's last address is checked.
+    func refreshDevices(scan: Bool = false) async {
+        guard !setupNeeded, !checkingDevices else { return }
+        checkingDevices = true
+        defer { checkingDevices = false }
+        let response = await Bridge.call(scan ? ["devices", "scan"] : ["devices"])
+        guard response.ok else { return }
+        devices = response.devices ?? []
+        // The chosen Kindle came online after the last search: connect without another click.
+        if !connected, !searching, devices.contains(where: { $0.current && $0.online == true }) {
+            checkingDevices = false
+            await connect()
+        }
+    }
+
+    /// Send to another paired Kindle from now on. Not while books are on their way.
+    func choose(_ device: KindleDevice) async {
+        guard !searching, !busy, device.id != deviceId || !connected else { return }
+        connected = false; searching = true
+        deviceName = device.name; deviceId = device.id
+        activity = "正在连接 \(device.name)…"
+        let response = await Bridge.call(["select", device.id])
+        searching = false
+        apply(response, report: true)
+        if connected && isError { dismissNotice() }
+        await refreshDevices()
+    }
+
+    // MARK: Adding a Kindle
+
+    func usbVolumes() async -> [KindleVolume] {
+        await Bridge.call(["usb-volumes"]).volumes ?? []
+    }
+
+    /// Writes the receiver to the Kindle mounted at `path`. Returns an error message, or nil.
+    func usbInstall(_ path: String) async -> String? {
+        let response = await Bridge.call(["usb-install", path])
+        return response.ok ? nil : (response.message ?? "没有写入。")
+    }
+
+    func findNewKindles(at host: String? = nil) async -> (found: [NewKindle], error: String?) {
+        let response = await Bridge.call(["find-new"] + (host.map { [$0] } ?? []))
+        return (response.candidates ?? [], response.ok ? nil : response.message)
+    }
+
+    /// Pairs a Kindle found on the network and sends to it from now on. Returns an error message, or nil.
+    func pair(_ kindle: NewKindle, name: String) async -> String? {
+        let response = await Bridge.call(["pair", kindle.host, kindle.key, name])
+        guard response.ok else { return response.message ?? "没有配对。" }
+        setupNeeded = false
+        apply(response, report: true)
+        await refreshDevices()
+        return nil
+    }
+
+    func rename(_ device: KindleDevice, to name: String) async {
+        let response = await Bridge.call(["rename", device.id, name])
+        guard response.ok else { announce(response.message ?? "没有改名。", error: true); return }
+        devices = response.devices ?? devices
+        if device.id == deviceId { deviceName = devices.first { $0.id == device.id }?.name ?? deviceName }
+    }
+
+    func forget(_ device: KindleDevice) async {
+        let response = await Bridge.call(["forget", device.id])
+        guard response.ok else { announce(response.message ?? "没有取消配对。", error: true); return }
+        devices = response.devices ?? []
+        guard device.id == deviceId else { return }
+        connected = false; deviceName = ""; deviceId = ""; host = ""
+        if devices.isEmpty {
+            setupNeeded = true; connectionIssue = "还没有配对的 Kindle。"
+        } else {
+            await connect()
         }
     }
 
@@ -412,7 +501,7 @@ final class PushStore: ObservableObject {
         }
         articles[index].status = "发送中"
         self[keyPath: lane].activity = "正在发送 \(step)：\(articles[index].title)"
-        let response = await Bridge.call(["send", host, source])
+        let response = await Bridge.call(["send", host, source] + (deviceId.isEmpty ? [] : [deviceId]))
         guard articles.contains(where: { $0.id == id }) else { return }
         articles[index].status = response.ok ? "已发送" : "失败"
         articles[index].details = response.ok ? (response.details?.contains("提示：") == true ? response.details! : "已读回文件，校验一致") : (response.message ?? "发送失败")

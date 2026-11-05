@@ -56,6 +56,7 @@ struct ContentView: View {
         .sheet(isPresented: Binding(get: { !store.renameIDs.isEmpty }, set: { if !$0 { store.renameIDs = [] } })) {
             RenameSheet(store: store, ids: store.renameIDs)
         }
+        .sheet(isPresented: $store.showAddKindle) { AddKindleSheet(store: store) }
         .task { await store.start() }
     }
 

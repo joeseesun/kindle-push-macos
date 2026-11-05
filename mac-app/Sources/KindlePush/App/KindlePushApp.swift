@@ -47,6 +47,7 @@ struct KindlePushApp: App {
                     .keyboardShortcut("r").disabled(store.searching)
                 Button("连接设置…") { store.showConnection = true }
                     .keyboardShortcut("k")
+                Button("添加 Kindle…") { store.showConnection = false; store.showAddKindle = true }
                 Divider()
                 Button("发送到 Kindle") { Task { await store.send() } }
                     .keyboardShortcut(.return, modifiers: .command)

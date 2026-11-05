@@ -39,6 +39,7 @@
 | Kindle | 已越狱、已经安装并运行过 KOReader，包含 SSH / Dropbear 插件 |
 | 网络 | Mac 和 Kindle 在同一个可互通局域网，Kindle 开启 Wi-Fi、运行 KOReader |
 | 首次配置 | 插一次 USB 写入接收配置，再配对设备身份；完成后日常只用应用 |
+| 多台 Kindle | 一台 Mac 可以配对多台 Kindle，在连接面板里点一下就切换发给谁 |
 
 实机测试设备：Kindle Paperwhite 3 / 第七代，固件 5.16.2.1.1，KOReader v2026.07.1。其他型号、旧版 KOReader 和 Intel Mac 尚未实机验证。
 
