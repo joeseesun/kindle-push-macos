@@ -100,7 +100,7 @@
     <p class="lede">把文章和电子书拖进窗口，转成适合墨水屏的版本，<br class="br-lg">需要的话先译成中英对照，再经 Wi-Fi 送到 Kindle。</p>
     <div class="hero-actions">
       <a class="btn btn-lg btn-primary" href="https://github.com/joeseesun/kindle-push-macos/releases/latest/download/KindlePush.dmg" data-dl><svg><use href="#i-apple"/></svg>下载 Mac 版</a>
-      <a class="btn btn-lg btn-ghost" href="https://github.com/joeseesun/kindle-push-macos/blob/main/docs/SETUP.md">首次配置指南<svg><use href="#i-arrow"/></svg></a>
+      <a class="btn btn-lg btn-ghost" href="#start">怎么开始<svg><use href="#i-arrow"/></svg></a>
     </div>
     <p class="hero-meta">免费 · MIT 开源 · <span data-ver>v1.17.2</span> · macOS 14+</p>
   </div>
@@ -314,17 +314,17 @@ Diamond Age.epub</pre>
 <section class="section" id="start">
   <div class="wrap">
     <div class="eyebrow">开始</div>
-    <h2>配置一次，之后只用拖放。</h2>
+    <h2>下载就能用，发到 Kindle 前配对一次。</h2>
     <ol class="start">
-      <li><span class="n">1</span><b>下载应用</b><p>拖进「应用程序」就行，不用开终端，也不用再装别的。</p></li>
-      <li><span class="n">2</span><b>插一次 USB，配对 Kindle</b><p>按<a href="https://github.com/joeseesun/kindle-push-macos/blob/main/docs/SETUP.md">首次配置</a>把接收端写进 Kindle，再确认设备身份。发布包不含任何人的密钥，这一步不能跳过。</p></li>
-      <li><span class="n">3</span><b>拖进来，点发送</b><p>在 KOReader 的文件浏览器里打开 <code>documents/我的文章</code> 阅读。</p></li>
+      <li><span class="n">1</span><b>下载打开</b><p>拖进「应用程序」。转换格式、整理文件名、存到本机，马上能用。</p></li>
+      <li><span class="n">2</span><b>想翻译</b><p>在设置里装一下翻译组件（一键，几分钟），选个服务、粘贴 Key，能用会自动保存。</p></li>
+      <li><span class="n">3</span><b>想发到 Kindle</b><p>在应用里点「添加 Kindle」，跟着提示插一次 USB，再在 Wi‑Fi 里点配对。每台只做一次。</p></li>
     </ol>
 
     <div class="req" aria-label="使用条件">
-      <div><b>Mac</b><span>macOS 14 或更新，Apple 芯片；Intel 版未经实机测试</span></div>
-      <div><b>Kindle</b><span>已越狱，装好并运行过 KOReader，含 SSH 插件</span></div>
-      <div><b>网络</b><span>Mac 与 Kindle 在同一个能互通的局域网</span></div>
+      <div><b>Mac</b><span>macOS 14 或更新，Apple 芯片或 Intel（Intel 版未经实机测试）</span></div>
+      <div><b>Kindle</b><span>发到 Kindle 时需要：已越狱，装好 KOReader 和它的 SSH 插件</span></div>
+      <div><b>网络</b><span>发送时 Mac 和 Kindle 连同一个 Wi‑Fi（访客网络不行）</span></div>
     </div>
 
     <div class="cta" id="download">
@@ -352,7 +352,7 @@ Diamond Age.epub</pre>
           <svg class="dl-os"><use href="#i-code"/></svg>
           <b>从源码构建</b>
           <span>Swift 6.0+ · Xcode Command Line Tools</span>
-          <span>Intel Mac 或想自己签名时使用</span>
+          <span>想自己改代码或签名时使用</span>
           <span class="dl-btn"><svg><use href="#i-gh"/></svg>查看构建说明</span>
         </a>
       </div>
