@@ -16,10 +16,9 @@ struct FooterBar: View {
                 Spacer(minLength: 8)
                 if store.quick.running { sendingControls }
                 if store.currentJob != nil {
-                    Button("停止翻译") { store.stopTranslation() }.buttonStyle(.inkOutline).controlSize(.large)
+                    Button("停止翻译") { store.stopTranslation() }.buttonStyle(.inkOutline).controlSize(.large).fixedSize()
                         .help("停止正在翻译的书；已完成的进度保留，排队的书回到待发送（⌘.）")
                 }
-                // While a queue runs, the buttons only reappear for books that can join it.
                 // While a queue runs, only "add to queue" stays, so the stop buttons and progress have room.
                 // No Kindle paired: this is a translation tool first, so saving is the main button.
                 if store.setupNeeded && !store.busy {
@@ -42,7 +41,8 @@ struct FooterBar: View {
             if store.busy { progress }
             if !store.busy || !store.queueable.isEmpty { caption }
         }
-        .frame(minWidth: 180, alignment: .leading).layoutPriority(1)
+        // Gives way to the buttons, which keep their size: a squeezed button loses its text, not a line of status.
+        .frame(alignment: .leading)
     }
 
     @ViewBuilder private var caption: some View {
@@ -88,8 +88,8 @@ struct FooterBar: View {
 
     private func line(_ value: Double, _ text: String) -> some View {
         HStack(spacing: 8) {
-            ProgressView(value: value).tint(.ink).progressViewStyle(.linear).frame(width: 90)
-            Text(text).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.tail)
+            ProgressView(value: value).tint(.ink).progressViewStyle(.linear).frame(width: 64)
+            Text(text).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.tail).help(text)
         }
         .frame(maxWidth: 380, alignment: .leading)
     }
@@ -99,7 +99,7 @@ struct FooterBar: View {
     @ViewBuilder private var sendingControls: some View {
         if store.sendingID != nil {
             Button("取消这本") { store.stopSending(now: true) }
-                .buttonStyle(.inkOutline).controlSize(.large)
+                .buttonStyle(.inkOutline).controlSize(.large).fixedSize()
                 .help("断开正在传的这本，Kindle 上不会留下半个文件；后面的书也不再发送")
         }
         if store.sendStopRequested {
@@ -112,7 +112,7 @@ struct FooterBar: View {
             Button { store.stopSending() } label: {
                 Label("停止发送", systemImage: "stop.fill")
             }
-            .buttonStyle(.ink).controlSize(.large)
+            .buttonStyle(.ink).controlSize(.large).fixedSize()
             .help("正在传的这本照常传完并校验，排队的书回到待发送（⌘.）")
         }
     }
@@ -122,7 +122,7 @@ struct FooterBar: View {
         Button { Task { await store.saveLocally() } } label: {
             Label("保存到本机", systemImage: "square.and.arrow.down")
         }
-        .controlSize(.large).disabled(sendDisabled)
+        .controlSize(.large).disabled(sendDisabled).fixedSize()
         .help(store.nothingToSendReason ?? "保存到本机（要翻译的书先翻译），完成后在访达中选中；不需要连接 Kindle（⌥⌘↩）")
     }
 
@@ -131,11 +131,19 @@ struct FooterBar: View {
         store.queueable.isEmpty || (store.translationReady == false && store.plannedOriginals.isEmpty)
     }
 
+    private var sendHelp: String {
+        let names = store.targets.map(\.name).joined(separator: "、")
+        return (names.isEmpty ? "" : "每本书都发给 \(names)。") + "原文直接发送，要翻译的书译完自动发送（⌘↩）"
+    }
+
     private var sendButton: some View {
         Button { Task { await store.send() } } label: {
             HStack(spacing: 7) {
                 Image(systemName: store.busy ? "plus" : "paperplane.fill")
-                Text(store.busy ? "加入队列" : "发送到 Kindle").fixedSize()
+                // Both queues running leaves little room: "+ 2" still says it, with the words in the tooltip.
+                if !(store.translation.running && store.quick.running) {
+                    Text(store.busy ? "加入队列" : store.targets.isEmpty ? "发送到 Kindle" : "发送到 \(store.targets.count) 台 Kindle")
+                }
                 if !store.queueable.isEmpty {
                     Text("\(store.queueable.count)").font(.callout.weight(.semibold)).monospacedDigit()
                         .padding(.horizontal, 6).padding(.vertical, 1)
@@ -144,9 +152,10 @@ struct FooterBar: View {
             }
             .padding(.horizontal, 6)
         }
-        .controlSize(.large)
+        .controlSize(.large).fixedSize()
         .disabled(sendDisabled)
-        .help(store.nothingToSendReason ?? (store.busy ? "加入正在进行的队列（⌘↩）" : "原文直接发送，要翻译的书译完自动发送（⌘↩）"))
+        .accessibilityLabel(store.busy ? "加入队列" : "发送到 Kindle")
+        .help(store.nothingToSendReason ?? (store.busy ? "加入正在进行的队列（⌘↩）" : sendHelp))
     }
 }
 

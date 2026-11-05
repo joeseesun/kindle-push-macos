@@ -53,6 +53,8 @@ final class PushStore: ObservableObject {
     /// The book being transferred right now, for "cancel this one".
     @Published var sendingID: UUID?
     private var started = false
+    /// Kindles found away during a batch, until when not to search for them again.
+    private var awayUntil: [String: Date] = [:]
 
     init() {
         if let data = UserDefaults.standard.data(forKey: "history"),
@@ -125,13 +127,18 @@ final class PushStore: ObservableObject {
             && $0.status != "排队中" && $0.phase != .working && !active.contains($0.id) }
     }
     func choose(_ mode: OutputMode, for ids: Set<UUID>) {
-        for index in articles.indices where ids.contains(articles[index].id) { articles[index].choice = mode }
+        for index in articles.indices where ids.contains(articles[index].id) {
+            // Another version of the book: Kindles that got the old one have not got this one.
+            if articles[index].choice != mode { articles[index].deliveredTo = nil }
+            articles[index].choice = mode
+        }
         save()
     }
     /// Translate these books into `code`; a book that was going as it is becomes bilingual.
     func translate(_ ids: Set<UUID>, into code: String) {
         for index in articles.indices where ids.contains(articles[index].id) {
             articles[index].target = code == targetLanguage ? nil : code
+            articles[index].deliveredTo = nil
             if articles[index].choice == nil || articles[index].choice == .original { articles[index].choice = .bilingual }
         }
         remember(code); save()
@@ -180,8 +187,14 @@ final class PushStore: ObservableObject {
         if pendingCount == 0 { return "都已送达。拖入新的书，或右键一本书「放回待发送」再发一次" }
         return "没有可发送的书"
     }
+    /// The Kindles a book goes to when several are ticked; empty means just the connected one.
+    var targets: [KindleDevice] {
+        let ticked = devices.filter { $0.selected == true }
+        return ticked.count > 1 ? ticked : []
+    }
     var connectionTitle: String {
         if searching { return "正在寻找…" }
+        if !targets.isEmpty { return "\(targets.count) 台 Kindle" }
         if connected { return deviceName.isEmpty ? "我的 Kindle" : deviceName }
         return setupNeeded ? "需要首次配置" : "未连接 Kindle"
     }
@@ -218,7 +231,7 @@ final class PushStore: ObservableObject {
                 // Leave a queued or running book alone; otherwise adding again means "send again".
                 guard articles[index].status != "排队中", articles[index].phase != .working else { continue }
                 articles[index].status = "等待发送"; articles[index].bookTitle = nil
-                articles[index].details = ""
+                articles[index].details = ""; articles[index].deliveredTo = nil
                 articles[index].output = nil; articles[index].bilingual = false
                 articles[index].choice = nil; articles[index].language = nil; articles[index].target = nil
             } else { articles.append(Article(path: path)) }
@@ -345,6 +358,8 @@ final class PushStore: ObservableObject {
     func retry(_ id: UUID) {
         guard let index = articles.firstIndex(where: { $0.id == id }),
               articles[index].status != "排队中", articles[index].phase != .working else { return }
+        // Fully delivered and put back: send it again everywhere. Partly delivered: only to the rest.
+        if articles[index].status == "已发送" { articles[index].deliveredTo = nil }
         articles[index].status = "等待发送"; articles[index].details = ""; save()
     }
 
@@ -358,6 +373,7 @@ final class PushStore: ObservableObject {
             host = status.host ?? ""; manualHost = host
             deviceName = status.device ?? ""; deviceId = status.deviceId ?? ""
             await findConnection(manual: false, report: false)
+            await refreshDevices()
         } else {
             setupNeeded = true
             connectionIssue = status.message ?? "还没完成首次配置。"
@@ -451,24 +467,27 @@ final class PushStore: ObservableObject {
         let response = await Bridge.call(scan ? ["devices", "scan"] : ["devices"])
         guard response.ok else { return }
         devices = response.devices ?? []
-        // The chosen Kindle came online after the last search: connect without another click.
-        if !connected, !searching, devices.contains(where: { $0.current && $0.online == true }) {
+        // A chosen Kindle came online after the last search: connect without another click.
+        if !connected, !searching, devices.contains(where: { $0.selected == true && $0.online == true }) {
             checkingDevices = false
             await connect()
         }
     }
 
-    /// Send to another paired Kindle from now on. Not while books are on their way.
-    func choose(_ device: KindleDevice) async {
-        guard !searching, !busy, device.id != deviceId || !connected else { return }
-        connected = false; searching = true
-        deviceName = device.name; deviceId = device.id
-        activity = "正在连接 \(device.name)…"
-        let response = await Bridge.call(["select", device.id])
-        searching = false
-        apply(response, report: true)
-        if connected && isError { dismissNotice() }
-        await refreshDevices()
+    /// Tick or untick a Kindle. At least one stays ticked. Books already queued keep the Kindles
+    /// they were queued for, so this is safe while a queue runs.
+    func toggle(_ device: KindleDevice) async {
+        guard !searching, let index = devices.firstIndex(where: { $0.id == device.id }) else { return }
+        let ticked = devices[index].selected == true
+        if ticked && devices.filter({ $0.selected == true }).count == 1 { return }
+        devices[index].selected = !ticked
+        let ids = devices.filter { $0.selected == true }.map(\.id)
+        let response = await Bridge.call(["targets"] + ids)
+        guard response.ok else { notice = response.message ?? "没有改成。"; isError = true; await refreshDevices(); return }
+        devices = response.devices ?? devices
+        if let current = devices.first(where: \.current) { deviceName = current.name; deviceId = current.id }
+        // The connection status follows what is ticked now.
+        if !busy { await connect() }
     }
 
     // MARK: Adding a Kindle
@@ -536,12 +555,16 @@ final class PushStore: ObservableObject {
             }
         }
         if deliver {
+            // A fresh press tries every Kindle again, including one that was away earlier.
+            awayUntil = [:]
             // Revalidate every time; recover automatically after a Wi-Fi change.
             await findConnection(manual: false, report: !busy)
             guard connected else { notice = connectionIssue; isError = true; return }
         }
         // Read again after the search: books may have been removed or queued meanwhile.
-        let jobs = queueable.map { Job(id: $0.id, deliver: deliver, mode: mode(of: $0), target: goal(of: $0)) }
+        // Each job remembers the Kindles ticked now; changing them later affects later books only.
+        let kindles = deliver ? targets : []
+        let jobs = queueable.map { Job(id: $0.id, deliver: deliver, mode: mode(of: $0), target: goal(of: $0), kindles: kindles) }
             .filter { translationReady != false || $0.mode == .original }
         guard !jobs.isEmpty else { return }
         for job in jobs {
@@ -684,6 +707,10 @@ final class PushStore: ObservableObject {
         }
         articles[index].status = "发送中"
         self[keyPath: lane].activity = "正在发送 \(step)：\(articles[index].title)"
+        if !job.kindles.isEmpty {
+            await deliverToEach(job, source: source, step: step, lane: lane)
+            return
+        }
         sendingID = id
         let response = await Bridge.call(["send", host, source] + (deviceId.isEmpty ? [] : [deviceId]), tag: "send-\(id)")
         sendingID = nil
@@ -698,6 +725,54 @@ final class PushStore: ObservableObject {
         articles[index].output = response.output
         if response.ok { record(articles[index], sentAs: response.output, device: response.device) }
         if response.ok { self[keyPath: lane].sent += 1 } else { self[keyPath: lane].failures += 1 }
+        self[keyPath: lane].completed += 1; save()
+    }
+
+    /// One book to every Kindle ticked when it was queued, in turn. A Kindle that is away does not
+    /// hold up the others; a retry sends only to those that did not get it.
+    private func deliverToEach(_ job: Job, source: String, step: String,
+                               lane: ReferenceWritableKeyPath<PushStore, Lane>) async {
+        let id = job.id
+        var index: Int { articles.firstIndex { $0.id == id } ?? 0 }
+        let waiting = job.kindles.filter { !(articles[index].deliveredTo ?? []).contains($0.id) }
+        var missed: [String] = []
+        for kindle in waiting {
+            // A Kindle already found away is not searched for again for every book in the batch.
+            if let until = awayUntil[kindle.id], until > Date() { missed.append("「\(kindle.name)」不在这个 Wi-Fi 里"); continue }
+            guard articles.contains(where: { $0.id == id }) else { return }
+            articles[index].details = "正在发到「\(kindle.name)」…"
+            self[keyPath: lane].activity = "正在发送 \(step)：\(articles[index].title) → \(kindle.name)"
+            sendingID = id
+            let response = await Bridge.call(["send", kindle.host, source, kindle.id], tag: "send-\(id)")
+            sendingID = nil
+            guard articles.contains(where: { $0.id == id }) else { return }
+            if response.state == "cancelled" {
+                // Those already reached stay recorded; pressing send again carries on from here.
+                articles[index].status = "等待发送"; articles[index].details = "已取消发送"
+                self[keyPath: lane].total -= 1; save(); return
+            }
+            if response.ok {
+                articles[index].deliveredTo = (articles[index].deliveredTo ?? []) + [kindle.id]
+                articles[index].output = response.output
+                record(articles[index], sentAs: response.output, device: response.device ?? kindle.name)
+                save()
+            } else {
+                if response.state == "away" { awayUntil[kindle.id] = Date().addingTimeInterval(120) }
+                missed.append(response.message ?? "「\(kindle.name)」没有发成")
+            }
+        }
+        let names = job.kindles.filter { (articles[index].deliveredTo ?? []).contains($0.id) }.map(\.name)
+        if missed.isEmpty {
+            articles[index].status = "已发送"
+            articles[index].details = "已送达 \(names.joined(separator: "、")) · 校验一致"
+            self[keyPath: lane].sent += 1
+        } else {
+            articles[index].status = "失败"
+            let reached = names.isEmpty ? "" : "已发到 \(names.joined(separator: "、"))；"
+            let reasons = missed.map { $0.hasSuffix("。") ? String($0.dropLast()) : $0 }
+            articles[index].details = reached + reasons.joined(separator: "；") + (names.isEmpty ? "" : "。重试只发给没收到的")
+            self[keyPath: lane].failures += 1
+        }
         self[keyPath: lane].completed += 1; save()
     }
 
@@ -813,4 +888,6 @@ struct Job {
     let deliver: Bool
     let mode: OutputMode
     var target = "zh"
+    /// Kindles ticked when this was queued. Empty: the connected one, as with a single Kindle.
+    var kindles: [KindleDevice] = []
 }

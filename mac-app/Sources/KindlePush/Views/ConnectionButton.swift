@@ -17,7 +17,8 @@ struct ConnectionButton: View {
             }
             .padding(.horizontal, 4)
         }
-        .help(store.connected ? "已连接 \(store.host)" : "连接 Kindle")
+        .help(store.targets.isEmpty ? (store.connected ? "已连接 \(store.host)" : "连接 Kindle")
+              : "书会发给 " + store.targets.map(\.name).joined(separator: "、"))
         .popover(isPresented: $store.showConnection, arrowEdge: .bottom) {
             ConnectionPopover(store: store)
         }
@@ -83,17 +84,28 @@ private struct ConnectionPopover: View {
 
     private var detail: String {
         if store.searching { return "正在当前 Wi‑Fi 中寻找已配对的 Kindle" }
+        if !store.targets.isEmpty {
+            let away = store.targets.filter { $0.online == false }.count
+            let names = store.targets.map(\.name).joined(separator: "、")
+            return away > 0 ? "\(names) · \(away) 台不在线" : names
+        }
         if store.connected { return "已连接 · \(store.host)" }
         return store.connectionIssue.isEmpty ? "打开 KOReader，并连接同一个 Wi‑Fi" : store.connectionIssue
     }
 }
 
-/// Every paired Kindle: click one to send there from now on.
-private struct DeviceList: View {
+/// Every paired Kindle: tick the ones books go to.
+struct DeviceList: View {
     @ObservedObject var store: PushStore
     @State private var renaming: KindleDevice?
     @State private var newName = ""
     @State private var forgetting: KindleDevice?
+
+    private var caption: String {
+        if store.busy { return "正在发的书不受影响，改动从下一本开始。" }
+        let count = store.targets.count
+        return count > 0 ? "每本书都会发给这 \(count) 台；不在线的那台，之后可以单独补发。" : "可以勾选多台，一本书会发给每一台。"
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -104,17 +116,16 @@ private struct DeviceList: View {
             }
             VStack(spacing: 2) {
                 ForEach(store.devices) { device in
-                    DeviceRow(device: device, chosen: device.id == store.deviceId, locked: store.busy || store.searching,
-                              choose: { Task { await store.choose(device) } },
+                    DeviceRow(device: device, chosen: device.selected == true,
+                              // The last ticked one stays ticked (toggle ignores it): books have to go somewhere.
+                              locked: store.searching,
+                              lastOne: device.selected == true && store.devices.filter { $0.selected == true }.count == 1,
+                              choose: { Task { await store.toggle(device) } },
                               rename: { newName = device.name; renaming = device },
                               forget: { forgetting = device })
                 }
             }
-            if store.busy {
-                Text("书正在发送，发完后再切换。").font(.caption).foregroundStyle(.secondary)
-            } else {
-                Text("点一台，之后的书就发给它。").font(.caption).foregroundStyle(.secondary)
-            }
+            Text(caption).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
         .alert("重命名 Kindle", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
             TextField("名字", text: $newName)
@@ -138,6 +149,7 @@ private struct DeviceRow: View {
     let device: KindleDevice
     let chosen: Bool
     let locked: Bool
+    let lastOne: Bool
     let choose: () -> Void
     let rename: () -> Void
     let forget: () -> Void
@@ -147,21 +159,25 @@ private struct DeviceRow: View {
         HStack(spacing: 4) {
             Button(action: choose) {
                 HStack(spacing: 10) {
-                    Circle()
-                        .fill(device.online == true ? Color.green : Color.secondary.opacity(0.35))
-                        .frame(width: 7, height: 7)
+                    Image(systemName: chosen ? "checkmark.square.fill" : "square")
+                        .font(.system(size: 15)).foregroundStyle(chosen ? Color.ink : Color.secondary)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(device.name).font(.callout.weight(chosen ? .semibold : .regular))
-                        Text(status).font(.caption).foregroundStyle(.secondary)
+                        HStack(spacing: 5) {
+                            Circle()
+                                .fill(device.online == true ? Color.green : Color.secondary.opacity(0.35))
+                                .frame(width: 6, height: 6)
+                            Text(status).font(.caption).foregroundStyle(.secondary)
+                        }
                     }
                     Spacer(minLength: 8)
-                    if chosen { Image(systemName: "checkmark").font(.caption.weight(.semibold)) }
                 }
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .disabled(locked)
-            .help(chosen ? "书会发到这台 Kindle" : "改为发到这台 Kindle")
+            .help(lastOne ? "至少要选一台" : chosen ? "不再发到这台" : "也发到这台")
+            .accessibilityAddTraits(chosen ? .isSelected : [])
             Menu {
                 Button("重命名…", action: rename)
                 Button("取消配对…", role: .destructive, action: forget)

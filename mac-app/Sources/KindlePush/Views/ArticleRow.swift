@@ -81,7 +81,8 @@ struct ArticleRow: View {
     private var detail: String? {
         switch article.phase {
         case .done:
-            if article.details.contains("提示：") { return article.details }
+            // Several Kindles: which ones got it matters more than the folder, which is the same on each.
+            if article.details.contains("提示：") || article.details.hasPrefix("已送达") { return article.details }
             return "Kindle › 我的文章 › " + article.preferredURL.lastPathComponent
         case .ready where article.status == "已保存":
             let url = article.preferredURL
@@ -230,6 +231,7 @@ private struct StatusChip: View {
         switch article.status {
         case "等待发送": "待发送"
         case "已发送": "已送达"
+        case "失败" where article.deliveredTo?.isEmpty == false: "部分送达"
         default: article.status
         }
     }

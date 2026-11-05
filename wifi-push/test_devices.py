@@ -36,6 +36,38 @@ class DeviceListTests(unittest.TestCase):
         self.assertEqual(config['host'], '192.168.31.30')
         self.assertEqual([d['name'] for d in config['devices']], ['我的 Kindle', '卧室'])
 
+    def test_several_kindles_can_be_selected(self):
+        a = devices.add('key-a', '192.168.1.2')['id']
+        b = devices.add('key-b', '192.168.1.3')['id']
+        c = devices.add('key-c', '192.168.1.4')['id']
+        # Upgrading: only the current one is selected, so nothing changes.
+        self.assertEqual(devices.selected(), [a])
+        self.assertEqual(devices.set_selected([c, a]), [a, c])
+        self.assertEqual(devices.current()['id'], a)
+        # The current one follows when it is unticked.
+        devices.set_selected([c])
+        self.assertEqual(devices.current()['id'], c)
+        with self.assertRaises(ValueError):
+            devices.set_selected([])
+        with self.assertRaises(ValueError):
+            devices.set_selected(['gone'])
+        self.assertEqual(devices.selected(), [c])
+        # Selecting while one is chosen moves the selection, as before multi-select.
+        devices.update(b, select=True)
+        self.assertEqual(devices.selected(), [b])
+        # While several are chosen the set survives, and a host update never disturbs it.
+        devices.set_selected([a, b])
+        devices.update(c, host='192.168.1.9')
+        self.assertEqual(devices.selected(), [a, b])
+        devices.update(a, select=True)
+        self.assertEqual(devices.selected(), [a, b])
+        self.assertEqual(devices.current()['id'], a)
+        # Forgetting a chosen Kindle leaves the rest.
+        devices.forget(a)
+        self.assertEqual(devices.selected(), [b])
+        self.assertEqual(devices.current()['id'], b)
+        self.assertTrue(devices.public(devices.find(b), b, True, [b])['selected'])
+
     def test_repairing_a_known_kindle_updates_it_instead_of_adding(self):
         devices.add('key-a', '192.168.1.2')
         devices.add('key-a', '192.168.1.9')

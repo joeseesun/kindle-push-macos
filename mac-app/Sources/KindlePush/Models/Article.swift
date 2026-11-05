@@ -25,6 +25,8 @@ struct Article: Identifiable, Codable {
     var details = ""
     var output: String?
     var bilingual: Bool? = false
+    /// Kindles this version of the book already reached, so a retry sends only to the rest.
+    var deliveredTo: [String]?
     /// A translation without the original text beside it (named for 1.13, when it was Chinese only).
     var chineseOnly: Bool?
     /// The language the made translation is in.
@@ -128,6 +130,8 @@ struct KindleDevice: Decodable, Sendable, Hashable, Identifiable {
     var name: String
     var host: String
     var current: Bool
+    /// Ticked: books go to this Kindle. Several can be.
+    var selected: Bool?
     var online: Bool?
 }
 

@@ -2,7 +2,12 @@
 set -euo pipefail
 MODE="${1:-run}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-APP_BUNDLE="$ROOT_DIR/mac-app/dist/乔木 Kindle 助手.app"
+# Built aside and swapped in at the end. Never write into the bundle in place: overwriting the
+# binary of a copy that is running makes macOS kill it (SIGKILL, Code Signature Invalid).
+FINAL_BUNDLE="$ROOT_DIR/mac-app/dist/乔木 Kindle 助手.app"
+STAGE="$ROOT_DIR/mac-app/dist/.staging"
+rm -rf "$STAGE"; mkdir -p "$STAGE"
+APP_BUNDLE="$STAGE/乔木 Kindle 助手.app"
 CONTENTS="$APP_BUNDLE/Contents"
 if [ "$MODE" != "--build-only" ]; then /usr/bin/pkill -x KindlePush >/dev/null 2>&1 || true; fi
 cd "$ROOT_DIR/mac-app"
@@ -73,6 +78,11 @@ for item in "$SPK/XPCServices/Installer.xpc" "$SPK/XPCServices/Downloader.xpc" "
   if [ -e "$item" ]; then /usr/bin/codesign --force --options runtime $TS --preserve-metadata=entitlements --sign "${IDENTITY:--}" "$item"; fi
 done
 /usr/bin/codesign --force --options runtime $TS --sign "${IDENTITY:--}" "$APP_BUNDLE"
+# The swap: a running copy keeps the files it has open; the next launch gets the new build.
+if [ -e "$FINAL_BUNDLE" ]; then mv "$FINAL_BUNDLE" "$STAGE/previous.app"; fi
+mv "$APP_BUNDLE" "$FINAL_BUNDLE"
+rm -rf "$STAGE"
+APP_BUNDLE="$FINAL_BUNDLE"; CONTENTS="$APP_BUNDLE/Contents"
 case "$MODE" in
   --build-only) ;;
   run) /usr/bin/open -n "$APP_BUNDLE" ;;
