@@ -19,7 +19,7 @@
 <meta name="twitter:image" content="https://kindle.qiaomu.ai/assets/og.png">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="assets/icon-512.png">
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles.css?v=20261105">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -327,6 +327,30 @@ Diamond Age.epub</pre>
       <div><b>网络</b><span>发送时 Mac 和 Kindle 连同一个 Wi‑Fi（访客网络不行）</span></div>
     </div>
 
+    <div class="agent" id="agent">
+      <div class="agent-head">
+        <div>
+          <b>交给 Agent</b>
+          <p>把这段话发给 Claude Code、Codex 等 Agent，它会下载、安装并检查签名。配对 Kindle、填 Key 这些要你自己来的，它会提醒你。也可以直接让它读 <a href="/llms.txt">kindle.qiaomu.ai/llms.txt</a>。</p>
+        </div>
+        <button class="btn btn-sm btn-ghost" type="button" data-copy="agent-prompt" aria-label="复制给 Agent 的提示词">复制</button>
+      </div>
+<pre class="agent-prompt" id="agent-prompt">帮我在这台 Mac 上安装「乔木 Kindle 助手」（https://kindle.qiaomu.ai）。
+
+1. 用 uname -m 看芯片。arm64 下载
+   https://github.com/joeseesun/kindle-push-macos/releases/latest/download/KindlePush.dmg
+   x86_64 下载
+   https://github.com/joeseesun/kindle-push-macos/releases/latest/download/KindlePush-Intel.dmg
+2. 用 hdiutil attach -nobrowse 挂载，把「乔木 Kindle 助手.app」用 ditto 复制到 /Applications
+   （有旧版就先退出再替换），然后推出 DMG。
+3. 运行 spctl -a -vv "/Applications/乔木 Kindle 助手.app"，确认是 Notarized Developer ID，再打开它。
+4. 告诉我装好了，并提醒我这几步要我自己做：
+   - 想翻译：设置 › 翻译服务，选服务、装翻译组件、粘贴我自己的 API Key。
+   - 想发到 Kindle：Kindle 要已越狱、装好 KOReader 和 SSH 插件；在应用里点「添加 Kindle」，按提示插 USB 配对。
+
+不要关闭 Gatekeeper，不要用 sudo，不要替我填写任何 Key。</pre>
+    </div>
+
     <div class="cta" id="download">
       <svg class="cta-icon" aria-hidden="true"><use href="#appicon"/></svg>
       <h2>好文章，留给 Kindle 慢读。</h2>
@@ -416,6 +440,6 @@ Diamond Age.epub</pre>
   <p>感谢支持乔木持续做好用的小工具</p>
 </dialog>
 
-<script src="app.js" defer></script>
+<script src="app.js?v=20261105" defer></script>
 </body>
 </html>
