@@ -49,26 +49,32 @@ struct TranslationSettingsView: View {
         ("technical", t("技术学术"), t("术语准确统一，代码和公式不动。适合技术书、论文。")),
     ]
 
-    /// Everything saves itself; this line only says that it did, or why it could not.
-    @ViewBuilder private var statusBar: some View {
-        if saved || !message.isEmpty {
-            HStack(spacing: 8) {
-                if saved && message.isEmpty {
-                    Label(t("已保存"), systemImage: "checkmark").foregroundStyle(.green).transition(.opacity)
-                } else {
-                    Text(t(message)).foregroundStyle(.secondary).textSelection(.enabled).lineLimit(2)
-                }
-                Spacer()
+    /// Everything saves itself; this line says so, then that it did, or why it could not.
+    /// Always one line high: the Settings window does not grow after it opens, so a line that
+    /// came and went pushed the page into a clipped, overlapping mess.
+    private var statusBar: some View {
+        HStack(spacing: 6) {
+            if !message.isEmpty {
+                Image(systemName: "exclamationmark.circle.fill").foregroundStyle(.orange)
+                Text(t(message)).foregroundStyle(.orange).lineLimit(1).truncationMode(.tail).help(t(message))
+            } else if saved {
+                Image(systemName: "checkmark").foregroundStyle(.green)
+                Text(t("已保存")).foregroundStyle(.green)
+            } else {
+                Text(t("改动会自动保存")).foregroundStyle(.secondary)
             }
-            .font(.callout).padding(.horizontal, 20).padding(.bottom, 14)
+            Spacer()
         }
+        .font(.caption).frame(height: 18)
+        .padding(.horizontal, 20).padding(.bottom, 12)
+        .animation(.easeOut(duration: 0.2), value: saved)
     }
 
     var body: some View {
         TabView(selection: $store.settingsTab) {
             languageForm.tabItem { Label(t("语言"), systemImage: "character.book.closed") }.tag(SettingsTab.language)
-            serviceForm.tabItem { Label(t("翻译服务"), systemImage: "network") }.tag(SettingsTab.service)
-            qualityForm.tabItem { Label(t("质量与速度"), systemImage: "wand.and.stars") }.tag(SettingsTab.quality)
+            serviceForm.frame(height: 490).tabItem { Label(t("翻译服务"), systemImage: "network") }.tag(SettingsTab.service)
+            qualityForm.frame(height: 460).tabItem { Label(t("质量与速度"), systemImage: "wand.and.stars") }.tag(SettingsTab.quality)
             StorageView(store: store).tabItem { Label(t("存储"), systemImage: "internaldrive") }.tag(SettingsTab.storage)
             AboutView().tabItem { Label(t("关于"), systemImage: "info.circle") }.tag(SettingsTab.about)
         }
