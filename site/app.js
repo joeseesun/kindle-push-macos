@@ -36,6 +36,10 @@
       document.querySelectorAll('[data-ver]').forEach(s => s.textContent = rel.tag_name);
       if (dmg) document.querySelectorAll('[data-size]').forEach(s => s.textContent = (dmg.size / 1048576).toFixed(1) + ' MB');
       if (zip) document.querySelectorAll('[data-zip]').forEach(a => a.href = zip.browser_download_url);
+      // 首屏「新增」取发版说明「## 中文」下第一条的加粗标题，发版说明怎么写，这里就怎么显示。
+      const zh = (rel.body || '').split(/^## English/m)[0];
+      const head = (zh.match(/^- \*\*(.+?)\*\*/m) || [])[1];
+      if (head) document.querySelectorAll('[data-news]').forEach(s => s.textContent = rel.tag_name.replace(/^v/, '') + ' 新增：' + head.replace(/[：:]$/, ''));
     })
     .catch(() => {});
 
