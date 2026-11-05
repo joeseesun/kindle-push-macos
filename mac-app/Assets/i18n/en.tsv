@@ -277,9 +277,7 @@ USB 首次配置尚未完成。	First-time USB setup is not finished.
 拔线，确认升级成功	Unplug and confirm the upgrade
 拖入文章	Add Articles
 拖入文章或电子书：翻译成任意语言，保存到本机，或经 Wi‑Fi 送到 Kindle。	Drop in articles or ebooks to translate into any language, save to this Mac, or send to your Kindle over Wi‑Fi.
-拖入时直接标为「{}」；每本书行尾的标签仍可单独修改。	Marked “{}” when added. The tag at the end of each row can still change it.
 拖入更多文章或电子书	Add more articles or ebooks
-拖入的书会在本机识别语言。不是{}的书会问你要不要翻译成{}；每本书行尾的标签都能改成任意语言，这里只是偏好。	Each book's language is detected on this Mac. Books not in {} ask whether to translate into {}. The tag at the end of each row can pick any language; this is only a preference.
 拖到窗口任意位置，或用右上角 ＋（⌘O）。右键一本书可打开、在访达中显示或放回待发送。	Drop anywhere in the window, or use ＋ at the top right (⌘O). Right-click a book to open it, show it in Finder or put it back in the queue.
 拷贝	Copy
 换个关键词试试。	Try another search.
@@ -606,7 +604,6 @@ USB 首次配置尚未完成。	First-time USB setup is not finished.
 连接设置…	Connection…
 退出登录	Sign Out
 适用于已越狱、运行过 KOReader 的 Kindle。每台只需做一次，之后换 Wi‑Fi 也不用重来。	For jailbroken Kindles that have run KOReader. Once per Kindle, and changing Wi‑Fi doesn't need a redo.
-选了默认处理方式后，拖入时直接标好，不再在列表上方询问。	With a default chosen, books are marked when added, with no question above the list.
 选择文件…	Choose Files…
 通义千问	Qwen
 速度	Speed
@@ -647,3 +644,7 @@ USB 首次配置尚未完成。	First-time USB setup is not finished.
 界面语言	Interface language
 跟随系统	Same as macOS
 重新打开应用后生效。	Applies the next time the app opens.
+拖入的书会在本机识别语言。	Each book's language is detected on this Mac.
+不是{}的书会在列表上方问你要不要翻译成{}；选了默认处理方式，就在拖入时直接标好。	Books not in {} ask above the list whether to translate into {}. Choose a default to mark them as they are added.
+不是{}的书拖入时直接标为「{}」。	Books not in {} are marked “{}” as they are added.
+每本书行尾的标签都能单独改，包括翻成哪种语言。	The tag at the end of each row changes one book, including which language it becomes.
