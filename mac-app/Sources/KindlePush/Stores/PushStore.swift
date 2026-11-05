@@ -37,6 +37,11 @@ final class PushStore: ObservableObject {
     @Published var currentJob: String?
     @Published var settingsTab: SettingsTab = .service
     private var stopRequested = false
+    /// Sending: stop after the book in flight, or (`cancelNow`) drop it too.
+    @Published var sendStopRequested = false
+    private var cancelNow = false
+    /// The book being transferred right now, for "cancel this one".
+    @Published var sendingID: UUID?
     private var started = false
 
     init() {
@@ -437,12 +442,37 @@ final class PushStore: ObservableObject {
     }
 
     private func runQuick() async {
-        quick.running = true
-        while let (job, index) = next(\.quick) {
+        quick.running = true; sendStopRequested = false; cancelNow = false
+        while !sendStopRequested, let (job, index) = next(\.quick) {
             await deliver(job, index: index, source: articles[index].path, translated: false, lane: \.quick)
         }
-        quick.running = false
-        report(quick, stopped: false)
+        let stopped = sendStopRequested
+        // Stopping ends the queue; books not started go back to waiting, ready to send again.
+        for job in quick.queue {
+            if let index = articles.firstIndex(where: { $0.id == job.id }), articles[index].status == "排队中" {
+                articles[index].status = "等待发送"
+            }
+        }
+        quick.queue = []
+        quick.running = false; sendStopRequested = false; cancelNow = false
+        save()
+        report(quick, stopped: stopped, sending: true)
+    }
+
+    /// Stop sending after the book in flight; `now` also cancels that book's transfer.
+    /// Pressing send again carries on: books already delivered are not sent twice.
+    func stopSending(now: Bool = false) {
+        guard quick.running else { return }
+        sendStopRequested = true
+        if now, let id = sendingID { cancelNow = true; Bridge.cancel("send-\(id)") }
+    }
+
+    /// Takes one book out of the queue without stopping the others.
+    func unqueue(_ ids: Set<UUID>) {
+        for index in articles.indices where ids.contains(articles[index].id) && articles[index].status == "排队中" {
+            articles[index].status = "等待发送"; articles[index].details = "已移出队列"
+        }
+        save()
     }
 
     private func runTranslation() async {
@@ -501,8 +531,15 @@ final class PushStore: ObservableObject {
         }
         articles[index].status = "发送中"
         self[keyPath: lane].activity = "正在发送 \(step)：\(articles[index].title)"
-        let response = await Bridge.call(["send", host, source] + (deviceId.isEmpty ? [] : [deviceId]))
+        sendingID = id
+        let response = await Bridge.call(["send", host, source] + (deviceId.isEmpty ? [] : [deviceId]), tag: "send-\(id)")
+        sendingID = nil
         guard articles.contains(where: { $0.id == id }) else { return }
+        if response.state == "cancelled" {
+            // The receiver discards an unfinished file, so nothing half-written stays on the Kindle.
+            articles[index].status = "等待发送"; articles[index].details = "已取消发送"
+            self[keyPath: lane].total -= 1; save(); return
+        }
         articles[index].status = response.ok ? "已发送" : "失败"
         articles[index].details = response.ok ? (response.details?.contains("提示：") == true ? response.details! : "已读回文件，校验一致") : (response.message ?? "发送失败")
         articles[index].output = response.output
@@ -511,10 +548,13 @@ final class PushStore: ObservableObject {
     }
 
     /// One message when a queue runs dry.
-    private func report(_ lane: Lane, stopped: Bool) {
+    private func report(_ lane: Lane, stopped: Bool, sending: Bool = false) {
         if !lane.saved.isEmpty { NSWorkspace.shared.activateFileViewerSelecting(lane.saved) }
         var parts: [String] = []
-        if stopped { parts.append("已停止。已完成的翻译保留，未开始的书回到待发送") }
+        if stopped {
+            parts.append(sending ? "已停止发送。没发的书回到待发送，再点「发送到 Kindle」接着发"
+                                 : "已停止。已完成的翻译保留，未开始的书回到待发送")
+        }
         if lane.sent > 0 { parts.append("\(lane.sent) 篇已送达 · 在 KOReader 打开 documents › 我的文章") }
         if !lane.saved.isEmpty { parts.append("\(lane.saved.count) 个文件已保存到本机，已在访达中选中") }
         if lane.failures > 0 { parts.append("\(lane.failures) 篇未完成，可以重试") }

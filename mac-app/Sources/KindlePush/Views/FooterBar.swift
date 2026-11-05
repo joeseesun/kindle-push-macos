@@ -14,12 +14,14 @@ struct FooterBar: View {
             HStack(alignment: .center, spacing: 14) {
                 modePicker
                 Spacer(minLength: 8)
+                if store.quick.running { sendingControls }
                 if store.currentJob != nil {
                     Button("停止翻译") { store.stopTranslation() }.controlSize(.large)
                         .help("停止正在翻译的书；已完成的进度保留，排队的书回到待发送（⌘.）")
                 }
-                secondaryButton
-                sendButton
+                // While the chosen queue runs, the buttons only reappear for books that can join it.
+                if !laneRunning { secondaryButton }
+                if !laneRunning || !store.queueable.isEmpty { sendButton }
             }
             .padding(.horizontal, 18).padding(.vertical, 14)
         }
@@ -82,7 +84,30 @@ struct FooterBar: View {
             ProgressView(value: value).tint(.ink).progressViewStyle(.linear).frame(width: 90)
             Text(text).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.tail)
         }
-        .frame(maxWidth: 300, alignment: .leading)
+        .frame(maxWidth: 380, alignment: .leading)
+    }
+
+    /// Stop after the book in flight, or cancel it outright. Readable at all times: a status line
+    /// replaces the stop button once pressed, instead of a greyed-out button.
+    @ViewBuilder private var sendingControls: some View {
+        if store.sendingID != nil {
+            Button("取消这本") { store.stopSending(now: true) }
+                .controlSize(.large)
+                .help("断开正在传的这本，Kindle 上不会留下半个文件；后面的书也不再发送")
+        }
+        if store.sendStopRequested {
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.small)
+                Text("这本发完就停").font(.callout)
+            }
+            .fixedSize()
+        } else {
+            Button { store.stopSending() } label: {
+                Label("停止发送", systemImage: "stop.fill")
+            }
+            .buttonStyle(.ink).controlSize(.large)
+            .help("正在传的这本照常传完并校验，排队的书回到待发送（⌘.）")
+        }
     }
 
     /// The queue the buttons feed in the chosen version.
@@ -105,9 +130,8 @@ struct FooterBar: View {
     private var sendButton: some View {
         Button { Task { await store.send() } } label: {
             HStack(spacing: 7) {
-                if laneRunning && store.queueable.isEmpty { ProgressView().controlSize(.small).tint(Color.onInk) }
-                else { Image(systemName: "paperplane.fill") }
-                Text(laneRunning && store.queueable.isEmpty ? "正在处理…" : store.translateBooks ? "翻译并发送" : "发送到 Kindle")
+                Image(systemName: laneRunning ? "plus" : "paperplane.fill")
+                Text(laneRunning ? "加入队列" : store.translateBooks ? "翻译并发送" : "发送到 Kindle")
                 if !store.queueable.isEmpty {
                     Text("\(store.queueable.count)").font(.callout.weight(.semibold)).monospacedDigit()
                         .padding(.horizontal, 6).padding(.vertical, 1)

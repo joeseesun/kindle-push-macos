@@ -57,8 +57,10 @@ struct KindlePushApp: App {
                     .disabled(store.queueable.isEmpty)
                 Button("先试译 3 段") { Task { await store.preview() } }
                     .disabled(store.translation.running || !store.translateBooks || !store.previewAvailable)
-                Button("停止翻译") { store.stopTranslation() }
-                    .keyboardShortcut(".").disabled(store.currentJob == nil)
+                Button(store.quick.running ? "停止发送" : "停止翻译") {
+                    if store.quick.running { store.stopSending() } else { store.stopTranslation() }
+                }
+                .keyboardShortcut(".").disabled(store.currentJob == nil && !store.quick.running)
                 Divider()
                 Button("查看已转换文件") { store.revealOutput() }
                     .keyboardShortcut("o", modifiers: [.command, .shift])

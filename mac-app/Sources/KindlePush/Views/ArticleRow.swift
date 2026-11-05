@@ -113,6 +113,9 @@ struct ArticleActions: View {
             Button("在访达中显示") { store.reveal(ids) }
         }
         Divider()
+        if items.contains(where: { $0.status == "排队中" }) {
+            Button("移出队列") { store.unqueue(ids) }
+        }
         Button("放回待发送") { ids.forEach(store.retry) }
             .disabled(items.allSatisfy { $0.phase == .working || $0.status == "排队中" })
         Button("整理文件名…") { store.tidyNames(ids) }

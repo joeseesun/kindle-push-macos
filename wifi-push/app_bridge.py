@@ -338,7 +338,15 @@ def handle(args):
     raise ValueError('未知操作。')
 
 
+def cancelled(*_):
+    # The app cancels a transfer with SIGTERM. Raising here unwinds subprocess.run, which kills
+    # its ssh child; the Kindle sees the connection drop and discards the partial file.
+    raise SystemExit(130)
+
+
 if __name__ == '__main__':
+    import signal
+    signal.signal(signal.SIGTERM, cancelled)
     try:
         result = handle(sys.argv[1:])
     except subprocess.CalledProcessError as error:
