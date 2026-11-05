@@ -673,3 +673,5 @@ EPUB、Word、TXT 照常能发，PDF 会转成图片。要发 MOBI、DjVu、漫�
 有 {} 个文件不支持，已跳过。支持 KOReader 能打开的电子书、漫画、文档和 Markdown。	{} unsupported files were skipped. Anything KOReader opens works, plus Markdown.
 试译已在访达里打开，没有发到 Kindle。满意了再译整本。	The sample is open in Finder and was not sent. Translate the whole book when you are happy with it.
 改动会自动保存	Changes save automatically
+翻译并保存	Translate & Save
+翻译并发送	Translate & Send

@@ -143,7 +143,7 @@ struct FooterBar: View {
     /// Saving is as common as sending, so it is a button of its own, not a menu item. No Kindle needed.
     private var secondaryButton: some View {
         Button { Task { await store.saveLocally() } } label: {
-            Label(t("保存到本机"), systemImage: "square.and.arrow.down")
+            Label(store.saveTitle, systemImage: "square.and.arrow.down")
         }
         .controlSize(.large).disabled(sendDisabled).fixedSize()
         .help(store.nothingToSendReason ?? t("存到这台 Mac，不用连 Kindle。要翻译的书先翻译（⌥⌘↩）"))
@@ -163,7 +163,7 @@ struct FooterBar: View {
         Button { Task { await store.send() } } label: {
             HStack(spacing: 7) {
                 Image(systemName: store.busy ? "plus" : "paperplane.fill")
-                Text(store.busy ? t("加入队列") : store.targets.isEmpty ? t("发送到 Kindle") : t("发送到 \(store.targets.count) 台 Kindle"))
+                Text(store.busy ? t("加入队列") : store.sendTitle)
                 if !store.queueable.isEmpty {
                     Text("\(store.queueable.count)").font(.callout.weight(.semibold)).monospacedDigit()
                         .padding(.horizontal, 6).padding(.vertical, 1)
@@ -174,7 +174,7 @@ struct FooterBar: View {
         }
         .controlSize(.large).fixedSize()
         .disabled(sendDisabled)
-        .accessibilityLabel(store.busy ? t("加入队列") : t("发送到 Kindle"))
+        .accessibilityLabel(store.busy ? t("加入队列") : store.sendTitle)
         .help(store.nothingToSendReason ?? (store.busy ? t("加入正在进行的队列（⌘↩）") : sendHelp))
     }
 }
