@@ -13,6 +13,8 @@ final class PushStore: ObservableObject {
     @Published var devices: [KindleDevice] = []
     @Published var checkingDevices = false
     @Published var showAddKindle = false
+    /// The add-Kindle sheet is upgrading this paired Kindle's receiver, not pairing a new one.
+    @Published var upgrading: KindleDevice?
     @Published var showHistory = false
     /// Books delivered to a Kindle, newest first.
     @Published var history: [SendRecord] = []
@@ -490,10 +492,21 @@ final class PushStore: ObservableObject {
         if !busy { await connect() }
     }
 
+    var outdatedKindles: [KindleDevice] { devices.filter { $0.outdated == true } }
+
+    func startUpgrade(_ device: KindleDevice) {
+        upgrading = device; showConnection = false; showAddKindle = true
+    }
+
     // MARK: Adding a Kindle
 
+    /// A Kindle on the cable that has not mounted yet: it is still in KOReader.
+    @Published var kindlePlugged = false
+
     func usbVolumes() async -> [KindleVolume] {
-        await Bridge.call(["usb-volumes"]).volumes ?? []
+        let response = await Bridge.call(["usb-volumes"])
+        kindlePlugged = response.plugged ?? false
+        return response.volumes ?? []
     }
 
     /// Writes the receiver to the Kindle mounted at `path`. Returns an error message, or nil.

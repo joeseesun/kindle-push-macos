@@ -92,6 +92,7 @@ struct BridgeResponse: Decodable, Sendable {
     var author: String?
     var cover: String?
     var percent: Int?
+    var plugged: Bool?
     var mode: String?
     var remaining: Int?
     var language: String?
@@ -111,6 +112,7 @@ struct KindleVolume: Decodable, Sendable, Hashable, Identifiable {
     var name: String
     var ready: Bool
     var installed: Bool
+    var outdated: Bool?
     var id: String { path }
 }
 
@@ -132,6 +134,8 @@ struct KindleDevice: Decodable, Sendable, Hashable, Identifiable {
     var current: Bool
     /// Ticked: books go to this Kindle. Several can be.
     var selected: Bool?
+    /// Its receiver predates this app's: it takes EPUB only until rewritten over USB.
+    var outdated: Bool?
     var online: Bool?
 }
 

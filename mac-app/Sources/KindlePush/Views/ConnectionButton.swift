@@ -14,10 +14,14 @@ struct ConnectionButton: View {
                 Circle().fill(dot).frame(width: 7, height: 7)
                     .shadow(color: dot.opacity(0.6), radius: store.connected ? 2 : 0)
                 Text(store.connectionTitle).font(.callout)
+                if !store.outdatedKindles.isEmpty {
+                    Image(systemName: "arrow.up.circle").font(.callout).foregroundStyle(.orange)
+                        .accessibilityLabel("接收端可以升级")
+                }
             }
             .padding(.horizontal, 4)
         }
-        .help(store.targets.isEmpty ? (store.connected ? "已连接 \(store.host)" : "连接 Kindle")
+        .help(!store.outdatedKindles.isEmpty ? "接收端可以升级：" + store.outdatedKindles.map(\.name).joined(separator: "、") : store.targets.isEmpty ? (store.connected ? "已连接 \(store.host)" : "连接 Kindle")
               : "书会发给 " + store.targets.map(\.name).joined(separator: "、"))
         .popover(isPresented: $store.showConnection, arrowEdge: .bottom) {
             ConnectionPopover(store: store)
@@ -45,6 +49,7 @@ private struct ConnectionPopover: View {
             if store.devices.count > 1 {
                 DeviceList(store: store)
             }
+            ReceiverNotice(store: store)
             if store.setupNeeded {
                 Button { store.showConnection = false; store.showAddKindle = true } label: {
                     Label("添加 Kindle", systemImage: "plus").frame(maxWidth: .infinity)
@@ -91,6 +96,33 @@ private struct ConnectionPopover: View {
         }
         if store.connected { return "已连接 · \(store.host)" }
         return store.connectionIssue.isEmpty ? "打开 KOReader，并连接同一个 Wi‑Fi" : store.connectionIssue
+    }
+}
+
+/// A paired Kindle whose receiver is behind: what that means, and the way to fix it.
+/// One Kindle or several, this is the only place a user would otherwise never learn it.
+struct ReceiverNotice: View {
+    @ObservedObject var store: PushStore
+
+    var body: some View {
+        let old = store.outdatedKindles
+        if let first = old.first {
+            VStack(alignment: .leading, spacing: 8) {
+                Label(old.count == 1 ? "「\(first.name)」的接收端是旧版" : "\(old.count) 台 Kindle 的接收端是旧版", systemImage: "arrow.up.circle")
+                    .font(.callout.weight(.semibold))
+                Text("EPUB、Word、TXT 照常能发，PDF 会转成图片版。MOBI、DjVu、漫画要升级后才能发。升级要插一次 USB，配对和书都不受影响。")
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                ForEach(old) { device in
+                    Button { store.startUpgrade(device) } label: {
+                        Text(old.count == 1 ? "用 USB 升级…" : "升级「\(device.name)」…")
+                    }
+                    .buttonStyle(.inkOutline).controlSize(.small)
+                }
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
     }
 }
 
@@ -198,7 +230,7 @@ private struct DeviceRow: View {
 
     private var status: String {
         switch device.online {
-        case true: return "在线 · \(device.host)"
+        case true: return device.outdated == true ? "在线 · 接收端旧版" : "在线 · \(device.host)"
         case false: return device.host.isEmpty ? "不在这个 Wi‑Fi" : "不在线 · 上次 \(device.host)"
         default: return device.host
         }
