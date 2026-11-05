@@ -29,6 +29,18 @@ struct TranslationSettingsView: View {
     @State private var codexLoggedIn = false
     @State private var codexPlan: String?
     @State private var codexEmail: String?
+    @State private var savedKey: String?
+    @State private var editingKey = false
+    @State private var revealKey = false
+    @State private var keyCheck = KeyCheck.idle
+    @State private var choosingService = false
+    @State private var savedService = ""
+    @State private var savedModel = ""
+    @State private var loaded = false
+    @State private var saveTask: Task<Void, Never>?
+    @State private var verifyTask: Task<Void, Never>?
+
+    private enum KeyCheck: Equatable { case idle, checking, ok, failed(String) }
 
     private let styles: [(id: String, name: String, note: String)] = [
         ("natural", t("自然流畅"), t("地道流畅、避免翻译腔，适合大多数书。")),
@@ -37,20 +49,19 @@ struct TranslationSettingsView: View {
         ("technical", t("技术学术"), t("术语准确统一，首次出现保留英文原词，代码和公式不动。")),
     ]
 
-    private var saveBar: some View {
-        HStack(spacing: 10) {
-                if saved {
+    /// Everything saves itself; this line only says that it did, or why it could not.
+    @ViewBuilder private var statusBar: some View {
+        if saved || !message.isEmpty {
+            HStack(spacing: 8) {
+                if saved && message.isEmpty {
                     Label(t("已保存"), systemImage: "checkmark").foregroundStyle(.green).transition(.opacity)
-                } else if !message.isEmpty {
+                } else {
                     Text(t(message)).foregroundStyle(.secondary).textSelection(.enabled).lineLimit(2)
                 }
                 Spacer()
-                Button(t("保存")) { Task { await save() } }
-                    .buttonStyle(.ink).keyboardShortcut(.defaultAction)
-                    .disabled(working || signingIn || model.isEmpty || (service.signIn != .chatgpt && trimmedBase.isEmpty)
-                              || (service.signIn == .chatgpt && !codexLoggedIn))
             }
-            .font(.callout).padding(.horizontal, 20).padding(.bottom, 16)
+            .font(.callout).padding(.horizontal, 20).padding(.bottom, 14)
+        }
     }
 
     var body: some View {
@@ -62,7 +73,7 @@ struct TranslationSettingsView: View {
             AboutView().tabItem { Label(t("关于"), systemImage: "info.circle") }.tag(SettingsTab.about)
         }
         .safeAreaInset(edge: .bottom) {
-            if store.settingsTab != .about && store.settingsTab != .language && store.settingsTab != .storage { saveBar }
+            if store.settingsTab == .service || store.settingsTab == .quality { statusBar }
         }
         // The gear opens translation settings next time, not the About tab the menu left open.
         .onDisappear { if store.settingsTab == .about || store.settingsTab == .storage { store.settingsTab = .service } }
@@ -73,18 +84,21 @@ struct TranslationSettingsView: View {
             base = response.base ?? ""; model = response.model ?? ""
             savedBase = base; savedHasKey = response.hasKey ?? false
             serviceID = ProviderCatalog.match(provider: response.provider ?? "", base: base).id
+            savedService = serviceID; savedModel = model
             workers = response.workers ?? 16; style = response.style ?? "natural"; glossary = response.glossary ?? ""
             ready = response.runtimeReady ?? false
             if !response.ok { message = response.message ?? t("无法读取配置。") }
+            refreshKey()
             await loadModels()
+            loaded = true
         }
-        .onChange(of: base) { saved = false }
-        .onChange(of: model) { saved = false }
-        .onChange(of: style) { saved = false }
-        .onChange(of: workers) { saved = false }
-        .onChange(of: glossary) { saved = false }
-        .onChange(of: serviceID) { saved = false }
-        .onChange(of: key) { saved = false }
+        .sheet(isPresented: $choosingService) { ServicePicker(current: serviceID) { pick($0) } }
+        .onChange(of: model) { autosave() }
+        .onChange(of: style) { autosave() }
+        .onChange(of: workers) { autosave() }
+        .onChange(of: glossary) { autosave(after: 0.8) }
+        .onChange(of: base) { if service.group == .custom || service.group == .local { refreshKey() } }
+        .onChange(of: key) { verifySoon() }
     }
 
     @AppStorage("interfaceLanguage") private var interfaceLanguage = ""
@@ -188,15 +202,16 @@ struct TranslationSettingsView: View {
     private var serviceForm: some View {
         Form {
             Section {
-                Picker(t("服务"), selection: Binding(get: { serviceID }, set: { pick($0) })) {
-                    ForEach(ModelService.Group.allCases, id: \.self) { group in
-                        Section(group.rawValue) {
-                            ForEach(ProviderCatalog.all.filter { $0.group == group }) { item in
-                                Text(t(item.name)).tag(item.id)
-                            }
-                        }
+                HStack(spacing: 12) {
+                    ProviderTile(service: service, size: 32)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(t(service.name)).font(.body.weight(.medium))
+                        Text(t(service.hostLabel.isEmpty ? service.note : service.hostLabel)).font(.caption).foregroundStyle(.secondary)
                     }
+                    Spacer()
+                    Button(t("更换服务…")) { choosingService = true }
                 }
+                .padding(.vertical, 2)
                 if service.signIn == .chatgpt {
                     chatgptRows
                 } else {
@@ -205,32 +220,20 @@ struct TranslationSettingsView: View {
                             .textContentType(.URL)
                             .onSubmit { Task { await loadModels() } }
                     }
-                    if service.needsKey || service.group == .custom {
-                        SecureField("API Key", text: $key, prompt: Text(keySaved ? t("已保存，留空则不变") : t("粘贴 API Key")))
-                            .onSubmit { Task { await loadModels() } }
-                        if service.keyURL != nil || service.signIn == .key {
-                        HStack(spacing: 14) {
-                            if let url = service.keyURL.flatMap(URL.init(string:)) {
-                                InkLink(url: url) { Label(t("获取 API Key"), systemImage: "arrow.up.right.square") }
-                            }
-                            if service.signIn == .key {
-                                Button { Task { await signInForKey() } } label: {
-                                    Label(signingIn ? t("正在等待浏览器授权…") : t("登录\(t(service.name))，自动填入 Key"), systemImage: "person.badge.key")
-                                }
-                                .buttonStyle(.inkLink).disabled(signingIn)
-                            }
-                            Spacer()
-                        }
-                        .font(.callout)
-                        }
-                    }
+                    if service.needsKey || service.group == .custom { keyRows }
                 }
             } header: {
                 Text(t("翻译服务"))
             } footer: {
-                Text(serviceNote)
-                    .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                VStack(alignment: .leading, spacing: 4) {
+                    if pendingSwitch {
+                        Text(t("现在仍用\(gapped(savedServiceName))翻译。填好 Key 并验证通过后，才会改用\(gapped(t(service.name), before: true))。"))
+                            .foregroundStyle(.orange)
+                    }
+                    Text(serviceNote).foregroundStyle(.secondary)
+                }
+                .font(.caption).multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             Section {
                 if !manualModel && !modelChoices.isEmpty {
@@ -285,11 +288,152 @@ struct TranslationSettingsView: View {
         .formStyle(.grouped)
     }
 
+    /// A saved key shows as sk-…a3f9 with whether it works; a new one is pasted into a full-width
+    /// field, checked against the service as it arrives, and saved the moment it works.
+    @ViewBuilder private var keyRows: some View {
+        if let savedKey, !editingKey {
+            LabeledContent("API Key") {
+                HStack(spacing: 10) {
+                    Text(KeyVault.mask(savedKey)).font(.system(.callout, design: .monospaced)).foregroundStyle(.secondary)
+                    keyBadge
+                    Button(t("更换")) { key = ""; keyCheck = .idle; editingKey = true }
+                    Button(t("移除")) {
+                        KeyVault.remove(trimmedBase); refreshKey(); models = []; keyCheck = .idle
+                    }
+                    .help(t("从钥匙串删除这个服务的 Key"))
+                }
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("API Key")
+                HStack(spacing: 6) {
+                    Group {
+                        if revealKey {
+                            TextField("", text: $key, prompt: Text(t("粘贴\(gapped(t(service.name)))的 API Key")))
+                        } else {
+                            SecureField("", text: $key, prompt: Text(t("粘贴\(gapped(t(service.name)))的 API Key")))
+                        }
+                    }
+                    .labelsHidden().textFieldStyle(.roundedBorder).multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity)
+                    .onSubmit { verifySoon(after: 0) }
+                    Button { revealKey.toggle() } label: { Image(systemName: revealKey ? "eye.slash" : "eye") }
+                        .buttonStyle(.borderless).foregroundStyle(.secondary)
+                        .help(revealKey ? t("隐藏") : t("显示")).accessibilityLabel(revealKey ? t("隐藏") : t("显示"))
+                    if savedKey != nil {
+                        Button(t("取消")) { key = ""; editingKey = false; keyCheck = .idle; Task { await loadModels() } }
+                    }
+                }
+                HStack(spacing: 6) {
+                    switch keyCheck {
+                    case .checking:
+                        ProgressView().controlSize(.mini)
+                        Text(t("正在验证…")).foregroundStyle(.secondary)
+                    case .failed(let reason):
+                        Image(systemName: "exclamationmark.circle.fill").foregroundStyle(.orange)
+                        Text(t(reason)).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
+                        Button(t("重试")) { verifySoon(after: 0) }.buttonStyle(.inkLink)
+                    default:
+                        Text(t("粘贴后自动验证，能用就直接保存。")).foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .font(.caption)
+                if service.keyURL != nil || service.signIn == .key {
+                    HStack(spacing: 14) {
+                        if let url = service.keyURL.flatMap(URL.init(string:)) {
+                            InkLink(url: url) { Label(t("获取 API Key"), systemImage: "arrow.up.right.square") }
+                        }
+                        if service.signIn == .key {
+                            Button { Task { await signInForKey() } } label: {
+                                Label(signingIn ? t("正在等待浏览器授权…") : t("登录\(t(service.name))，自动填入 Key"), systemImage: "person.badge.key")
+                            }
+                            .buttonStyle(.inkLink).disabled(signingIn)
+                        }
+                        Spacer()
+                    }
+                    .font(.callout)
+                }
+            }
+            .padding(.vertical, 4)
+        }
+    }
+
+    @ViewBuilder private var keyBadge: some View {
+        switch keyCheck {
+        case .checking:
+            ProgressView().controlSize(.mini)
+        case .ok:
+            Label(t("可用"), systemImage: "circle.fill").labelStyle(Dot()).foregroundStyle(.green)
+        case .failed(let reason):
+            Label(t("不可用"), systemImage: "circle.fill").labelStyle(Dot()).foregroundStyle(.orange).help(t(reason))
+        case .idle:
+            EmptyView()
+        }
+    }
+
+    private struct Dot: LabelStyle {
+        func makeBody(configuration: Configuration) -> some View {
+            HStack(spacing: 4) { configuration.icon.font(.system(size: 6)); configuration.title.font(.caption) }
+        }
+    }
+
+    /// A space between Chinese and a Latin name (发给 DeepSeek), none before a Chinese one (发给硅基流动).
+    /// `before` only when Chinese punctuation follows: 发给 DeepSeek，not 发给 DeepSeek ，.
+    private func gapped(_ name: String, before only: Bool = false) -> String {
+        guard !I18n.english, name.first?.isASCII == true else { return name }
+        return only ? " \(name)" : " \(name) "
+    }
+
+    private var savedServiceName: String { t(ProviderCatalog.service(savedService)?.name ?? savedService) }
+
+    /// Picked a service that cannot run yet: the saved one stays in use until this one works.
+    private var pendingSwitch: Bool { loaded && serviceID != savedService && !savedService.isEmpty && !usable }
+
+    /// Whether what is on screen can translate: signed in, local, or a key that is saved.
+    private var usable: Bool {
+        guard !model.trimmingCharacters(in: .whitespaces).isEmpty else { return false }
+        if service.signIn == .chatgpt { return codexLoggedIn }
+        guard validBase(trimmedBase) != nil else { return false }
+        return !service.needsKey && service.group != .custom || savedKey != nil || service.group == .local
+    }
+
+    private func refreshKey() {
+        let wantsKey = service.signIn != .chatgpt && (service.needsKey || service.group == .custom)
+        savedKey = wantsKey ? KeyVault.read(trimmedBase) : nil
+        editingKey = wantsKey && savedKey == nil
+        revealKey = false
+    }
+
+    private func verifySoon(after delay: Double = 0.7) {
+        verifyTask?.cancel()
+        let typed = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !typed.isEmpty else { if keyCheck != .ok { keyCheck = .idle }; return }
+        guard typed.count >= 8 else { return }
+        verifyTask = Task {
+            try? await Task.sleep(for: .seconds(delay))
+            guard !Task.isCancelled else { return }
+            await loadModels()
+        }
+    }
+
+    private func autosave(after delay: Double = 0.4) {
+        guard loaded else { return }
+        saved = false
+        saveTask?.cancel()
+        saveTask = Task {
+            try? await Task.sleep(for: .seconds(delay))
+            guard !Task.isCancelled else { return }
+            await save()
+        }
+    }
+
     private func pick(_ id: String) {
         guard id != serviceID else { return }
         serviceID = id
-        base = service.base; key = ""; manualModel = false; modelNote = ""
+        base = service.base; key = ""; manualModel = false; modelNote = ""; keyCheck = .idle; message = ""
         models = []; model = service.popular.first ?? ""
+        refreshKey()
         Task { await loadModels() }
     }
 
@@ -337,10 +481,8 @@ struct TranslationSettingsView: View {
         case .local:
             return t("模型跑在这台 Mac 上，正文不出本机。先在 \(service.name) 里下载并运行模型。")
         default:
-            // A space between Chinese and a Latin name (发给 DeepSeek), none before a Chinese one (发给硅基流动).
             let name = service.name == "自定义服务" ? t("这个服务") : service.name
-            let gap = name.first?.isASCII == true ? " " : ""
-            return t("书籍正文会发给\(gap)\(name)，按用量计费。API Key 存在 macOS 钥匙串里，换服务要填对应的 Key。")
+            return t("书籍正文会发给\(gapped(name, before: true))，按用量计费。Key 只存在这台 Mac 的钥匙串里，每个服务各存一份，换回来不用重填。")
         }
     }
 
@@ -354,7 +496,6 @@ struct TranslationSettingsView: View {
         service.popular.contains(item.id) || item.default == true
     }
 
-    private var keySaved: Bool { savedHasKey && trimmedBase == savedBase }
     private var trimmedBase: String {
         base.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
     }
@@ -374,19 +515,41 @@ struct TranslationSettingsView: View {
             return
         }
         guard !trimmedBase.isEmpty else { models = []; return }
-        if service.needsKey && key.isEmpty && !keySaved {
-            models = []; modelNote = t("填好 API Key 后按回车，会自动读取可用模型。"); return
+        let typed = editingKey ? key.trimmingCharacters(in: .whitespacesAndNewlines) : ""
+        let wantsKey = service.needsKey || service.group == .custom
+        if wantsKey && typed.isEmpty && savedKey == nil {
+            models = []; modelNote = t("填好 API Key 后会自动读取可用模型。"); return
         }
-        let response = await Bridge.call(["models", trimmedBase] + (key.isEmpty ? [] : ["--key-stdin"]),
-                                         input: key.isEmpty ? nil : key)
+        if wantsKey { keyCheck = .checking }
+        let response = await Bridge.call(["models", trimmedBase] + (typed.isEmpty ? [] : ["--key-stdin"]),
+                                         input: typed.isEmpty ? nil : typed)
+        // The field changed while this was in flight: its own check is on the way.
+        if !typed.isEmpty && typed != key.trimmingCharacters(in: .whitespacesAndNewlines) { return }
         if response.ok, let list = response.models {
             models = list
             if model.isEmpty || !list.contains(where: { $0.id == model }) && !service.popular.isEmpty && service.popular.first == model {
                 model = list.first(where: isRecommended)?.id ?? list.first?.id ?? model
             }
             modelNote = t("共 \(list.count) 个模型")
+            if wantsKey { keyCheck = .ok }
+            if !typed.isEmpty {
+                // It works: keep it, and stop showing it.
+                guard KeyVault.write(typed, for: trimmedBase) else {
+                    keyCheck = .failed(t("无法保存密钥，请解锁 macOS 钥匙串后重试。")); return
+                }
+                key = ""; refreshKey(); keyCheck = .ok
+            }
+            if usable { autosave(after: 0) }
         } else {
-            models = []; modelNote = response.message ?? t("读不到模型列表，可以手动填写。"); modelNoteIsError = true
+            let reason = response.message ?? t("读不到模型列表，可以手动填写。")
+            models = []
+            if wantsKey {
+                // A refused key is about the key, not the models: say so once, next to the field.
+                let refused = reason.contains("HTTP 401") || reason.contains("HTTP 403")
+                keyCheck = .failed(refused ? t("\(t(service.name)) 没有接受这个 Key。检查是否复制完整、是否是这个服务的 Key。") : reason)
+                modelNote = refused ? t("Key 验证通过后会自动读取可用模型。") : reason
+                modelNoteIsError = !refused
+            } else { modelNote = reason; modelNoteIsError = true }
         }
     }
 
@@ -395,15 +558,15 @@ struct TranslationSettingsView: View {
         let response = await Bridge.call([command])
         if !response.ok { message = response.message ?? t("没有完成。") }
         await loadModels()
+        if usable { autosave(after: 0) }
     }
 
     private func signInForKey() async {
         signingIn = true; defer { signingIn = false }
         let response = await Bridge.call(["sign-in-key", service.id])
         if response.ok, let value = response.key {
-            key = value
-            message = t("已拿到 \(service.name) 的 Key，点保存后生效。")
-            await loadModels()
+            editingKey = true; key = value
+            verifySoon(after: 0)
         } else { message = response.message ?? t("授权没有完成。") }
     }
 
@@ -416,48 +579,28 @@ struct TranslationSettingsView: View {
         working = false
     }
 
-    private func save() async {
-        working = true
-        if service.signIn == .chatgpt {
-            await finishSave(base: ""); return
-        }
-        let normalized = base.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        // Validate before associating any credential with the destination.
-        guard let url = URL(string: normalized), let host = url.host,
+    private func validBase(_ value: String) -> String? {
+        guard let url = URL(string: value), let host = url.host,
               url.user == nil, url.password == nil, url.query == nil, url.fragment == nil,
-              url.scheme == "https" || (url.scheme == "http" && ["localhost", "127.0.0.1", "::1"].contains(host)) else {
-            message = t("请填写 HTTPS 服务地址，本机服务可使用 HTTP。"); working = false; return
-        }
-        if !key.isEmpty {
-            let account = SHA256.hash(data: Data(normalized.utf8)).map { String(format: "%02x", $0) }.joined()
-            let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
-                                       kSecAttrService as String: "local.chase.KindlePush.translation",
-                                       kSecAttrAccount as String: account]
-            let data = Data(key.utf8)
-            var status = SecItemUpdate(query as CFDictionary, [kSecValueData as String: data] as CFDictionary)
-            if status == errSecItemNotFound {
-                var item = query; item[kSecValueData as String] = data
-                item[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlocked
-                status = SecItemAdd(item as CFDictionary, nil)
-            }
-            guard status == errSecSuccess else {
-                message = t("无法保存密钥，请解锁 macOS 钥匙串后重试。"); working = false; return
-            }
-            key = ""
-        }
-        await finishSave(base: normalized)
+              url.scheme == "https" || (url.scheme == "http" && ["localhost", "127.0.0.1", "::1"].contains(host)) else { return nil }
+        return value
     }
 
-    private func finishSave(base normalized: String) async {
-        let fields: [String: Any] = ["base": normalized, "model": model.trimmingCharacters(in: .whitespaces),
-                                     "workers": String(workers), "style": style, "glossary": glossary, "provider": serviceID]
+    /// Saves what is on screen when it can translate; otherwise keeps the service in use and saves the rest.
+    private func save() async {
+        let draft = usable
+        if !draft && savedModel.isEmpty { return }
+        let provider = draft ? serviceID : savedService
+        let normalized = draft ? (service.signIn == .chatgpt ? "" : trimmedBase) : savedBase
+        let chosen = draft ? model.trimmingCharacters(in: .whitespaces) : savedModel
+        let fields: [String: Any] = ["base": normalized, "model": chosen,
+                                     "workers": String(workers), "style": style, "glossary": glossary, "provider": provider]
         let json = String(data: try! JSONSerialization.data(withJSONObject: fields), encoding: .utf8)!
         let response = await Bridge.call(["translation-save", json])
-        working = false
         if response.ok {
             message = ""
-            savedBase = normalized; savedHasKey = response.hasKey ?? false
-            store.translationProvider = serviceID
+            savedBase = normalized; savedModel = chosen; savedService = provider; savedHasKey = response.hasKey ?? false
+            store.translationProvider = provider
             withAnimation { saved = true }
         } else { message = response.message ?? t("设置保存失败。") }
     }

@@ -5,6 +5,7 @@
 | Component | Used for | License |
 |---|---|---|
 | [Sparkle](https://sparkle-project.org) | Auto-update | MIT |
+| [lobe-icons](https://github.com/lobehub/lobe-icons) | Service marks in translation settings (`ProviderIcons.swift`) | MIT |
 
 The app carries, as separate programs it runs and does not link to:
 

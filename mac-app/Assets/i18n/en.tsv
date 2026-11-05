@@ -652,3 +652,24 @@ USB 首次配置尚未完成。	First-time USB setup is not finished.
 取消正在发的这本	Cancel the Book Being Sent
 停止发送、取消正在发的这本，或停止翻译	Stop sending, cancel the book being sent, or stop translating
 {}对照	Side by side with {}
+不可用	Not working
+书籍正文会发给{}，按用量计费。Key 只存在这台 Mac 的钥匙串里，每个服务各存一份，换回来不用重填。	Book text is sent to {} and billed by use. Keys stay in this Mac's Keychain, one per service, so switching back never means pasting again.
+从钥匙串删除这个服务的 Key	Delete this service's key from the Keychain
+可用	Working
+填好 API Key 后会自动读取可用模型。	Models load once the API key is in.
+已保存 Key	Key saved
+搜索服务	Search services
+显示	Show
+隐藏	Hide
+更换	Change
+更换服务…	Change Service…
+正在验证…	Checking…
+没有找到这个服务。可以选「自定义服务」，填任何兼容 OpenAI 接口的地址。	No service matches. Choose “Custom” to use any OpenAI-compatible address.
+移除	Remove
+粘贴{}的 API Key	Paste your {} API key
+粘贴后自动验证，能用就直接保存。	It is checked as you paste, and saved as soon as it works.
+现在仍用{}翻译。填好 Key 并验证通过后，才会改用{}。	Still translating with {}. {} takes over once its key is in and checked.
+选择翻译服务	Choose a Translation Service
+（正在使用）	 (in use)
+{} 没有接受这个 Key。检查是否复制完整、是否是这个服务的 Key。	{} did not accept this key. Check that it was copied in full and belongs to this service.
+Key 验证通过后会自动读取可用模型。	Models load once the key is accepted.
