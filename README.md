@@ -8,11 +8,11 @@
 
 <p align="center"><img src="docs/assets/screenshot-main.png" width="720" alt="乔木 Kindle 助手主窗口：翻译中的书显示封面和进度"></p>
 
-本分支基于 [chasepal/kindle-push-macos](https://github.com/chasepal/kindle-push-macos)，由乔木增加 EPUB 中文对照翻译。原项目作者、许可和传输协议保留；翻译引擎为 MIT 开源的 [bilingual_book_maker](https://github.com/yihong0618/bilingual_book_maker)。
+这个应用最早由 [chasepal](https://github.com/chasepal/kindle-push-macos) 开发：原作者看了我分享的 Kindle / KOReader 读书方式，写了这个 Mac 端的配套工具。我在它的基础上加了外文书翻译、多台 Kindle、保存到本机、整理文件名等功能。原作者的署名、许可和传输协议都保留；翻译引擎是 MIT 开源的 [bilingual_book_maker](https://github.com/yihong0618/bilingual_book_maker)。
 
-原作者看了乔木的 Kindle / KOReader 分享后，做了这个 Mac 端配套小工具。文章在 Obsidian 或本地文件夹里写好，拖进应用、点发送，就能拿到 Kindle 上慢慢读。直接发送不需要云端中转；主动选择中文对照翻译时，正文会提交给配置的模型服务。
+文章在 Obsidian 或本地文件夹里写好，拖进应用、点发送，就能在 Kindle 上慢慢读。直接发送不经过云端；只有选了翻译，正文才会发给你设置的翻译服务。
 
-这是一个独立项目，感谢 [乔木 SimpleUI](https://github.com/joeseesun/qiaomu-simpleui) 的启发。它通过 KOReader 的 SSH 服务传文件，**不要求安装 SimpleUI，也不包含越狱工具**。
+它通过 KOReader 自带的 SSH 服务传文件，**不需要安装我做的 [乔木 SimpleUI](https://github.com/joeseesun/qiaomu-simpleui)，也不包含越狱工具**。
 
 ## 能做什么
 
@@ -70,7 +70,7 @@
 3. 打开 **乔木 Kindle 助手**，拖入文章，点 **发送到 Kindle**。
 4. 在 KOReader 文件浏览器进入 `documents/我的文章` 阅读。
 
-应用目前使用本地 ad-hoc 签名，没有 Apple Developer ID 公证。macOS 可能提示无法验证开发者；是否打开由你自行决定，也可以从源码构建。不会要求全局关闭 Gatekeeper。
+正式版用 Developer ID 签名并经过 Apple 公证，下载后直接打开；有新版时应用会提示更新。也可以从源码构建。
 
 ## 把英文 EPUB 翻译成中文对照
 
@@ -132,7 +132,7 @@ python3 -m unittest discover -s wifi-push -p 'test_*.py' -v
 
 ## 致谢与许可
 
-- [乔木 SimpleUI](https://github.com/joeseesun/qiaomu-simpleui)：项目灵感与 Kindle 阅读体验。
+- [chasepal/kindle-push-macos](https://github.com/chasepal/kindle-push-macos)：这个应用的原始版本和传输协议。
 - [KOReader](https://github.com/koreader/koreader) / [SSH 插件文档](https://github.com/koreader/koreader/wiki/SSH)：Kindle 端阅读和 SSH 能力。
 - [Pandoc](https://pandoc.org/)：Markdown / EPUB 转换。
 - [bilingual_book_maker](https://github.com/yihong0618/bilingual_book_maker)：EPUB 双语翻译（隔离安装固定版本 1.3.2）。
@@ -141,8 +141,10 @@ python3 -m unittest discover -s wifi-push -p 'test_*.py' -v
 
 <p align="center"><img src="docs/assets/tour/main-en.png" width="720" alt="Kindle Push in English: books translating, sending and delivered"></p>
 
-This fork of [chasepal/kindle-push-macos](https://github.com/chasepal/kindle-push-macos) adds bilingual EPUB translation using `bilingual_book_maker` 1.3.2. Drag in an EPUB: its language is detected locally, and a foreign book can become a side-by-side edition or a translation only, in any of 20 languages. Preview three body paragraphs, then translate the complete book and send it over Wi-Fi to one or several paired KOReader Kindles. The original EPUB is preserved. Failed or cancelled jobs are never automatically sent.
+Kindle Push sends articles and ebooks to a jailbroken Kindle running KOReader, over Wi‑Fi, with no cloud in between. It began as [chasepal/kindle-push-macos](https://github.com/chasepal/kindle-push-macos), written after the author saw how I read on Kindle with KOReader; I added translation, several Kindles, saving to the Mac and file-name tidying. Upstream authorship, license and transfer protocol are kept.
 
-The app follows your macOS language (English or Chinese). Requires macOS 14+, a jailbroken Kindle with KOReader SSH, and an OpenAI-compatible translation API. Install the translation component from the settings panel; configure the endpoint, model (DeepSeek Flash by default) and API key. Keys stay in macOS Keychain. Translation sends book text to the selected service and may incur charges; direct transfers stay local. Checkpoints and generated books stay outside the repository. Background translation continues after closing the app; re-add the same file to resume. Download the ad-hoc signed Apple Silicon app from this fork's Releases. Developer ID notarization, Intel device testing and long-book acceptance are not claimed. See [translation documentation](docs/TRANSLATION.md) and the MIT license. Upstream authorship is retained.
+Drop in a book and its language is detected on your Mac. A foreign book can become a side-by-side edition or a translation only, in any of 20 languages, using `bilingual_book_maker` 1.3.2 and the model service you choose (keys stay in macOS Keychain; book text goes to that service only when you translate). Preview three passages first, then translate the whole book and send it to one or several Kindles, or just save it. The original file is never changed, and failed or cancelled translations are never sent.
+
+Requires macOS 14+ and a jailbroken Kindle with KOReader's SSH plugin. Releases are Developer ID signed and notarized, for Apple silicon and Intel (the Intel build has not been run on an Intel Mac yet). The interface follows your macOS language, English or Chinese. See the [translation docs](docs/TRANSLATION.md).
 
 本项目自有代码使用 [MIT](LICENSE) 许可。KOReader、SimpleUI、Pandoc 按各自许可证分发，本仓库不打包这些项目的程序或代码。应用图标由代码绘制，脚本和源图位于 `mac-app/Assets/`。
