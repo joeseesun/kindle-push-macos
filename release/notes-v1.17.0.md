@@ -1,11 +1,11 @@
 ## 中文
 
-- **英文界面**：系统语言不是中文时显示英文，也可以在设置 › 语言里选「界面语言」。
-- 错误提示、通知和进度也都有英文。文件夹名和译本文件名暂时保持中文。
-- 新增 Intel 版（`KindlePush-Intel.dmg`）。没有 Intel Mac 实测过，遇到问题请反馈。
+- **英文界面**：系统语言不是中文时显示英文，也可以在设置 › 语言里选「界面语言」。错误提示、通知和进度都有英文。
+- Intel 版：新增 `KindlePush-Intel.dmg`，有自己的更新源。目前只验证了架构、签名和公证，还没在 Intel Mac 上实机运行过。
+- 设置 › 语言的说明更清楚，不再重复。
 
 ## English
 
-- **English interface**: the app follows your macOS language, or choose under Settings › Language › Interface language.
-- Errors, notifications and progress are in English too. Folder names and translated file names stay in Chinese for now.
-- New Intel build (`KindlePush-Intel.dmg`). It has not been run on a real Intel Mac, so please report any problems.
+- **English interface**: the app follows your macOS language, or pick one under Settings › Language › Interface language. Errors, notifications and progress are translated too.
+- Intel build: `KindlePush-Intel.dmg` with its own update feed. Only its architecture, signing and notarization are verified; it has not run on an Intel Mac yet.
+- The note under Settings › Language is clearer and no longer repeats itself.
