@@ -89,9 +89,9 @@ struct ContentView: View {
             }
             Spacer()
             Button { store.tidyNames(selection) } label: {
-                Label(selection.count > 1 ? "整理 \(selection.count) 个文件名…" : "整理文件名…", systemImage: "pencil")
+                Label(selection.count > 1 ? "整理 \(selection.count) 个文件名" : "整理文件名", systemImage: "wand.and.sparkles")
             }
-            .buttonStyle(.icon)
+            .buttonStyle(.tool)
             .help(selection.count > 1 ? "整理选中的 \(selection.count) 个文件名：去掉来源标记、杂乱分隔符和版本后缀，预览后再改名"
                                       : "整理文件名：去掉来源标记、杂乱分隔符和版本后缀，预览后再改名")
         }
