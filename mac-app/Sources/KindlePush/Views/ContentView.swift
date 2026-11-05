@@ -82,12 +82,12 @@ struct ContentView: View {
                 .font(.callout).foregroundStyle(.secondary).monospacedDigit()
             Spacer()
             Button { store.tidyNames(selection) } label: {
-                Label(selection.count > 1 ? "整理 \(selection.count) 个文件名…" : "整理文件名…", systemImage: "wand.and.stars")
+                Label(selection.count > 1 ? "整理 \(selection.count) 个文件名…" : "整理文件名…", systemImage: "pencil")
             }
             .buttonStyle(.icon)
             .help(selection.count > 1 ? "整理选中的 \(selection.count) 个文件名：去掉来源标记、杂乱分隔符和版本后缀，预览后再改名"
                                       : "整理文件名：去掉来源标记、杂乱分隔符和版本后缀，预览后再改名")
-            Button { store.clearSent() } label: { Label("清除已送达", systemImage: "eraser") }
+            Button { store.clearSent() } label: { Label("清除已送达", systemImage: "checkmark.circle.badge.xmark") }
                 .buttonStyle(.icon).disabled(store.sentCount == 0)
                 .help(store.sentCount == 0 ? "清除已送达：现在没有已送达的书"
                                            : "清除已送达：把 \(store.sentCount) 本已送达的书移出列表，不删除文件；发送历史里还能找到")

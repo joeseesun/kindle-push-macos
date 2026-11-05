@@ -83,6 +83,27 @@ extension ButtonStyle where Self == IconButtonStyle {
     static var icon: IconButtonStyle { IconButtonStyle() }
 }
 
+/// A quiet icon-and-text button for occasional actions in a header row, with a hover tint.
+struct ToolButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var enabled
+    @State private var hovering = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.callout)
+            .foregroundStyle(enabled ? Color.primary.opacity(hovering ? 1 : 0.75) : Color.secondary.opacity(0.5))
+            .padding(.horizontal, 8).padding(.vertical, 4)
+            .background(Color.primary.opacity(configuration.isPressed ? 0.12 : hovering && enabled ? 0.07 : 0),
+                        in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .contentShape(Rectangle())
+            .onHover { hovering = $0 }
+    }
+}
+
+extension ButtonStyle where Self == ToolButtonStyle {
+    static var tool: ToolButtonStyle { ToolButtonStyle() }
+}
+
 /// Text link in ink, underlined on hover: replaces the system blue `.link` style.
 struct InkLinkStyle: ButtonStyle {
     @Environment(\.isEnabled) private var enabled
