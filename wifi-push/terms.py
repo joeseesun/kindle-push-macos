@@ -210,6 +210,6 @@ def build(path, base, model, key, goal='zh'):
         import languages
         language = '' if languages.target(goal) == 'zh' else languages.TARGETS[languages.target(goal)][3]
         return parse(ask(base, model, key, title, author, items, language=language), [i['term'] for i in items],
-                     chinese=not language)
+                     chinese=languages.chinese(goal))
     except Exception:
         return []

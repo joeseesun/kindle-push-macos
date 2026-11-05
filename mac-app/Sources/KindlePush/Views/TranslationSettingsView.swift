@@ -90,9 +90,9 @@ struct TranslationSettingsView: View {
     private var languageForm: some View {
         Form {
             Section {
-                Picker("翻译成", selection: $store.targetLanguage) {
+                Picker("偏好翻译语言", selection: $store.targetLanguage) {
                     ForEach(Lang.targets, id: \.code) { target in
-                        Text(target.code == "zh" ? "中文（默认）" : target.picker).tag(target.code)
+                        Text(target.picker).tag(target.code)
                     }
                 }
                 Picker("外文书默认", selection: $store.foreignDefault) {
@@ -109,7 +109,7 @@ struct TranslationSettingsView: View {
 
     private var languageNote: String {
         let name = Lang.name(store.targetLanguage)
-        let rule = "拖入的 EPUB 会在本机识别语言：不是\(name)的书会问你要不要翻译成\(name)，\(name)书不显示翻译选项。"
+        let rule = "拖入的 EPUB 会在本机识别语言。不是\(name)的书会问你要不要翻译成\(name)；每本书行尾的标签都能改成任意语言，这里只是偏好。"
         let choice = store.foreignDefault == .ask
             ? "选了默认处理方式后，拖入时直接标好，不再在列表上方询问。"
             : "拖入时直接标为「\(store.foreignDefault.title)」；每本书行尾的标签仍可单独修改。"

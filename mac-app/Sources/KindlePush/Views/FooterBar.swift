@@ -21,8 +21,14 @@ struct FooterBar: View {
                 }
                 // While a queue runs, the buttons only reappear for books that can join it.
                 // While a queue runs, only "add to queue" stays, so the stop buttons and progress have room.
-                if !store.busy { secondaryButton }
-                if !store.busy || !store.queueable.isEmpty { sendButton }
+                // No Kindle paired: this is a translation tool first, so saving is the main button.
+                if store.setupNeeded && !store.busy {
+                    sendButton.buttonStyle(.inkOutline)
+                    secondaryButton.buttonStyle(.ink)
+                } else {
+                    if !store.busy { secondaryButton.buttonStyle(.inkOutline) }
+                    if !store.busy || !store.queueable.isEmpty { sendButton.buttonStyle(.ink) }
+                }
             }
             .padding(.horizontal, 18).padding(.vertical, 14)
         }
@@ -116,7 +122,7 @@ struct FooterBar: View {
         Button { Task { await store.saveLocally() } } label: {
             Label("保存到本机", systemImage: "square.and.arrow.down")
         }
-        .buttonStyle(.inkOutline).controlSize(.large).disabled(sendDisabled)
+        .controlSize(.large).disabled(sendDisabled)
         .help(store.nothingToSendReason ?? "保存到本机（要翻译的书先翻译），完成后在访达中选中；不需要连接 Kindle（⌥⌘↩）")
     }
 
@@ -133,12 +139,12 @@ struct FooterBar: View {
                 if !store.queueable.isEmpty {
                     Text("\(store.queueable.count)").font(.callout.weight(.semibold)).monospacedDigit()
                         .padding(.horizontal, 6).padding(.vertical, 1)
-                        .background(Color.onInk.opacity(0.2), in: Capsule())
+                        .background(Color.gray.opacity(0.35), in: Capsule())
                 }
             }
             .padding(.horizontal, 6)
         }
-        .buttonStyle(.ink).controlSize(.large)
+        .controlSize(.large)
         .disabled(sendDisabled)
         .help(store.nothingToSendReason ?? (store.busy ? "加入正在进行的队列（⌘↩）" : "原文直接发送，要翻译的书译完自动发送（⌘↩）"))
     }

@@ -437,7 +437,7 @@ def finish_parts(folder, raw, result, goal='zh'):
         chunks.join(raw, result, plan)
     elif raw != result:
         shutil.copyfile(raw, result)
-    if lang.target(goal) == 'zh':
+    if lang.chinese(goal):
         polish.epub(result)
 
 

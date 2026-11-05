@@ -99,32 +99,53 @@ final class PushStore: ObservableObject {
 
     // MARK: Translation per book
 
-    /// An EPUB in another language than the target, not yet sent: the only books with translation UI.
-    func offersTranslation(_ article: Article) -> Bool {
-        guard article.format == "EPUB", let language = article.language, !language.isEmpty else { return false }
+    /// An EPUB whose language has been read, not yet sent: any of these can be translated into any language.
+    func translatable(_ article: Article) -> Bool {
+        article.format == "EPUB" && article.language != nil
+    }
+    /// The language this book goes into: its own choice, else the preference from settings.
+    func goal(of article: Article) -> String { article.target ?? targetLanguage }
+    /// A book in another language than the preference, not yet decided: what the prompt asks about.
+    func isForeign(_ article: Article) -> Bool {
+        guard translatable(article), let language = article.language, !language.isEmpty else { return false }
         return language != targetLanguage
     }
-    /// What sending does with this book now.
+    /// What sending does with this book now. A book is never "translated" into its own language.
     func mode(of article: Article) -> OutputMode {
-        offersTranslation(article) ? (article.choice ?? .original) : .original
+        guard translatable(article), article.language != goal(of: article) else { return .original }
+        return article.choice ?? .original
     }
-    /// The words for a mode on this book: 中英对照, 仅中文…
+    /// The words for a mode on this book: 中英对照, 英日对照, 仅中文…
     func title(_ mode: OutputMode, for article: Article) -> String {
-        mode.title(from: article.language ?? "", to: targetLanguage)
+        mode.title(from: article.language ?? "", to: goal(of: article))
     }
     /// Foreign books waiting for a decision: what the prompt above the list asks about.
     var undecided: [Article] {
-        articles.filter { offersTranslation($0) && $0.choice == nil && $0.status != "已发送"
+        articles.filter { isForeign($0) && $0.choice == nil && $0.target == nil && $0.status != "已发送"
             && $0.status != "排队中" && $0.phase != .working && !active.contains($0.id) }
     }
     func choose(_ mode: OutputMode, for ids: Set<UUID>) {
         for index in articles.indices where ids.contains(articles[index].id) { articles[index].choice = mode }
         save()
     }
+    /// Translate these books into `code`; a book that was going as it is becomes bilingual.
+    func translate(_ ids: Set<UUID>, into code: String) {
+        for index in articles.indices where ids.contains(articles[index].id) {
+            articles[index].target = code == targetLanguage ? nil : code
+            if articles[index].choice == nil || articles[index].choice == .original { articles[index].choice = .bilingual }
+        }
+        remember(code); save()
+    }
+    /// The last languages picked, newest first: shown first in the menu, after the preference.
+    @Published private(set) var recentTargets: [String] = UserDefaults.standard.stringArray(forKey: "recentTargets") ?? []
+    private func remember(_ code: String) {
+        recentTargets = Array(([code] + recentTargets.filter { $0 != code }).prefix(3))
+        UserDefaults.standard.set(recentTargets, forKey: "recentTargets")
+    }
     /// With a default chosen in settings, foreign books are marked as they arrive and nothing asks.
     private func applyDefault() {
         guard let mode = foreignDefault.mode else { return }
-        for index in articles.indices where articles[index].choice == nil && offersTranslation(articles[index]) {
+        for index in articles.indices where articles[index].choice == nil && isForeign(articles[index]) {
             articles[index].choice = mode
         }
     }
@@ -199,7 +220,7 @@ final class PushStore: ObservableObject {
                 articles[index].status = "等待发送"; articles[index].bookTitle = nil
                 articles[index].details = ""
                 articles[index].output = nil; articles[index].bilingual = false
-                articles[index].choice = nil; articles[index].language = nil
+                articles[index].choice = nil; articles[index].language = nil; articles[index].target = nil
             } else { articles.append(Article(path: path)) }
         }
         Task { await loadBookInfo() }
@@ -347,7 +368,7 @@ final class PushStore: ObservableObject {
     /// Translations that kept running, or finished, while the app was closed: show them again.
     private func resumeTranslations() async {
         for article in articles where article.format == "EPUB" && ["等待继续", "翻译中"].contains(article.status) {
-            let goal = article.translatedTo ?? targetLanguage
+            let goal = article.translatedTo ?? self.goal(of: article)
             let found = await Bridge.call(["translation-find", article.path, goal])
             guard found.ok, let index = articles.firstIndex(where: { $0.id == article.id }) else { continue }
             switch found.state {
@@ -505,7 +526,6 @@ final class PushStore: ObservableObject {
     /// own queue and are sent when done. Pressing again while a queue runs adds to it instead of waiting.
     private func enqueue(deliver: Bool) async {
         guard !queueable.isEmpty else { return }
-        let goal = targetLanguage
         // Undecided books go as they are; the prompt was there to change that.
         var skipped = 0
         if translationReady == false {
@@ -521,7 +541,7 @@ final class PushStore: ObservableObject {
             guard connected else { notice = connectionIssue; isError = true; return }
         }
         // Read again after the search: books may have been removed or queued meanwhile.
-        let jobs = queueable.map { Job(id: $0.id, deliver: deliver, mode: mode(of: $0), target: goal) }
+        let jobs = queueable.map { Job(id: $0.id, deliver: deliver, mode: mode(of: $0), target: goal(of: $0)) }
             .filter { translationReady != false || $0.mode == .original }
         guard !jobs.isEmpty else { return }
         for job in jobs {
@@ -740,7 +760,8 @@ final class PushStore: ObservableObject {
     /// Three paragraphs of one foreign book, in its chosen layout (bilingual when it goes as it is).
     func preview(_ id: UUID) async {
         guard !translation.running, let index = articles.firstIndex(where: { $0.id == id }),
-              offersTranslation(articles[index]), articles[index].phase != .working else { return }
+              translatable(articles[index]), articles[index].language != goal(of: articles[index]),
+              articles[index].phase != .working else { return }
         guard translationReady != false else {
             notice = "还没安装翻译组件，请先在翻译设置里安装。"; isError = true; return
         }
@@ -748,7 +769,7 @@ final class PushStore: ObservableObject {
         let mode = first.choice == .targetOnly ? OutputMode.targetOnly : .bilingual
         let before = (first.status, first.details)
         translation.reset(total: 1); stopRequested = false; dismissNotice()
-        if let output = await translate(index: index, preview: true, mode: mode, target: targetLanguage) {
+        if let output = await translate(index: index, preview: true, mode: mode, target: goal(of: first)) {
             NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: output)])
             announce("试译样本已在访达中打开，没有发送到 Kindle。满意后再翻译整本。", error: false)
         } else if let failed = articles.first(where: { $0.id == first.id }) {

@@ -35,6 +35,8 @@ struct Article: Identifiable, Codable {
     var textSize: Int?
     /// What this book gets when it is sent; nil until someone (or the default) decides.
     var choice: OutputMode?
+    /// The language this book is translated into; nil means the preferred language from settings.
+    var target: String?
     /// From the book's own metadata (bridge `book-info`); the cleaned file name until then.
     var bookTitle: String?
     var author: String?
@@ -227,24 +229,30 @@ enum ForeignDefault: String, CaseIterable {
 /// Languages: the targets the engine translates into, and the names a detected book language goes by.
 /// Must match wifi-push/languages.py.
 enum Lang {
-    /// (code, name in the picker, name in Chinese, one character)
+    /// (code, name in the picker, name in Chinese, short form for 中英对照). Must match wifi-push/languages.py.
     static let targets: [(code: String, picker: String, name: String, char: String)] = [
-        ("zh", "中文", "中文", "中"), ("en", "English", "英文", "英"), ("ja", "日本語", "日文", "日"),
-        ("ko", "한국어", "韩文", "韩"), ("fr", "Français", "法文", "法"), ("de", "Deutsch", "德文", "德"),
-        ("es", "Español", "西班牙文", "西"),
-    ]
-    private static let others: [String: (name: String, char: String)] = [
-        "ru": ("俄文", "俄"), "it": ("意大利文", "意"), "pt": ("葡萄牙文", "葡"), "nl": ("荷兰文", "荷"),
+        ("zh", "简体中文", "中文", "中"), ("zh-hant", "繁體中文", "繁体中文", "繁"),
+        ("en", "English", "英文", "英"), ("ja", "日本語", "日文", "日"), ("ko", "한국어", "韩文", "韩"),
+        ("fr", "Français", "法文", "法"), ("de", "Deutsch", "德文", "德"), ("es", "Español", "西班牙文", "西"),
+        ("ru", "Русский", "俄文", "俄"), ("it", "Italiano", "意大利文", "意"), ("pt", "Português", "葡萄牙文", "葡"),
+        ("nl", "Nederlands", "荷兰文", "荷"), ("pl", "Polski", "波兰文", "波"), ("tr", "Türkçe", "土耳其文", "土"),
+        ("uk", "Українська", "乌克兰文", "乌"), ("ar", "العربية", "阿拉伯文", "阿"), ("hi", "हिन्दी", "印地文", "印地"),
+        ("id", "Bahasa Indonesia", "印尼文", "印尼"), ("vi", "Tiếng Việt", "越南文", "越"), ("th", "ไทย", "泰文", "泰"),
     ]
 
     static func name(_ code: String) -> String {
-        targets.first { $0.code == code }?.name ?? others[code]?.name ?? "外文"
+        targets.first { $0.code == code }?.name ?? "外文"
+    }
+    /// The language in its own name, for pickers: English, 日本語.
+    static func picker(_ code: String) -> String {
+        targets.first { $0.code == code }?.picker ?? name(code)
     }
     private static func char(_ code: String) -> String? {
-        targets.first { $0.code == code }?.char ?? others[code]?.char
+        targets.first { $0.code == code }?.char
     }
     /// 中英对照 for English and Chinese either way round, 英日对照 for English into Japanese.
     static func pairLabel(_ source: String, _ target: String) -> String {
+        if target == "zh-hant" { return pairLabel(source, "zh") + "·繁体" }
         guard let first = char(source), let second = char(target), source != target else { return "双语对照" }
         if source == "zh" { return "中\(second)对照" }
         if target == "zh" { return "中\(first)对照" }

@@ -21,11 +21,23 @@ TARGETS = {
     'fr': ('fr', '法文', '法', 'French'),
     'de': ('de', '德文', '德', 'German'),
     'es': ('es', '西班牙文', '西', 'Spanish'),
+    'zh-hant': ('zh-hant', '繁体中文', '繁', 'Traditional Chinese'),
+    'ru': ('ru', '俄文', '俄', 'Russian'),
+    'it': ('it', '意大利文', '意', 'Italian'),
+    'pt': ('pt', '葡萄牙文', '葡', 'Portuguese'),
+    'nl': ('nl', '荷兰文', '荷', 'Dutch'),
+    'pl': ('pl', '波兰文', '波', 'Polish'),
+    'tr': ('tr', '土耳其文', '土', 'Turkish'),
+    'uk': ('uk', '乌克兰文', '乌', 'Ukrainian'),
+    'ar': ('ar', '阿拉伯文', '阿', 'Arabic'),
+    'hi': ('hi', '印地文', '印地', 'Hindi'),
+    'id': ('id', '印尼文', '印尼', 'Indonesian'),
+    'vi': ('vi', '越南文', '越', 'Vietnamese'),
+    'th': ('th', '泰文', '泰', 'Thai'),
 }
-# Languages a book can be detected in; a code outside TARGETS still shows as foreign.
-NAMES = {**{code: value[1] for code, value in TARGETS.items()},
-         'ru': '俄文', 'it': '意大利文', 'pt': '葡萄牙文', 'nl': '荷兰文'}
-CHARS = {**{code: value[2] for code, value in TARGETS.items()}, 'ru': '俄', 'it': '意', 'pt': '葡', 'nl': '荷'}
+# Any of these can be a book's language and a target; detection finds only some of them.
+NAMES = {code: value[1] for code, value in TARGETS.items()}
+CHARS = {code: value[2] for code, value in TARGETS.items()}
 
 # A few very common words per Latin-script language; shared words count for none.
 WORDS = {
@@ -120,9 +132,18 @@ def detect(path):
     return found or tag
 
 
+def chinese(goal):
+    """Simplified or Traditional: both get Chinese punctuation and a Han-only glossary."""
+    return target(goal) in ('zh', 'zh-hant')
+
+
 def pair_label(source, goal):
-    """'中英对照' for English and Chinese either way round, '英日对照' for English into Japanese."""
+    """'中英对照' for English and Chinese either way round, '英日对照' for English into Japanese,
+    '中英对照·繁体' into Traditional Chinese."""
     goal = target(goal)
+    if goal == 'zh-hant':
+        return pair_label(source, 'zh') + '·繁体'
+
     if source not in CHARS or source == goal:
         return '双语对照'
     first, second = CHARS[source], CHARS[goal]

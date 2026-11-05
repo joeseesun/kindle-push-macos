@@ -67,6 +67,14 @@ class LanguageTests(unittest.TestCase):
         self.assertEqual(lang.pair_label('', 'zh'), '双语对照')
         self.assertEqual(lang.only_label('en'), '英文')
         self.assertEqual(lang.base('zh-Hans-CN'), 'zh')
+        self.assertEqual(lang.pair_label('en', 'zh-hant'), '中英对照·繁体')
+        self.assertEqual(lang.pair_label('en', 'vi'), '英越对照')
+        self.assertEqual(lang.only_label('zh-hant'), '繁体中文')
+
+    def test_every_target_is_an_engine_language(self):
+        engine = {'zh-hans', 'zh-hant', 'en', 'ja', 'ko', 'fr', 'de', 'es', 'ru', 'it', 'pt', 'nl', 'pl', 'tr',
+                  'uk', 'ar', 'hi', 'id', 'vi', 'th'}
+        self.assertTrue({value[0] for value in lang.TARGETS.values()} <= engine)
 
 
 class TargetLanguageTests(unittest.TestCase):
@@ -114,7 +122,8 @@ class TargetLanguageTests(unittest.TestCase):
     def test_output_name_has_the_language_pair_and_polish_is_chinese_only(self):
         for number, (goal, source, mode, expected, polished) in enumerate((('ja', 'en', 'bilingual', '（英日对照）', False),
                                                        ('en', 'zh', 'target-only', '（英文）', False),
-                                                       ('zh', 'en', 'bilingual', '（中英对照）', True))):
+                                                       ('zh', 'en', 'bilingual', '（中英对照）', True),
+                                                       ('zh-hant', 'en', 'target-only', '（繁体中文）', True))):
             job = str(number) * 24
             folder = tr.job_dir(job)
             folder.mkdir(parents=True)

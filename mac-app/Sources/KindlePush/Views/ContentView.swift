@@ -188,7 +188,7 @@ private struct EmptyStateView: View {
                 .font(.system(size: 26, weight: .semibold, design: .serif))
                 .padding(.top, 26)
                 .contentTransition(.opacity)
-            Text("拖入文章或电子书，自动排版，经 Wi‑Fi 送到 Kindle。")
+            Text("拖入文章或电子书：翻译成任意语言，保存到本机，或经 Wi‑Fi 送到 Kindle。")
                 .font(.callout).foregroundStyle(.secondary).padding(.top, 8)
             Text("EPUB · PDF · MOBI · AZW3 · FB2 · DjVu · CBZ · TXT · Word · HTML · Markdown")
                 .help("KOReader 能打开的格式都支持：EPUB、PDF、XPS、DjVu、CBZ/CBR/CBT、MOBI/AZW/AZW3/PRC/PDB、FB2/FB3、CHM、DOC/DOCX/ODT/RTF、TXT、HTML、Markdown、图片")
