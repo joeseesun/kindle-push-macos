@@ -35,8 +35,10 @@ def epub_info(source):
             if meta is not None:
                 # Often the item id; in hand-made books sometimes the image's file name instead.
                 name = meta.get('content') or ''
-                cover = items.get(name) or next((i for i in items.values()
-                                                 if posixpath.basename(i.get('href', '')) == name), None)
+                # `is None`, not `or`: an element without children counts as false.
+                cover = items.get(name)
+                if cover is None:
+                    cover = next((i for i in items.values() if posixpath.basename(i.get('href', '')) == name), None)
         if cover is None:
             cover = guide_cover(book, opf, opf_path, items)
         if cover is None:

@@ -139,7 +139,7 @@ def text_of(path, suffix):
             raw = book.read('word/document.xml' if suffix == '.docx' else 'content.xml').decode('utf-8', 'ignore')
         return re.sub(r'\s+', ' ', html.unescape(re.sub(r'<[^>]+>', ' ', raw))).strip()
     data = path.read_bytes()
-    for encoding in ('utf-8-sig', 'gb18030', 'big5', 'latin-1'):
+    for encoding in ('utf-8-sig', 'gb18030', 'big5', 'utf-16', 'latin-1'):
         try:
             raw = data.decode(encoding)
             break
