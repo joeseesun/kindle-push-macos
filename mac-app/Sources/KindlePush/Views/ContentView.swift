@@ -80,6 +80,13 @@ struct ContentView: View {
             Text("文章").font(.headline)
             Text("待发送 \(store.pendingCount) · 已送达 \(store.sentCount)")
                 .font(.callout).foregroundStyle(.secondary).monospacedDigit()
+            if store.sentCount > 0 {
+                // Right beside the count it clears; a word, not an icon that could read as "delete".
+                Text("·").font(.callout).foregroundStyle(.tertiary)
+                Button("清除") { store.clearSent() }
+                    .buttonStyle(.inkLink).font(.callout)
+                    .help("把 \(store.sentCount) 本已送达的书移出列表，不删除文件；发送历史里还能找到")
+            }
             Spacer()
             Button { store.tidyNames(selection) } label: {
                 Label(selection.count > 1 ? "整理 \(selection.count) 个文件名…" : "整理文件名…", systemImage: "pencil")
@@ -87,10 +94,6 @@ struct ContentView: View {
             .buttonStyle(.icon)
             .help(selection.count > 1 ? "整理选中的 \(selection.count) 个文件名：去掉来源标记、杂乱分隔符和版本后缀，预览后再改名"
                                       : "整理文件名：去掉来源标记、杂乱分隔符和版本后缀，预览后再改名")
-            Button { store.clearSent() } label: { Label("清除已送达", systemImage: "checkmark.circle.badge.xmark") }
-                .buttonStyle(.icon).disabled(store.sentCount == 0)
-                .help(store.sentCount == 0 ? "清除已送达：现在没有已送达的书"
-                                           : "清除已送达：把 \(store.sentCount) 本已送达的书移出列表，不删除文件；发送历史里还能找到")
         }
         .padding(.horizontal, 20).padding(.top, 14).padding(.bottom, 4)
     }
