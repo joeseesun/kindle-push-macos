@@ -106,6 +106,21 @@ class TranslationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, '版本'):
             tr.start(self.source, False, 'french')
 
+    def test_reset_forgets_one_translation_but_not_a_running_one(self):
+        digest = hashlib.sha256(self.source.read_bytes()).hexdigest()
+        target = tr.job_dir(tr.job_id(digest, tr.settings(), False, 'bilingual', 'zh')); target.mkdir(parents=True)
+        other = tr.job_dir(tr.job_id(digest, tr.settings(), False, 'target-only', 'zh')); other.mkdir(parents=True)
+        tr.atomic_json(target / 'state.json', {'state': 'failed', 'message': 'x'})
+        tr.atomic_json(other / 'state.json', {'state': 'done'})
+        (target / '.book.temp.bin').write_bytes(b'checkpoint')
+        with patch.object(tr, 'progress', return_value={'state': 'running'}):
+            with self.assertRaisesRegex(ValueError, '正在翻译'):
+                tr.reset(self.source)
+        self.assertTrue(target.exists())
+        self.assertTrue(tr.reset(self.source)['ok'])
+        self.assertFalse(target.exists())
+        self.assertTrue(other.exists())   # the other version of the book stays
+
     def test_speed_and_quality_options(self):
         config = {**tr.settings(), 'workers': 4, 'style': 'literary', 'glossary': 'Hari Seldon -> 哈里·谢顿'}
         args = tr.command(self.root, config, False)

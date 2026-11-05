@@ -63,6 +63,16 @@ struct ContentView: View {
         .sheet(isPresented: Binding(get: { !store.renameIDs.isEmpty }, set: { if !$0 { store.renameIDs = [] } })) {
             RenameSheet(store: store, ids: store.renameIDs)
         }
+        .confirmationDialog(
+            "重新翻译《\(store.articles.first { $0.id == store.confirmRetranslate }?.title ?? "")》？",
+            isPresented: Binding(get: { store.confirmRetranslate != nil }, set: { if !$0 { store.confirmRetranslate = nil } })
+        ) {
+            Button("重新翻译") {
+                if let id = store.confirmRetranslate { Task { await store.retranslate(id) } }
+            }
+        } message: {
+            Text("已有的译文和进度会丢弃，整本从头翻译，会再次用掉模型额度。原书不变。只是出错想接着翻，用「重试」就好，已译好的部分不重复计费。")
+        }
         .sheet(isPresented: $store.showAddKindle, onDismiss: { store.upgrading = nil }) { AddKindleSheet(store: store) }
         .task { await store.start() }
     }

@@ -205,7 +205,7 @@ def split(source, target, workers):
                              compress_type=zipfile.ZIP_DEFLATED)
             for name, data in files.items():
                 out.writestr(name, data, compress_type=zipfile.ZIP_DEFLATED)
-    return {'size': size, 'chapters': plan}
+    return {'size': size, 'chapters': plan, 'base': base}
 
 
 def join(source, target, plan):
@@ -213,10 +213,20 @@ def join(source, target, plan):
     with zipfile.ZipFile(source) as book:
         names = set(book.namelist())
         replaced, dropped = {}, set()
+        # The engine may move everything into a folder of its own: a book with content.opf at the
+        # top of the zip comes back under EPUB/. Parts are found relative to the book's OPF.
+        base = plan.get('base', '')
+        moved_to = posixpath.dirname(opf_path(book))
+
+        def located(part):
+            relative = part[len(base) + 1:] if base and part.startswith(base + '/') else part
+            for candidate in (part, posixpath.join(moved_to, relative)):
+                if candidate in names:
+                    return candidate
+            raise ValueError('译文已保存，但拼回章节时找不到其中一段。点「重试」不会重新翻译；还不行就用「重新翻译」。')
+
         for entry in plan['chapters']:
-            parts = entry['parts']
-            if not all(p in names for p in parts):
-                raise ValueError('译本缺少分段文件。')
+            parts = [located(p) for p in entry['parts']]
             texts = [book.read(p).decode('utf-8') for p in parts]
             inner = []
             for text in texts:

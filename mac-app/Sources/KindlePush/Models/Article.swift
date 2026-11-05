@@ -27,6 +27,8 @@ struct Article: Identifiable, Codable {
     var bilingual: Bool? = false
     /// Kindles this version of the book already reached, so a retry sends only to the rest.
     var deliveredTo: [String]?
+    /// What the last run was for, so retrying one book does the same: send, or keep on this Mac.
+    var wantsKindle: Bool?
     /// A translation without the original text beside it (named for 1.13, when it was Chinese only).
     var chineseOnly: Bool?
     /// The language the made translation is in.

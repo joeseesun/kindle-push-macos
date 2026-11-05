@@ -35,7 +35,10 @@ struct ArticleRow: View {
             Spacer(minLength: 8)
             HStack(spacing: 2) {
                 if [.failed, .stopped].contains(article.phase) {
-                    iconButton("arrow.clockwise", help: "再次发送") { store.retry(article.id) }
+                    // In words and acting at once: an icon that only moved the book back to waiting read as broken.
+                    Button("重试") { Task { await store.retryNow(article.id) } }
+                        .buttonStyle(.inkOutline).controlSize(.small).fixedSize().padding(.trailing, 4)
+                        .help(store.mode(of: article) == .original ? "再发一次这本书" : "接着处理这本书：已经译好的部分不会重新翻译，只补没完成的")
                 }
                 // Always there: the way back to the file is the most common next step.
                 iconButton("folder", help: revealHelp) { store.reveal([article.id]) }
@@ -131,6 +134,11 @@ struct ArticleActions: View {
             Button("先试译 3 段") { Task { await store.preview(single.id) } }
                 .disabled(store.translation.running || single.phase == .working || single.status == "排队中")
                 .help("只翻译 3 段正文，在访达里打开给你检查；不发送")
+        }
+        if let single, store.translatable(single), single.bilingual == true || store.mode(of: single) != .original {
+            Button("重新翻译…") { store.confirmRetranslate = single.id }
+                .disabled(single.phase == .working || single.status == "排队中" || store.active.contains(single.id))
+                .help("丢弃这本书已有的译文和进度，从头翻译")
         }
         Divider()
         if items.contains(where: { $0.status == "排队中" }) {

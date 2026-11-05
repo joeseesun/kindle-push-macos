@@ -550,19 +550,48 @@ final class PushStore: ObservableObject {
         }
     }
 
+    /// Run one book again now, for what it was run for last time. What was already translated
+    /// is kept by the engine's checkpoint and is not paid for twice.
+    func retryNow(_ id: UUID) async {
+        guard let article = articles.first(where: { $0.id == id }) else { return }
+        retry(id)
+        await enqueue(deliver: article.wantsKindle ?? !setupNeeded, only: [id])
+    }
+
+    /// Asked first by the confirmation in ContentView: this costs model usage again.
+    @Published var confirmRetranslate: UUID?
+
+    /// Throw away this book's translation and checkpoint, and translate it from the beginning.
+    func retranslate(_ id: UUID) async {
+        guard let index = articles.firstIndex(where: { $0.id == id }) else { return }
+        let article = articles[index]
+        var chosen = mode(of: article)
+        if chosen == .original { chosen = article.chineseOnly == true ? .targetOnly : .bilingual }
+        let goal = article.translatedTo ?? self.goal(of: article)
+        let response = await Bridge.call(["translation-reset", article.path, chosen == .targetOnly ? "target-only" : "bilingual", goal])
+        guard response.ok else { notice = response.message ?? "没能重新翻译。"; isError = true; return }
+        guard let index = articles.firstIndex(where: { $0.id == id }) else { return }
+        articles[index].choice = chosen
+        articles[index].status = "等待发送"; articles[index].details = ""
+        articles[index].output = nil; articles[index].bilingual = false; articles[index].deliveredTo = nil
+        save()
+        await enqueue(deliver: article.wantsKindle ?? !setupNeeded, only: [id])
+    }
+
     func send() async { await enqueue(deliver: true) }
     /// Convert or translate without a Kindle: the result stays on this Mac.
     func saveLocally() async { await enqueue(deliver: false) }
 
     /// Queues every ready book as it is marked: originals go straight out, translations go to their
     /// own queue and are sent when done. Pressing again while a queue runs adds to it instead of waiting.
-    private func enqueue(deliver: Bool) async {
-        guard !queueable.isEmpty else { return }
+    private func enqueue(deliver: Bool, only: Set<UUID>? = nil) async {
+        var pool: [Article] { queueable.filter { only?.contains($0.id) ?? true } }
+        guard !pool.isEmpty else { return }
         // Undecided books go as they are; the prompt was there to change that.
         var skipped = 0
         if translationReady == false {
-            skipped = plannedTranslations.count
-            if skipped > 0 && plannedOriginals.isEmpty {
+            skipped = pool.filter { mode(of: $0) != .original }.count
+            if skipped > 0 && pool.allSatisfy({ mode(of: $0) != .original }) {
                 notice = "还没安装翻译组件。请先在翻译设置里安装，或把这些书改成「原文」。"; isError = true
                 return
             }
@@ -577,12 +606,13 @@ final class PushStore: ObservableObject {
         // Read again after the search: books may have been removed or queued meanwhile.
         // Each job remembers the Kindles ticked now; changing them later affects later books only.
         let kindles = deliver ? targets : []
-        let jobs = queueable.map { Job(id: $0.id, deliver: deliver, mode: mode(of: $0), target: goal(of: $0), kindles: kindles) }
+        let jobs = pool.map { Job(id: $0.id, deliver: deliver, mode: mode(of: $0), target: goal(of: $0), kindles: kindles) }
             .filter { translationReady != false || $0.mode == .original }
         guard !jobs.isEmpty else { return }
         for job in jobs {
             guard let index = articles.firstIndex(where: { $0.id == job.id }) else { continue }
             articles[index].status = "排队中"; articles[index].details = ""
+            articles[index].wantsKindle = deliver
         }
         if isError { dismissNotice() }
         if skipped > 0 { notice = "\(skipped) 本要翻译的书没有开始：还没安装翻译组件。"; isError = true }
