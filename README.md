@@ -21,7 +21,7 @@
 - **Markdown → EPUB**：保留标题、作者、目录、列表、表格、代码和脚注，加入适合小屏阅读的样式。
 - **Obsidian 支持**：双链转为显示文字，图片打包到 EPUB，支持整篇笔记嵌入和提示块。
 - **拖放与批量发送**：整个窗口都能拖入，记录发送结果，失败可重试。翻译和普通发送分两条队列同时进行，长时间翻译时其他书照常发送、保存和整理。
-- **只保存到本机**：不连 Kindle 也能用，「保存到本机」只转换，「翻译并保存」只翻译，结果在访达中选中。
+- **只保存到本机**：不连 Kindle 也能用，点「保存到本机」，原文转换、要翻译的书先翻译，结果在访达中选中。
 - **换 Wi-Fi 后寻找设备**：先尝试上次地址，再寻找已配对的 Kindle；也可手动填写 IP。
 - **发送后校验**：读回远端 EPUB，比较 SHA-256，确认传输一致。
 - **整理文件名**：去掉 z-library、1lib 等来源标记、下划线和多余空格、「2017 最新版」「第二版」这类后缀。发到 Kindle 和保存到本机的文件自动用干净的名字；「整理文件名…」（⌘E）还能预览、逐个修改后重命名原文件，可选「智能精简」只留主书名、「保守清理」保留副标题，也可以加上作者。只处理电子书，笔记和文档保留原名。
@@ -119,8 +119,8 @@ python3 -m unittest discover -s wifi-push -p 'test_*.py' -v
 
 ## English
 
-This fork of [chasepal/kindle-push-macos](https://github.com/chasepal/kindle-push-macos) adds bilingual EPUB translation using `bilingual_book_maker` 1.3.2. Drag in an EPUB, select the bilingual edition, preview three body paragraphs, then translate the complete book and send it over Wi-Fi to a paired KOReader Kindle. The original EPUB is preserved. Failed or cancelled jobs are never automatically sent.
+This fork of [chasepal/kindle-push-macos](https://github.com/chasepal/kindle-push-macos) adds bilingual EPUB translation using `bilingual_book_maker` 1.3.2. Drag in an EPUB: its language is detected locally, and a foreign book can become a side-by-side edition or a translation only, in any of 20 languages. Preview three body paragraphs, then translate the complete book and send it over Wi-Fi to one or several paired KOReader Kindles. The original EPUB is preserved. Failed or cancelled jobs are never automatically sent.
 
 Requires macOS 14+, Homebrew Python 3.10+, Pandoc 3.8+, a jailbroken Kindle with KOReader SSH, and an OpenAI-compatible translation API. Install the translation component from the settings panel; configure the endpoint, model (DeepSeek Flash by default) and API key. Keys stay in macOS Keychain. Translation sends book text to the selected service and may incur charges; direct transfers stay local. Checkpoints and generated books stay outside the repository. Background translation continues after closing the app; re-add the same file to resume. Download the ad-hoc signed Apple Silicon app from this fork's Releases. Developer ID notarization, Intel device testing and long-book acceptance are not claimed. See [translation documentation](docs/TRANSLATION.md) and the MIT license. Upstream authorship is retained.
 
-本项目自有代码使用 [MIT](LICENSE) 许可。KOReader、SimpleUI、Pandoc 按各自许可证分发，本仓库不打包这些项目的程序或代码。应用图标由 AI 生成，源图与提示词位于 `mac-app/Assets/`。
+本项目自有代码使用 [MIT](LICENSE) 许可。KOReader、SimpleUI、Pandoc 按各自许可证分发，本仓库不打包这些项目的程序或代码。应用图标由代码绘制，脚本和源图位于 `mac-app/Assets/`。

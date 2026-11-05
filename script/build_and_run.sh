@@ -48,8 +48,8 @@ cat > "$CONTENTS/Info.plist" <<'PLIST'
 <key>CFBundleName</key><string>乔木 Kindle 助手</string>
 <key>CFBundleDisplayName</key><string>乔木 Kindle 助手</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>1.13.0</string>
-<key>CFBundleVersion</key><string>17</string>
+<key>CFBundleShortVersionString</key><string>1.14.0</string>
+<key>CFBundleVersion</key><string>18</string>
 <key>SUFeedURL</key><string>https://github.com/joeseesun/kindle-push-macos/releases/latest/download/appcast.xml</string>
 <key>SUPublicEDKey</key><string>ftyDAv8Qvb8tv4nf5jnMWtCgIi9yVI2IM6p+qhrKz90=</string>
 <key>SUEnableAutomaticChecks</key><true/>
