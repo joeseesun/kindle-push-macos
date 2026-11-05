@@ -26,8 +26,18 @@ enum Covers {
 }
 
 enum Bridge {
+    /// Running calls by tag, so one can be cancelled (a transfer the user stops).
+    nonisolated(unsafe) private static var running: [String: Process] = [:]
+    private static let lock = NSLock()
+
+    /// Ends the call started with `tag`. The bridge kills its ssh transfer on the way out.
+    static func cancel(_ tag: String) {
+        let process = lock.withLock { running[tag] }
+        if let process, process.isRunning { process.terminate() }
+    }
+
     /// `input` goes to stdin, so secrets never appear in the process list.
-    static func call(_ arguments: [String], input: String? = nil) async -> BridgeResponse {
+    static func call(_ arguments: [String], input: String? = nil, tag: String? = nil) async -> BridgeResponse {
         await Task.detached(priority: .userInitiated) {
             guard let resources = Bundle.main.resourceURL else {
                 return BridgeResponse(ok: false, message: "应用组件不完整，请重新安装。")
@@ -53,12 +63,17 @@ enum Bridge {
             process.standardError = FileHandle.nullDevice
             do {
                 try process.run()
+                if let tag { lock.withLock { running[tag] = process } }
+                defer { if let tag { lock.withLock { running[tag] = nil } } }
                 if let input {
                     stdin.fileHandleForWriting.write(Data((input + "\n").utf8))
                     try? stdin.fileHandleForWriting.close()
                 }
                 let data = output.fileHandleForReading.readDataToEndOfFile()
                 process.waitUntilExit()
+                if process.terminationReason == .uncaughtSignal || process.terminationStatus == 130 {
+                    return BridgeResponse(ok: false, message: "已取消", state: "cancelled")
+                }
                 return try JSONDecoder().decode(BridgeResponse.self, from: data)
             } catch {
                 return BridgeResponse(ok: false, message: "无法启动本机转换组件。请确认 Python 和 Pandoc 仍已安装。", details: error.localizedDescription)

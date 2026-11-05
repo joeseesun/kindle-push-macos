@@ -206,9 +206,9 @@ def ssh(config, operation, content=b'', timeout=180):
         raise ValueError('USB 首次配置尚未完成。')
     result = run(['/usr/bin/ssh', '-F', '/dev/null', '-T', '-p', '2222', '-i', str(key),
         '-o', 'IdentitiesOnly=yes', '-o', 'BatchMode=yes',
-        '-o', 'StrictHostKeyChecking=yes', '-o', 'HostKeyAlias=kindle-push',
+        '-o', 'StrictHostKeyChecking=yes', '-o', 'HostKeyAlias=' + config.get('alias', 'kindle-push'),
         '-o', 'HostKeyAlgorithms=ssh-ed25519',
-        '-o', 'UserKnownHostsFile="' + str(DATA / 'known_hosts') + '"',
+        '-o', 'UserKnownHostsFile="' + str(config.get('known_hosts') or DATA / 'known_hosts') + '"',
         '-o', 'ConnectTimeout=8', '-o', 'ServerAliveInterval=10',
         '-o', 'ServerAliveCountMax=3', 'root@' + config['host'], operation],
         input=content, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
@@ -226,7 +226,7 @@ def send(epub, config):
         import pdfpages
         if extension(epub) != '.pdf' or not pdfpages.renderer():
             raise ValueError('Kindle 上的接收端是旧版，只收 EPUB。发送 ' + extension(epub)[1:].upper()
-                             + ' 需要用 USB 连接 Kindle，重新运行一次首次配置；EPUB、Markdown、TXT、Word 等不受影响。')
+                             + ' 需要用 USB 连接 Kindle，在「添加 Kindle」里点一次「写入」；EPUB、Markdown、TXT、Word 等不受影响。')
         print('Kindle 接收端是旧版，只收 EPUB：已把 PDF 逐页转成图片版 EPUB 发送。')
         files = pdfpages.build(epub, OUT)
     for path in files:
@@ -266,6 +266,11 @@ def main():
     if not args.files:
         parser.error('请指定至少一个文件：' + '、'.join(sorted(SUPPORTED)))
     config = None if args.convert_only else get_config(args.host)
+    if config:
+        import devices
+        # Pinned to the chosen Kindle's host key: another Kindle at that address is refused.
+        chosen = devices.current()
+        config['alias'] = chosen['alias'] if chosen else 'kindle-push'
     for source in args.files:
         epub = convert(source)
         print('已转换：' + str(epub))

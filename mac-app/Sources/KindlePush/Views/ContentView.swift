@@ -40,6 +40,7 @@ struct ContentView: View {
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 ConnectionButton(store: store)
+                HistoryButton(store: store)
                 Button { store.showPicker = true } label: { Label("添加文章", systemImage: "plus") }
                     .help("添加文章或电子书（⌘O）")
                 SettingsLink { Label("翻译设置", systemImage: "gearshape") }.help("翻译设置（⌘,）")
@@ -56,6 +57,7 @@ struct ContentView: View {
         .sheet(isPresented: Binding(get: { !store.renameIDs.isEmpty }, set: { if !$0 { store.renameIDs = [] } })) {
             RenameSheet(store: store, ids: store.renameIDs)
         }
+        .sheet(isPresented: $store.showAddKindle) { AddKindleSheet(store: store) }
         .task { await store.start() }
     }
 
