@@ -23,40 +23,40 @@ struct AboutView: View {
                 Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 64, height: 64)
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Text("乔木 Kindle 助手").font(.system(size: 20, weight: .semibold))
+                        Text(t("乔木 Kindle 助手")).font(.system(size: 20, weight: .semibold))
                         Text("Kindle Push \(version)").font(.system(size: 12, design: .monospaced)).foregroundStyle(.secondary)
                             .textSelection(.enabled)
                     }
-                    Text("把文章和电子书经 Wi‑Fi 送到 Kindle，可选中英对照翻译。").font(.system(size: 12)).foregroundStyle(.secondary)
+                    Text(t("把文章和电子书经 Wi‑Fi 送到 Kindle，可选中英对照翻译。")).font(.system(size: 12)).foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 0)
             }
             HStack(spacing: 8) {
-                AboutButton("检查更新", "arrow.triangle.2.circlepath") { Updater.shared.checkForUpdates() }
-                AboutButton("反馈问题", "ladybug") { NSWorkspace.shared.open(Links.issues) }
-                AboutButton("使用说明", "book") { NSWorkspace.shared.open(Links.site) }
-                AboutButton("源代码", "chevron.left.forwardslash.chevron.right") { NSWorkspace.shared.open(Links.repo) }
+                AboutButton(t("检查更新"), "arrow.triangle.2.circlepath") { Updater.shared.checkForUpdates() }
+                AboutButton(t("反馈问题"), "ladybug") { NSWorkspace.shared.open(Links.issues) }
+                AboutButton(t("使用说明"), "book") { NSWorkspace.shared.open(Links.site) }
+                AboutButton(t("源代码"), "chevron.left.forwardslash.chevron.right") { NSWorkspace.shared.open(Links.repo) }
             }
-            Toggle("自动检查更新（每天一次，有新版时提示你）", isOn: $autoUpdate)
+            Toggle(t("自动检查更新（每天一次，有新版时提示你）"), isOn: $autoUpdate)
                 .toggleStyle(.checkbox).font(.system(size: 12)).foregroundStyle(.secondary)
                 .onChange(of: autoUpdate) { Updater.shared.automaticallyChecks = autoUpdate }
                 .frame(maxWidth: .infinity, alignment: .leading)
             HStack(spacing: 14) {
-                QRCard(image: "wechat-qr.jpg", title: "关注公众号", symbol: "newspaper", hint: "微信搜索「向阳乔木推荐看」")
-                QRCard(image: "reward-qr.png", title: "请我喝杯咖啡", symbol: "cup.and.saucer", hint: "微信扫码，支持持续更新")
+                QRCard(image: "wechat-qr.jpg", title: t("关注公众号"), symbol: "newspaper", hint: t("微信搜索「向阳乔木推荐看」"))
+                QRCard(image: "reward-qr.png", title: t("请我喝杯咖啡"), symbol: "cup.and.saucer", hint: t("微信扫码，支持持续更新"))
             }
             VStack(spacing: 8) {
                 HStack(spacing: 14) {
-                    ForEach([("qiaomu.ai", "https://qiaomu.ai/"), ("博客", "https://blog.qiaomu.ai/"), ("乔木推荐", "https://tuijian.qiaomu.ai/"),
+                    ForEach([("qiaomu.ai", "https://qiaomu.ai/"), (t("博客"), "https://blog.qiaomu.ai/"), (t("乔木推荐"), "https://tuijian.qiaomu.ai/"),
                              ("X", "https://x.com/vista8"), ("GitHub", "https://github.com/joeseesun")], id: \.0) { item in
                         Link(item.0, destination: URL(string: item.1)!).font(.system(size: 12, weight: .medium))
                             .foregroundStyle(Color.primary.opacity(0.75))
                     }
                 }
-                Text("本机排版，经 Wi‑Fi 直传 Kindle。只有翻译时，正文才发给你设置的翻译服务。")
+                Text(t("本机排版，经 Wi‑Fi 直传 Kindle。只有翻译时，正文才发给你设置的翻译服务。"))
                     .font(.system(size: 11)).foregroundStyle(.secondary).multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
-                Text("© \(String(Calendar.current.component(.year, from: Date()))) 向阳乔木 · MIT 许可 · 基于 chasepal/kindle-push-macos\n第三方许可见 THIRD_PARTY_NOTICES.md")
+                Text(t("© \(String(Calendar.current.component(.year, from: Date()))) 向阳乔木 · MIT 许可 · 基于 chasepal/kindle-push-macos\n第三方许可见 THIRD_PARTY_NOTICES.md"))
                     .font(.system(size: 11)).foregroundStyle(.tertiary).multilineTextAlignment(.center)
             }
         }
@@ -108,6 +108,6 @@ struct AboutMenuButton: View {
     @ObservedObject var store: PushStore
     @Environment(\.openSettings) private var openSettings
     var body: some View {
-        Button("关于 乔木 Kindle 助手") { store.settingsTab = .about; openSettings() }
+        Button(t("关于 乔木 Kindle 助手")) { store.settingsTab = .about; openSettings() }
     }
 }

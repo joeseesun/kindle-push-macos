@@ -19,22 +19,22 @@ struct RenameSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 6) {
-                Text("整理文件名").font(.title2.weight(.semibold))
-                Text("去掉 z-library 等来源标记、杂乱分隔符和版本年份后缀。只改文件名，书的内容不变。")
+                Text(t("整理文件名")).font(.title2.weight(.semibold))
+                Text(t("去掉 z-library 等来源标记、杂乱分隔符和版本年份后缀。只改文件名，书的内容不变。"))
                     .font(.callout).foregroundStyle(.secondary)
             }
             .padding(.bottom, 16)
 
             HStack(spacing: 14) {
-                Picker("书名提取方式", selection: $smart) {
-                    Text("智能精简").tag(true)
-                    Text("保守清理").tag(false)
+                Picker(t("书名提取方式"), selection: $smart) {
+                    Text(t("智能精简")).tag(true)
+                    Text(t("保守清理")).tag(false)
                 }
                 .pickerStyle(.segmented).labelsHidden().fixedSize()
-                Toggle("加上作者", isOn: $withAuthor).toggleStyle(.checkbox)
+                Toggle(t("加上作者"), isOn: $withAuthor).toggleStyle(.checkbox)
                 Spacer()
             }
-            Text(smart ? "只留主书名：去掉副标题，以及书名后括号里的作者、出版社等说明。" : "保留副标题，只去掉来源标记、多余符号和版本后缀。")
+            Text(smart ? t("只留主书名：去掉副标题，以及书名后括号里的作者、出版社等说明。") : t("保留副标题，只去掉来源标记、多余符号和版本后缀。"))
                 .font(.caption).foregroundStyle(.secondary).padding(.top, 6).padding(.bottom, 12)
 
             ScrollView {
@@ -51,11 +51,11 @@ struct RenameSheet: View {
             .overlay { if loading { ProgressView().controlSize(.small) } }
 
             HStack(spacing: 10) {
-                Text("根据书里的书名和文件名推断，难免出错，确认后再重命名。")
+                Text(t("根据书里的书名和文件名推断，难免出错，确认后再重命名。"))
                     .font(.caption).foregroundStyle(.tertiary)
                 Spacer()
-                Button("取消") { dismiss() }.keyboardShortcut(.cancelAction)
-                Button(changes.isEmpty ? "重命名" : "重命名 \(changes.count) 个文件") { apply() }
+                Button(t("取消")) { dismiss() }.keyboardShortcut(.cancelAction)
+                Button(changes.isEmpty ? t("重命名") : t("重命名 \(changes.count) 个文件")) { apply() }
                     .buttonStyle(.ink).keyboardShortcut(.defaultAction).disabled(changes.isEmpty)
             }
             .padding(.top, 16)
@@ -79,14 +79,14 @@ struct RenameSheet: View {
                     .font(.caption).foregroundStyle(.secondary)
                     .lineLimit(1).truncationMode(.middle).help(article.path)
                 HStack(spacing: 2) {
-                    TextField("文件名", text: Binding(get: { names[article.id] ?? "" },
+                    TextField(t("文件名"), text: Binding(get: { names[article.id] ?? "" },
                                                     set: { names[article.id] = $0; chosen.insert(article.id) }))
                         .textFieldStyle(.plain).font(.body.weight(.medium))
                     Text(suffix).font(.body).foregroundStyle(.tertiary)
                 }
             }
             if !changed && !loading {
-                Text("已经很干净").font(.caption).foregroundStyle(.tertiary).fixedSize()
+                Text(t("已经很干净")).font(.caption).foregroundStyle(.tertiary).fixedSize()
             }
         }
         .padding(.horizontal, 12).padding(.vertical, 8)
@@ -125,9 +125,9 @@ struct RenameSheet: View {
         let count = changes.count
         let failed = store.rename(changes)
         if failed.isEmpty {
-            store.notice = "已重命名 \(count) 个文件。"; store.isError = false
+            store.notice = t("已重命名 \(count) 个文件。"); store.isError = false
         } else {
-            store.notice = "\(failed.count) 个文件没能重命名（可能已被移动或没有权限）：\(failed.joined(separator: "、"))"
+            store.notice = t("\(failed.count) 个文件没能重命名（可能已被移动或没有权限）：\(failed.joined(separator: "、"))")
             store.isError = true
         }
         dismiss()

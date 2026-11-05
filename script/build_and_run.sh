@@ -35,6 +35,10 @@ cp "$ROOT_DIR/mac-app/Assets/AppIcon.icns" "$CONTENTS/Resources/AppIcon.icns"
 # About tab: QR codes (bundled so they work offline) and third-party licenses.
 rm -rf "$CONTENTS/Resources/About"; cp -R "$ROOT_DIR/mac-app/Assets/About" "$CONTENTS/Resources/About"
 cp "$ROOT_DIR/THIRD_PARTY_NOTICES.md" "$ROOT_DIR/LICENSE" "$CONTENTS/Resources/"
+# English interface (see I18n.swift). en.lproj makes macOS treat the app as localized, so its own menu follows.
+cp "$ROOT_DIR/mac-app/Assets/i18n/en.tsv" "$CONTENTS/Resources/en.tsv"
+mkdir -p "$CONTENTS/Resources/en.lproj" "$CONTENTS/Resources/zh-Hans.lproj"
+cp "$ROOT_DIR/mac-app/Assets/i18n/InfoPlist.strings" "$CONTENTS/Resources/en.lproj/InfoPlist.strings"
 # Ink accent (no system blue). Compiled from mac-app/Assets/Colors.xcassets by script/make_assets.sh.
 cp "$ROOT_DIR/mac-app/Assets/Assets.car" "$CONTENTS/Resources/Assets.car"
 # Python and Pandoc, so nothing has to be installed. A release must have them (./script/fetch_runtime.sh);
@@ -57,8 +61,8 @@ cat > "$CONTENTS/Info.plist" <<'PLIST'
 <key>CFBundleName</key><string>乔木 Kindle 助手</string>
 <key>CFBundleDisplayName</key><string>乔木 Kindle 助手</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>1.16.0</string>
-<key>CFBundleVersion</key><string>22</string>
+<key>CFBundleShortVersionString</key><string>1.17.0</string>
+<key>CFBundleVersion</key><string>23</string>
 <key>SUFeedURL</key><string>https://github.com/joeseesun/kindle-push-macos/releases/latest/download/appcast.xml</string>
 <key>SUPublicEDKey</key><string>ftyDAv8Qvb8tv4nf5jnMWtCgIi9yVI2IM6p+qhrKz90=</string>
 <key>SUEnableAutomaticChecks</key><true/>
@@ -66,6 +70,7 @@ cat > "$CONTENTS/Info.plist" <<'PLIST'
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>NSAccentColorName</key><string>AccentColor</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
+<key>CFBundleLocalizations</key><array><string>zh-Hans</string><string>en</string></array>
 <key>NSPrincipalClass</key><string>NSApplication</string>
 <key>NSHighResolutionCapable</key><true/>
 <key>NSLocalNetworkUsageDescription</key><string>在当前 Wi-Fi 中寻找已配对 Kindle 并发送你选择的文章。</string>

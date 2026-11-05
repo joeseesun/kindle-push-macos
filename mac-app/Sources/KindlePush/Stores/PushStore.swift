@@ -976,6 +976,7 @@ final class PushStore: ObservableObject {
 
     /// "1.2 万", for tokens; nobody needs the digits of a rough count.
     nonisolated static func tokenText(_ count: Int) -> String {
+        if I18n.english { return count < 1000 ? "\(count)" : count < 1_000_000 ? "\(count / 1000)k" : String(format: "%.1fM", Double(count) / 1_000_000) }
         if count < 10_000 { return "\(count)" }
         let wan = Double(count) / 10_000
         return wan < 10 ? String(format: "%.1f 万", wan) : "\(Int(wan.rounded())) 万"

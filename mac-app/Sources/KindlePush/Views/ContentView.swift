@@ -41,15 +41,15 @@ struct ContentView: View {
         } isTargeted: { targeted = $0 }
         .animation(.easeOut(duration: 0.2), value: store.undecided.map(\.id))
         .frame(minWidth: 560, minHeight: 480)
-        .navigationTitle("乔木 Kindle 助手")
+        .navigationTitle(t("乔木 Kindle 助手"))
         .navigationSubtitle(subtitle)
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 ConnectionButton(store: store)
                 HistoryButton(store: store)
-                Button { store.showPicker = true } label: { Label("添加文章", systemImage: "plus") }
-                    .help("添加文章或电子书（⌘O）")
-                SettingsLink { Label("翻译设置", systemImage: "gearshape") }.help("翻译设置（⌘,）")
+                Button { store.showPicker = true } label: { Label(t("添加文章"), systemImage: "plus") }
+                    .help(t("添加文章或电子书（⌘O）"))
+                SettingsLink { Label(t("翻译设置"), systemImage: "gearshape") }.help(t("翻译设置（⌘,）"))
             }
         }
         .fileImporter(isPresented: $store.showPicker,
@@ -64,14 +64,14 @@ struct ContentView: View {
             RenameSheet(store: store, ids: store.renameIDs)
         }
         .confirmationDialog(
-            "重新翻译《\(store.articles.first { $0.id == store.confirmRetranslate }?.title ?? "")》？",
+            t("重新翻译《\(store.articles.first { $0.id == store.confirmRetranslate }?.title ?? "")》？"),
             isPresented: Binding(get: { store.confirmRetranslate != nil }, set: { if !$0 { store.confirmRetranslate = nil } })
         ) {
-            Button("重新翻译") {
+            Button(t("重新翻译")) {
                 if let id = store.confirmRetranslate { Task { await store.retranslate(id) } }
             }
         } message: {
-            Text("已有的译文和进度会丢弃，整本从头翻译，会再次用掉模型额度。原书不变。只是出错想接着翻，用「重试」就好，已译好的部分不重复计费。")
+            Text(t("已有的译文和进度会丢弃，整本从头翻译，会再次用掉模型额度。原书不变。只是出错想接着翻，用「重试」就好，已译好的部分不重复计费。"))
         }
         .sheet(isPresented: $store.showAddKindle, onDismiss: { store.upgrading = nil }) { AddKindleSheet(store: store) }
         .task { await store.start() }
@@ -82,34 +82,34 @@ struct ContentView: View {
         if store.translation.running {
             let working = store.articles.first { $0.status == "翻译中" }
             parts.append(store.translation.total <= 1
-                ? working?.progress.map { "正在翻译 · \(Int(($0 * 100).rounded()))%" } ?? "正在翻译"
-                : "翻译 \(store.translation.completed) / \(store.translation.total)")
+                ? working?.progress.map { t("正在翻译 · \(Int(($0 * 100).rounded()))%") } ?? t("正在翻译")
+                : t("翻译 \(store.translation.completed) / \(store.translation.total)"))
         }
-        if store.quick.running { parts.append("发送 \(store.quick.completed) / \(store.quick.total)") }
+        if store.quick.running { parts.append(t("发送 \(store.quick.completed) / \(store.quick.total)")) }
         if !parts.isEmpty { return parts.joined(separator: " · ") }
-        if store.pendingCount > 0 { return "\(store.pendingCount) 篇待发送" }
-        return store.articles.isEmpty ? "" : "全部已送达"
+        if store.pendingCount > 0 { return t("\(store.pendingCount) 篇待发送") }
+        return store.articles.isEmpty ? "" : t("全部已送达")
     }
 
     private var listHeader: some View {
         HStack(spacing: 6) {
-            Text("文章").font(.headline)
-            Text("待发送 \(store.pendingCount) · 已送达 \(store.sentCount)")
+            Text(t("文章")).font(.headline)
+            Text(t("待发送 \(store.pendingCount) · 已送达 \(store.sentCount)"))
                 .font(.callout).foregroundStyle(.secondary).monospacedDigit()
             if store.sentCount > 0 {
                 // Right beside the count it clears; a word, not an icon that could read as "delete".
                 Text("·").font(.callout).foregroundStyle(.tertiary)
-                Button("清除") { store.clearSent() }
+                Button(t("清除")) { store.clearSent() }
                     .buttonStyle(.inkLink).font(.callout)
-                    .help("把 \(store.sentCount) 本已送达的书移出列表，不删除文件；发送历史里还能找到")
+                    .help(t("把 \(store.sentCount) 本已送达的书移出列表，不删除文件；发送历史里还能找到"))
             }
             Spacer()
             Button { store.tidyNames(selection) } label: {
-                Label(selection.count > 1 ? "整理 \(selection.count) 个文件名" : "整理文件名", systemImage: "wand.and.sparkles")
+                Label(selection.count > 1 ? t("整理 \(selection.count) 个文件名") : t("整理文件名"), systemImage: "wand.and.sparkles")
             }
             .buttonStyle(.tool)
-            .help(selection.count > 1 ? "整理选中的 \(selection.count) 个文件名：去掉来源标记、杂乱分隔符和版本后缀，预览后再改名"
-                                      : "整理文件名：去掉来源标记、杂乱分隔符和版本后缀，预览后再改名")
+            .help(selection.count > 1 ? t("整理选中的 \(selection.count) 个文件名：去掉来源标记、杂乱分隔符和版本后缀，预览后再改名")
+                                      : t("整理文件名：去掉来源标记、杂乱分隔符和版本后缀，预览后再改名"))
         }
         .padding(.horizontal, 20).padding(.top, 14).padding(.bottom, 4)
     }
@@ -126,22 +126,22 @@ private struct TranslationPrompt: View {
         let ids = Set(books.map(\.id))
         HStack(spacing: 10) {
             Image(systemName: "character.book.closed").foregroundStyle(.secondary)
-            Text("有 \(books.count) 本\(source.isEmpty ? "外文" : Lang.name(source))书，要翻译成\(Lang.name(store.targetLanguage))吗？")
+            Text(t("有 \(books.count) 本\(source.isEmpty ? "外文" : Lang.name(source))书，要翻译成\(Lang.name(store.targetLanguage))吗？"))
                 .font(.callout.weight(.medium)).lineLimit(1).truncationMode(.tail)
             Spacer(minLength: 8)
             Button(OutputMode.bilingual.title(from: source, to: store.targetLanguage)) { store.choose(.bilingual, for: ids) }
                 .buttonStyle(.inkOutline).controlSize(.small)
-                .help("原文和译文逐段对照")
+                .help(t("原文和译文逐段对照"))
             Button(OutputMode.targetOnly.title(from: source, to: store.targetLanguage)) { store.choose(.targetOnly, for: ids) }
                 .buttonStyle(.inkOutline).controlSize(.small)
-                .help("只保留译文")
-            Button("不用，发原文") { store.choose(.original, for: ids) }
+                .help(t("只保留译文"))
+            Button(t("不用，发原文")) { store.choose(.original, for: ids) }
                 .buttonStyle(.inkLink).font(.callout)
         }
         .fixedSize(horizontal: false, vertical: true)
         .padding(.horizontal, 12).padding(.vertical, 9)
         .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .help("每本书行尾的标签可以单独改。想以后不再问，在翻译设置 › 语言里选「外文书默认」")
+        .help(t("每本书行尾的标签可以单独改。想以后不再问，在翻译设置 › 语言里选「外文书默认」"))
     }
 }
 
@@ -153,12 +153,12 @@ private struct AddMoreRow: View {
             Image(systemName: "plus").font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary)
                 .frame(width: 40)
             VStack(alignment: .leading, spacing: 2) {
-                Text("拖入更多文章或电子书").font(.callout.weight(.medium))
-                Text("拖到窗口任意位置，或用右上角 ＋（⌘O）。右键一本书可打开、在访达中显示或放回待发送。")
+                Text(t("拖入更多文章或电子书")).font(.callout.weight(.medium))
+                Text(t("拖到窗口任意位置，或用右上角 ＋（⌘O）。右键一本书可打开、在访达中显示或放回待发送。"))
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 8)
-            Button("选择文件…") { store.showPicker = true }.buttonStyle(.inkLink).font(.callout)
+            Button(t("选择文件…")) { store.showPicker = true }.buttonStyle(.inkLink).font(.callout)
         }
         .padding(.horizontal, 10).padding(.vertical, 12)
         .background {
@@ -177,7 +177,7 @@ private struct DropOverlay: View {
             .fill(Color.ink.opacity(0.07))
             .strokeBorder(Color.ink.opacity(0.6), style: StrokeStyle(lineWidth: 1.5, dash: [7, 5]))
             .overlay {
-                Label("松手，加入发送列表", systemImage: "arrow.down.doc")
+                Label(t("松手，加入发送列表"), systemImage: "arrow.down.doc")
                     .font(.headline).foregroundStyle(Color.ink)
                     .padding(.horizontal, 16).padding(.vertical, 9)
                     .background(.regularMaterial, in: Capsule())
@@ -194,24 +194,24 @@ private struct EmptyStateView: View {
         VStack(spacing: 0) {
             Spacer(minLength: 24)
             ReaderGlyph(lifted: targeted)
-            Text(targeted ? "松手，交给 Kindle" : "把文章留给慢读")
+            Text(targeted ? t("松手，交给 Kindle") : t("把文章留给慢读"))
                 .font(.system(size: 26, weight: .semibold, design: .serif))
                 .padding(.top, 26)
                 .contentTransition(.opacity)
-            Text("拖入文章或电子书：翻译成任意语言，保存到本机，或经 Wi‑Fi 送到 Kindle。")
+            Text(t("拖入文章或电子书：翻译成任意语言，保存到本机，或经 Wi‑Fi 送到 Kindle。"))
                 .font(.callout).foregroundStyle(.secondary).padding(.top, 8)
             Text("EPUB · PDF · MOBI · AZW3 · FB2 · DjVu · CBZ · TXT · Word · HTML · Markdown")
-                .help("KOReader 能打开的格式都支持：EPUB、PDF、XPS、DjVu、CBZ/CBR/CBT、MOBI/AZW/AZW3/PRC/PDB、FB2/FB3、CHM、DOC/DOCX/ODT/RTF、TXT、HTML、Markdown、图片")
+                .help(t("KOReader 能打开的格式都支持：EPUB、PDF、XPS、DjVu、CBZ/CBR/CBT、MOBI/AZW/AZW3/PRC/PDB、FB2/FB3、CHM、DOC/DOCX/ODT/RTF、TXT、HTML、Markdown、图片"))
                 .font(.caption).foregroundStyle(.tertiary).padding(.top, 6)
-            Button("选择文件…") { store.showPicker = true }.buttonStyle(.ink)
+            Button(t("选择文件…")) { store.showPicker = true }.buttonStyle(.ink)
                 .controlSize(.large).padding(.top, 22)
             Spacer(minLength: 24)
             HStack(spacing: 10) {
-                Step(number: 1, text: "拖入文章")
+                Step(number: 1, text: t("拖入文章"))
                 Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
-                Step(number: 2, text: "本机排版")
+                Step(number: 2, text: t("本机排版"))
                 Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
-                Step(number: 3, text: "在「我的文章」阅读")
+                Step(number: 3, text: t("在「我的文章」阅读"))
             }
             .padding(.bottom, 22)
         }

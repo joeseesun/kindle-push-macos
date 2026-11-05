@@ -13,8 +13,8 @@ enum Notify {
         guard !NSApp.isActive else { return }
         NSApp.requestUserAttention(.informationalRequest)
         let content = UNMutableNotificationContent()
-        content.title = title
-        content.body = body
+        content.title = t(title)
+        content.body = t(body)
         content.sound = .default
         UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
     }
