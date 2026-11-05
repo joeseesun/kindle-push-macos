@@ -36,6 +36,7 @@ NATIVE = {'.pdf', '.xps', '.djvu', '.djv', '.cbz', '.cbr', '.cbt',
           '.png', '.jpg', '.jpeg', '.gif', '.webp', '.tif', '.tiff'}
 MOBI = {'.mobi', '.azw', '.azw3', '.prc'}
 RECEIVER_VERSIONS = {b'kindle-push-v1', b'kindle-push-v2'}
+RECEIVER_LATEST = b'kindle-push-v2'
 SUPPORTED = {'.epub'} | MARKDOWN | set(DOCUMENTS) | NATIVE
 CHAPTER = re.compile(r'^\s*(第[0-9０-９零〇一二三四五六七八九十百千万两]+[章节回卷部集篇幕]|序章|序言|楔子|引子|尾声|后记|番外|(chapter|part)\s+[0-9ivxlc]+\b)', re.I)
 

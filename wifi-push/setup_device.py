@@ -141,6 +141,18 @@ def pair_host(host, name=''):
     print('配对成功。现在可以打开 乔木 Kindle 助手.app，之后换 Wi-Fi 不需要重新插 USB。')
 
 
+LAB126 = 0x1949  # Amazon's USB vendor id
+
+
+def kindle_plugged():
+    """A Kindle on the USB bus, mounted or not. It stays unmounted until it leaves KOReader."""
+    try:
+        listing = subprocess.run(['/usr/sbin/ioreg', '-p', 'IOUSB', '-l', '-w0'], capture_output=True, text=True, timeout=5).stdout
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return f'"idVendor" = {LAB126}' in listing
+
+
 def kindle_volumes():
     """Mounted Kindles with KOReader, and whether this Mac's receiver is already written to each."""
     found = []
@@ -153,7 +165,12 @@ def kindle_volumes():
         auth = root / 'settings/SSH/authorized_keys'
         installed = bool(blob) and (root / 'settings/SSH/kindle-receive.sh').is_file() and auth.is_file() \
             and any(blob in line.split() for line in auth.read_text(errors='ignore').splitlines())
-        found.append({'path': str(mount), 'name': mount.name, 'ready': (root / 'dropbear').is_file(), 'installed': installed})
+        # Written by an earlier version: offer to write it again instead of reporting it as done.
+        current = Path(__file__).with_name('kindle-receive.sh').read_bytes()
+        script = root / 'settings/SSH/kindle-receive.sh'
+        outdated = installed and script.read_bytes() != current
+        found.append({'path': str(mount), 'name': mount.name, 'ready': (root / 'dropbear').is_file(),
+                      'installed': installed and not outdated, 'outdated': outdated})
     return found
 
 

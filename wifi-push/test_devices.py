@@ -125,6 +125,14 @@ class DeviceListTests(unittest.TestCase):
             ssh.assert_not_called()
         self.assertEqual(devices.load()[0], [])
 
+    def test_kindle_on_usb_is_noticed_before_it_mounts(self):
+        with patch.object(setup.subprocess, 'run', return_value=setup.subprocess.CompletedProcess([], 0, stdout='  "idVendor" = 6473\n')):
+            self.assertTrue(setup.kindle_plugged())
+        with patch.object(setup.subprocess, 'run', return_value=setup.subprocess.CompletedProcess([], 0, stdout='  "idVendor" = 1086\n')):
+            self.assertFalse(setup.kindle_plugged())
+        with patch.object(setup.subprocess, 'run', side_effect=OSError):
+            self.assertFalse(setup.kindle_plugged())
+
     def test_kindle_volumes_reports_receiver_state(self):
         volumes = self.data / 'Volumes'
         kindle = volumes / 'Kindle'
@@ -136,10 +144,16 @@ class DeviceListTests(unittest.TestCase):
         (self.data / 'id_ed25519.pub').write_text('ssh-ed25519 KEYBLOB kindle-push-macos\n')
         real = setup.Path
         with patch.object(setup, 'Path', side_effect=lambda p, *a: volumes if p == '/Volumes' else real(p, *a)):
-            self.assertEqual(setup.kindle_volumes(), [{'path': str(kindle), 'name': 'Kindle', 'ready': True, 'installed': False}])
-            (kindle / 'koreader/settings/SSH/kindle-receive.sh').write_text('#!/bin/sh')
+            self.assertEqual(setup.kindle_volumes(), [{'path': str(kindle), 'name': 'Kindle', 'ready': True, 'installed': False, 'outdated': False}])
+            script = kindle / 'koreader/settings/SSH/kindle-receive.sh'
+            script.write_text('#!/bin/sh')
             (kindle / 'koreader/settings/SSH/authorized_keys').write_text('command="x" ssh-ed25519 KEYBLOB kindle-push-macos\n')
-            self.assertTrue(setup.kindle_volumes()[0]['installed'])
+            # Written by an earlier version: can be written again, not reported as done.
+            volume = setup.kindle_volumes()[0]
+            self.assertEqual((volume['installed'], volume['outdated']), (False, True))
+            script.write_bytes(real(setup.__file__).with_name('kindle-receive.sh').read_bytes())
+            volume = setup.kindle_volumes()[0]
+            self.assertEqual((volume['installed'], volume['outdated']), (True, False))
 
 
 if __name__ == '__main__':

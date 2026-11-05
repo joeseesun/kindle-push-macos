@@ -5,6 +5,29 @@ import app_bridge as bridge
 
 
 class DiscoveryTests(unittest.TestCase):
+    def test_device_list_reports_a_receiver_behind_the_current_one(self):
+        known = [{'id': 'k1', 'name': 'A', 'alias': 'kindle-push', 'key': 'a', 'host': '192.168.1.2'},
+                 {'id': 'k2', 'name': 'B', 'alias': 'kindle-push-2', 'key': 'b', 'host': '192.168.1.3'},
+                 {'id': 'k3', 'name': 'C', 'alias': 'kindle-push-3', 'key': 'c', 'host': '192.168.1.4'},
+                 {'id': 'k4', 'name': 'D', 'alias': 'kindle-push-4', 'key': 'd', 'host': '192.168.1.5'}]
+        answers = {'k1': b'kindle-push-v1', 'k2': b'kindle-push-v2', 'k3': ValueError('asleep')}
+        def ping(host, device):
+            answer = answers[device['id']]
+            if isinstance(answer, Exception):
+                raise answer
+            return answer
+        with patch.object(bridge.dv, 'load', return_value=(known, 'k1')), \
+             patch.object(bridge.dv, 'selected', return_value=['k1']), \
+             patch.object(bridge, 'reachable', side_effect=lambda host, timeout: host != '192.168.1.5'), \
+             patch.object(bridge, 'identify', side_effect=lambda host, devices: devices[0]), \
+             patch.object(bridge, 'ping', side_effect=ping):
+            listed = {d['id']: d for d in bridge.device_list()}
+        self.assertTrue(listed['k1']['outdated'])
+        self.assertFalse(listed['k2']['outdated'])
+        # Asleep or away: not known to be behind, so no warning.
+        self.assertFalse(listed['k3']['outdated'])
+        self.assertFalse(listed['k4']['outdated'])
+
     def device(self, id, host=''):
         return {'id': id, 'name': id.upper(), 'alias': 'kindle-push', 'key': 'key-' + id, 'host': host}
 
@@ -150,6 +173,7 @@ class DiscoveryTests(unittest.TestCase):
 
     def test_fallback_to_another_kindle_is_announced(self):
         with patch.object(bridge.dv, 'current', return_value=self.B), \
+             patch.object(bridge.dv, 'selected', return_value=['k2']), \
              patch.object(bridge, 'discover', return_value=('192.168.1.10', self.A)):
             result = bridge.handle(['discover'])
         self.assertEqual(result['deviceId'], 'k1')

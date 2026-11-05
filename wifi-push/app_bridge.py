@@ -245,7 +245,20 @@ def device_list(full_scan=False):
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
             online = {d['id'] for d, ok in zip(known, pool.map(here, known)) if ok}
     targets = dv.selected()
-    return [dv.public(d, chosen, d['id'] in online, targets) for d in known]
+
+    def behind(device):
+        """Whether this Kindle's receiver predates the current one. Unknown counts as no."""
+        if device['id'] not in online or not device.get('host'):
+            return False
+        try:
+            version = ping(device['host'], device)
+        except (ValueError, OSError, subprocess.SubprocessError):
+            return False
+        return version in kp.RECEIVER_VERSIONS and version != kp.RECEIVER_LATEST
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+        outdated = list(pool.map(behind, known))
+    return [dv.public(d, chosen, d['id'] in online, targets, old) for d, old in zip(known, outdated)]
 
 
 def select(device_id):
@@ -332,7 +345,7 @@ def handle(args):
             with contextlib.redirect_stdout(io.StringIO()):
                 setup.install_usb(Path(args[1]))
         if command in {'usb-volumes', 'usb-install'}:
-            return {'ok': True, 'volumes': setup.kindle_volumes()}
+            return {'ok': True, 'volumes': setup.kindle_volumes(), 'plugged': setup.kindle_plugged()}
         if command == 'find-new':
             return {'ok': True, 'candidates': unpaired(args[1] if len(args) > 1 else None)}
         return connected(*(lambda d: (d['host'], d))(setup.pair(args[1], args[2], args[3] if len(args) > 3 else '')),

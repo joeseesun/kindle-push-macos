@@ -165,10 +165,12 @@ def clean_name(name):
     return re.sub(r'\s+', ' ', name or '').strip()[:30]
 
 
-def public(device, chosen=None, online=None, targets=None):
+def public(device, chosen=None, online=None, targets=None, outdated=False):
     item = {'id': device['id'], 'name': device['name'], 'host': device.get('host', ''),
             'current': device['id'] == chosen,
             'selected': device['id'] in targets if targets is not None else device['id'] == chosen}
     if online is not None:
         item['online'] = online
+    # Only a Kindle that answered can be known to be behind.
+    item['outdated'] = outdated
     return item
