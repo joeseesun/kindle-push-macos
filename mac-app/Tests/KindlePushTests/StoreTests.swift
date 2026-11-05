@@ -138,3 +138,15 @@ final class StoreTests: XCTestCase {
         XCTAssertEqual(PushStore.tokenText(1_260_000), "1.3M")
     }
 }
+
+final class LocalNetworkTests: XCTestCase {
+    func testPrivateAddressesMayUsePlainHTTP() {
+        for host in ["localhost", "127.0.0.1", "::1", "192.168.31.151", "10.0.0.5", "172.20.1.2", "100.101.1.2",
+                     "169.254.3.4", "nas.local", "nas", "fd00::5", "[fe80::1]"] {
+            XCTAssertTrue(LocalNetwork.contains(host), host)
+        }
+        for host in ["172.32.0.1", "8.8.8.8", "api.example.com", "192.169.1.1", "100.128.0.1", "2001:db8::1", ""] {
+            XCTAssertFalse(LocalNetwork.contains(host), host)
+        }
+    }
+}

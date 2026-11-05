@@ -208,6 +208,14 @@ class TranslationTests(unittest.TestCase):
         for value in ['http://example.com/v1', 'https://user:secret@example.com', 'https://example.com?key=secret']:
             with self.assertRaises(ValueError): tr.endpoint(value)
         self.assertEqual(tr.endpoint('http://localhost:11434/v1/'), 'http://localhost:11434/v1')
+        # A model server elsewhere on the same private network is usually plain http.
+        for value in ['http://192.168.31.151:8888/v1', 'http://10.0.0.5:11434/v1', 'http://172.20.1.2/v1',
+                      'http://100.101.1.2:1234/v1', 'http://nas.local:11434/v1', 'http://nas:11434/v1', 'http://[fd00::5]:8080/v1']:
+            self.assertEqual(tr.endpoint(value), value.rstrip('/'))
+        for value in ['http://172.32.0.1/v1', 'http://8.8.8.8/v1', 'http://api.example.com/v1', 'http://192.169.1.1/v1']:
+            with self.assertRaises(ValueError): tr.endpoint(value)
+        self.assertTrue(tr.is_local('http://192.168.31.151:8888/v1'))
+        self.assertFalse(tr.is_local('https://api.deepseek.com/v1'))
 
     def test_changed_endpoint_never_inherits_old_api_key(self):
         with patch.object(tr.subprocess, 'run', return_value=subprocess.CompletedProcess([], 1)):

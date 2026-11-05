@@ -77,7 +77,6 @@ USB 首次配置尚未完成。	First-time USB setup is not finished.
 书名提取方式	How to extract the title
 书籍	Book
 书籍正文会发给{}{}，按用量计费。API Key 存在 macOS 钥匙串里，换服务要填对应的 Key。	The book's text is sent to{}{} and billed by usage. The API key stays in the macOS Keychain. A different service needs its own key.
-云端服务必须使用 HTTPS；本机服务可以使用 HTTP。	Cloud services must use HTTPS. Local ones can use HTTP.
 仅	Only
 仅{}	{} only
 仅译文	Translation only
@@ -297,7 +296,6 @@ USB 首次配置尚未完成。	First-time USB setup is not finished.
 无法把这个 PDF 转成 Kindle 能收的格式。	Can't convert this PDF to a format the Kindle takes.
 无法识别 KOReader settings.reader.lua；未修改该文件。	Can't read KOReader's settings.reader.lua. The file was not changed.
 无法识别文本编码，请另存为 UTF-8 后再试。	Can't detect the text encoding. Save it as UTF-8 and try again.
-无法读取翻译 API Key，请在翻译设置中保存，或解锁 macOS 钥匙串。	Can't read the translation API key. Save it in Translation Settings, or unlock the macOS Keychain.
 无法读取配置。	Can't read the settings.
 日	Japanese
 日文	Japanese
@@ -629,7 +627,6 @@ USB 首次配置尚未完成。	First-time USB setup is not finished.
 不是{}的书，会在列表上方问你要不要翻译。	Books not in {} ask above the list whether to translate them.
 不是{}的书，拖进来就标为「{}」。	Books not in {} are marked “{}” when added.
 每本书行尾的标签可以单独改。	The tag at the end of each row changes one book.
-现在还在用{}。这个 Key 能用后，才换成{}。	Still using {}. It switches to {} once this key works.
 粘贴后会自动检查，能用就保存。	Checked as you paste, and saved if it works.
 {} 不认这个 Key。看看是不是没复制全，或者不是这个服务的 Key。	{} turned this key down. Check it was copied in full and is for this service.
 Key 能用后，会自动列出模型。	Models appear once the key works.
@@ -675,3 +672,13 @@ EPUB、Word、TXT 照常能发，PDF 会转成图片。要发 MOBI、DjVu、漫�
 改动会自动保存	Changes save automatically
 翻译并保存	Translate & Save
 翻译并发送	Translate & Send
+云端服务要用 https://；本机和局域网里的服务可以用 http://。	Cloud services need https://. Services on this Mac or your local network can use http://.
+翻译服务还没有 API Key：在设置 › 翻译服务里粘贴一个。	The translation service has no API key yet. Paste one in Settings › Translation Service.
+读不到翻译 API Key：请解锁 macOS 钥匙串后重试。	Could not read the translation API key. Unlock the macOS Keychain and try again.
+这个地址用不了：云端服务要用 https://，本机和局域网里的服务可以用 http://。	This address will not work. Cloud services need https://; services on this Mac or your local network can use http://.
+现在还在用{}。{}后，才换成{}。	Still using {}. {} first, then it switches to {}.
+选好模型	Choose a model
+登录 ChatGPT	Sign in to ChatGPT
+填好服务地址	Enter the address
+填好能用的 Key	Add a working key
+正文发给你局域网里的这台机器，不出这个网络，也不按用量付费。	Text goes to that machine on your local network. It never leaves the network and is not billed.
