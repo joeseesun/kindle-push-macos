@@ -2,6 +2,7 @@
 .build/
 .swiftpm/
 dist/
+dist-*/
 release/
 __pycache__/
 *.pyc

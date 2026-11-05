@@ -55,7 +55,7 @@ GitHub release 发布（标为 Latest）后运行：
 
 版本定义在 `script/build_and_run.sh` 的 Info.plist 模板中：`CFBundleShortVersionString` 和 `CFBundleVersion`。主界面从 bundle 读取版本。
 
-目前只提供 arm64 实测包。Intel 用户可尝试在 Intel Mac 本地构建，依赖路径已兼容 `/usr/local/bin`，但不能视为完成实机测试。
+发版要打两个包：先 `./script/package_release.sh`，再 `KINDLE_ARCH=x86_64 ./script/package_release.sh`，额外产出 `KindlePush-Intel.dmg` 和 `appcast-intel.xml`，都要上传。Intel 版有自己的更新源。这个包只验证了架构、签名和公证，没有在 Intel Mac 上运行过。
 
 图标使用内置 imagegen 生成，原始 PNG、ICNS、提示词位于 `mac-app/Assets`。
 

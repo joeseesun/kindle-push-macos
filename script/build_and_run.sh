@@ -4,8 +4,12 @@ MODE="${1:-run}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # Built aside and swapped in at the end. Never write into the bundle in place: overwriting the
 # binary of a copy that is running makes macOS kill it (SIGKILL, Code Signature Invalid).
-FINAL_BUNDLE="$ROOT_DIR/mac-app/dist/乔木 Kindle 助手.app"
-STAGE="$ROOT_DIR/mac-app/dist/.staging"
+# KINDLE_ARCH=x86_64 builds the Intel version from an Apple silicon Mac, in a folder of its own.
+TARGET_ARCH="${KINDLE_ARCH:-$(/usr/bin/uname -m)}"
+DIST="$ROOT_DIR/mac-app/dist"
+if [ "$TARGET_ARCH" != "$(/usr/bin/uname -m)" ]; then DIST="$ROOT_DIR/mac-app/dist-$TARGET_ARCH"; fi
+FINAL_BUNDLE="$DIST/乔木 Kindle 助手.app"
+STAGE="$DIST/.staging"
 rm -rf "$STAGE"; mkdir -p "$STAGE"
 APP_BUNDLE="$STAGE/乔木 Kindle 助手.app"
 CONTENTS="$APP_BUNDLE/Contents"
@@ -18,8 +22,8 @@ if [ "$BUILD_CONFIGURATION" = "release" ]; then
 else
     SWIFT_FLAGS+=(-Xswiftc -debug-prefix-map -Xswiftc "$ROOT_DIR=.")
 fi
-swift build -c "$BUILD_CONFIGURATION" "${SWIFT_FLAGS[@]}"
-BUILD_DIR="$(swift build -c "$BUILD_CONFIGURATION" --show-bin-path)"
+swift build -c "$BUILD_CONFIGURATION" --arch "$TARGET_ARCH" "${SWIFT_FLAGS[@]}"
+BUILD_DIR="$(swift build -c "$BUILD_CONFIGURATION" --arch "$TARGET_ARCH" --show-bin-path)"
 mkdir -p "$CONTENTS/MacOS" "$CONTENTS/Resources"
 rm -rf "$CONTENTS/Resources/__pycache__"
 cp "$BUILD_DIR/KindlePush" "$CONTENTS/MacOS/KindlePush"
@@ -43,9 +47,9 @@ cp "$ROOT_DIR/mac-app/Assets/i18n/InfoPlist.strings" "$CONTENTS/Resources/en.lpr
 cp "$ROOT_DIR/mac-app/Assets/Assets.car" "$CONTENTS/Resources/Assets.car"
 # Python and Pandoc, so nothing has to be installed. A release must have them (./script/fetch_runtime.sh);
 # a dev build without them falls back to Homebrew's.
-VENDOR="$ROOT_DIR/mac-app/vendor/$(/usr/bin/uname -m)"
+VENDOR="$ROOT_DIR/mac-app/vendor/$TARGET_ARCH"
 if [ "$BUILD_CONFIGURATION" = "release" ] || [ -d "$VENDOR" ]; then
-  "$ROOT_DIR/script/fetch_runtime.sh"
+  "$ROOT_DIR/script/fetch_runtime.sh" "$TARGET_ARCH"
   mkdir -p "$CONTENTS/Resources/runtime"
   /usr/bin/ditto "$VENDOR/python" "$CONTENTS/Resources/runtime/python"
   cp "$VENDOR/pandoc" "$CONTENTS/Resources/runtime/pandoc"
@@ -82,6 +86,10 @@ cat > "$CONTENTS/Info.plist" <<'PLIST'
 </dict></array>
 </dict></plist>
 PLIST
+# Intel has its own update feed, so an update never brings the wrong architecture.
+if [ "$TARGET_ARCH" = "x86_64" ]; then
+  /usr/libexec/PlistBuddy -c 'Set :SUFeedURL https://github.com/joeseesun/kindle-push-macos/releases/latest/download/appcast-intel.xml' "$CONTENTS/Info.plist"
+fi
 # Developer ID + hardened runtime on every build, so permissions survive rebuilds; ad-hoc only without the certificate.
 IDENTITY=$(/usr/bin/security find-identity -v -p codesigning 2>/dev/null | grep -m1 "Developer ID Application" | sed -E 's/.*"(.*)"/\1/' || true)
 TS="--timestamp=none"; if [ "$BUILD_CONFIGURATION" = "release" ]; then TS="--timestamp"; fi

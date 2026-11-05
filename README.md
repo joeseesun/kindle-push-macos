@@ -34,7 +34,7 @@
 
 | 项目 | 要求 |
 | --- | --- |
-| Mac | macOS 14 或更新；提供 Apple Silicon / arm64 预编译包 |
+| Mac | macOS 14 或更新。Apple 芯片版已实测；Intel 版（`KindlePush-Intel.dmg`）只验证了打包和公证，未在 Intel Mac 上运行过 |
 | Kindle | 已越狱、已经安装并运行过 KOReader，包含 SSH / Dropbear 插件 |
 | 网络 | Mac 和 Kindle 在同一个可互通局域网，Kindle 开启 Wi-Fi、运行 KOReader |
 | 首次配置 | 在应用里插一次 USB 写入接收配置，再一键配对；不用开终端 |
