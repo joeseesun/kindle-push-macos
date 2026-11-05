@@ -170,7 +170,9 @@ def handle(args):
         log = io.StringIO()
         with contextlib.redirect_stdout(log):
             epub = kp.convert(source)
-            kp.send(epub, {'host': host})
+            sent = kp.send(epub, {'host': host})
+        # A PDF sent as image volumes: point the row at the first volume.
+        epub = sent[0] if sent and sent[0] != epub else epub
         return {'ok': True, 'host': host, 'output': str(epub),
                 'message': '已发送并校验', 'details': log.getvalue(),
                 'sha256': hashlib.sha256(epub.read_bytes()).hexdigest()}

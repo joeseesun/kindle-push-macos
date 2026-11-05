@@ -22,6 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 struct KindlePushApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var store = PushStore()
+    init() { PDFPages.runIfRequested() }
     var body: some Scene {
         Window("乔木 Kindle 助手", id: "main") {
             ContentView(store: store)

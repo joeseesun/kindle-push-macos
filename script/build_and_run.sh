@@ -25,7 +25,7 @@ if ! /usr/bin/otool -l "$CONTENTS/MacOS/KindlePush" | grep -q "@executable_path/
   /usr/bin/install_name_tool -add_rpath "@executable_path/../Frameworks" "$CONTENTS/MacOS/KindlePush"
 fi
 cp "$ROOT_DIR/wifi-push/kindle_push.py" "$ROOT_DIR/wifi-push/app_bridge.py" "$ROOT_DIR/wifi-push/markdown_support.py" "$ROOT_DIR/wifi-push/ebook.css" "$CONTENTS/Resources/"
-cp "$ROOT_DIR/wifi-push/translation.py" "$ROOT_DIR/wifi-push/accounts.py" "$ROOT_DIR/wifi-push/bookinfo.py" "$ROOT_DIR/wifi-push/names.py" "$ROOT_DIR/wifi-push/terms.py" "$ROOT_DIR/wifi-push/chunks.py" "$ROOT_DIR/wifi-push/polish.py" "$CONTENTS/Resources/"
+cp "$ROOT_DIR/wifi-push/translation.py" "$ROOT_DIR/wifi-push/accounts.py" "$ROOT_DIR/wifi-push/bookinfo.py" "$ROOT_DIR/wifi-push/names.py" "$ROOT_DIR/wifi-push/terms.py" "$ROOT_DIR/wifi-push/chunks.py" "$ROOT_DIR/wifi-push/polish.py" "$ROOT_DIR/wifi-push/pdfpages.py" "$CONTENTS/Resources/"
 cp "$ROOT_DIR/mac-app/Assets/AppIcon.icns" "$CONTENTS/Resources/AppIcon.icns"
 # About tab: QR codes (bundled so they work offline) and third-party licenses.
 rm -rf "$CONTENTS/Resources/About"; cp -R "$ROOT_DIR/mac-app/Assets/About" "$CONTENTS/Resources/About"
@@ -43,8 +43,8 @@ cat > "$CONTENTS/Info.plist" <<'PLIST'
 <key>CFBundleName</key><string>乔木 Kindle 助手</string>
 <key>CFBundleDisplayName</key><string>乔木 Kindle 助手</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>1.12.0</string>
-<key>CFBundleVersion</key><string>15</string>
+<key>CFBundleShortVersionString</key><string>1.12.1</string>
+<key>CFBundleVersion</key><string>16</string>
 <key>SUFeedURL</key><string>https://github.com/joeseesun/kindle-push-macos/releases/latest/download/appcast.xml</string>
 <key>SUPublicEDKey</key><string>ftyDAv8Qvb8tv4nf5jnMWtCgIi9yVI2IM6p+qhrKz90=</string>
 <key>SUEnableAutomaticChecks</key><true/>

@@ -41,6 +41,10 @@ enum Bridge {
             }
             process.executableURL = URL(fileURLWithPath: python)
             process.arguments = ["-B", resources.appendingPathComponent("app_bridge.py").path] + arguments
+            // Lets the bridge ask this app to render PDF pages (old Kindle receivers take only EPUB).
+            var environment = ProcessInfo.processInfo.environment
+            environment["KINDLEPUSH_APP"] = Bundle.main.executablePath
+            process.environment = environment
             let output = Pipe()
             process.standardOutput = output
             let stdin = Pipe()

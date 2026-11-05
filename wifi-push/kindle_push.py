@@ -200,7 +200,7 @@ def get_config(host=None):
         raise ValueError('还没设置 Kindle IP。首次运行时输入 KOReader 网络信息里的 IP。')
     return config
 
-def ssh(config, operation, content=b''):
+def ssh(config, operation, content=b'', timeout=180):
     key = DATA / 'id_ed25519'
     if not key.exists():
         raise ValueError('USB 首次配置尚未完成。')
@@ -211,26 +211,43 @@ def ssh(config, operation, content=b''):
         '-o', 'UserKnownHostsFile="' + str(DATA / 'known_hosts') + '"',
         '-o', 'ConnectTimeout=8', '-o', 'ServerAliveInterval=10',
         '-o', 'ServerAliveCountMax=3', 'root@' + config['host'], operation],
-        input=content, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=180)
+        input=content, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
     return result.stdout
 
 def send(epub, config):
-    content = epub.read_bytes()
+    """Send one file, or, to a receiver that takes only EPUB, a PDF as page-image EPUB volumes.
+
+    Returns the files that reached the Kindle."""
     version = ssh(config, 'ping').strip()
     if version not in RECEIVER_VERSIONS:
         raise ValueError('接收端未配置好。')
+    files = [epub]
     if extension(epub) != '.epub' and version == b'kindle-push-v1':
-        raise ValueError('Kindle 上的接收端是旧版，只收 EPUB。发送 ' + extension(epub)[1:].upper()
-                         + ' 需要用 USB 连接 Kindle，重新运行一次首次配置；EPUB、Markdown、TXT、Word 等不受影响。')
-    filename = epub.name.encode('utf-8') + b'\n'
-    response = ssh(config, 'put', filename + str(len(content)).encode() + b'\n' + content)
+        import pdfpages
+        if extension(epub) != '.pdf' or not pdfpages.renderer():
+            raise ValueError('Kindle 上的接收端是旧版，只收 EPUB。发送 ' + extension(epub)[1:].upper()
+                             + ' 需要用 USB 连接 Kindle，重新运行一次首次配置；EPUB、Markdown、TXT、Word 等不受影响。')
+        print('Kindle 接收端是旧版，只收 EPUB：已把 PDF 逐页转成图片版 EPUB 发送。')
+        files = pdfpages.build(epub, OUT)
+    for path in files:
+        send_file(path, config)
+    return files
+
+
+def send_file(path, config):
+    content = path.read_bytes()
+    # Big files over Kindle Wi-Fi: allow about 256 KB/s on top of the usual limit.
+    timeout = 180 + len(content) // (256 * 1024)
+    filename = path.name.encode('utf-8') + b'\n'
+    response = ssh(config, 'put', filename + str(len(content)).encode() + b'\n' + content, timeout)
     if response.strip() != b'OK':
         raise ValueError('Kindle 没有确认接收。')
-    received = ssh(config, 'get', filename)
+    received = ssh(config, 'get', filename, timeout)
     if hashlib.sha256(received).digest() != hashlib.sha256(content).digest():
         raise ValueError('传输校验未通过，请重试。')
-    print('已发送并校验：' + epub.name)
+    print('已发送并校验：' + path.name)
     print('Kindle → 文件浏览器 → documents → 我的文章')
+
 
 def main():
     parser = argparse.ArgumentParser()
