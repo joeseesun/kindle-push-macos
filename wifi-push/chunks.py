@@ -134,7 +134,7 @@ def cut(markup, size):
 
 def opf_path(book):
     container_xml = book.read('META-INF/container.xml').decode('utf-8', 'ignore')
-    return re.search(r'full-path\s*=\s*"([^"]+)"', container_xml).group(1)
+    return re.search(r'full-path\s*=\s*["\']([^"\']+)', container_xml).group(1)
 
 
 def attribute(tag, name):

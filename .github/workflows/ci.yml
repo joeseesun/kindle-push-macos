@@ -1,0 +1,22 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Pandoc
+        run: brew install pandoc
+      - name: Python tests
+        run: python3 -B -m unittest discover -s wifi-push -p 'test_*.py'
+      - name: App tests
+        working-directory: mac-app
+        run: swift test
+      - name: Release build
+        working-directory: mac-app
+        run: swift build -c release
