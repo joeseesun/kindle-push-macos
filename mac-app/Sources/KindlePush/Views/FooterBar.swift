@@ -56,7 +56,7 @@ struct FooterBar: View {
             }
             .font(.caption).foregroundStyle(.orange)
         } else if translations == 0 {
-            Label(t("\(originals) 本原文 · 本机排版，经 Wi‑Fi 直传，不经过云端"), systemImage: "lock")
+            Label(t("\(originals) 本原文 · 直接经 Wi‑Fi 发送，不经过云端"), systemImage: "lock")
                 .font(.caption).foregroundStyle(.secondary)
         } else {
             let guess = [store.translationMinutes.map { t("约 \(Self.duration($0))") },
@@ -66,7 +66,7 @@ struct FooterBar: View {
             Label(parts.joined(separator: " · "), systemImage: "globe")
                 .font(.caption).foregroundStyle(.secondary)
                 .help(store.translationProvider == "chatgpt" ? t("要翻译的书用 ChatGPT 套餐额度翻译，译完自动发送")
-                      : t("要翻译的书正文发给翻译模型，按用量计费；译完自动发送。时间和用量按书的篇幅粗估"))
+                      : t("要翻译的书译完会自动发送。时间和用量是按篇幅估的"))
         }
     }
 
@@ -104,14 +104,14 @@ struct FooterBar: View {
     private var stops: [Stop] {
         var list: [Stop] = []
         if store.quick.running && !store.sendStopRequested {
-            list.append(Stop(id: "send", title: t("停止发送"), help: t("正在传的这本照常传完并校验，排队的书回到待发送（⌘.）")) { store.stopSending() })
+            list.append(Stop(id: "send", title: t("停止发送"), help: t("这本传完就停，排队的书放回待发送（⌘.）")) { store.stopSending() })
         }
         if store.quick.running && store.quick.sending != nil {
-            list.append(Stop(id: "cancel", title: t("取消正在发的这本"), help: t("断开正在传的这本，Kindle 上不会留下半个文件；后面的书也不再发送")) { store.stopSending(now: true) })
+            list.append(Stop(id: "cancel", title: t("取消正在发的这本"), help: t("马上停下这本，Kindle 上不会留下半个文件。后面的书也不发了")) { store.stopSending(now: true) })
         }
         if store.currentJob != nil || store.translation.sending != nil {
             list.append(Stop(id: "translate", title: store.currentJob != nil ? t("停止翻译") : t("取消发送译本"),
-                             help: t("停止正在翻译的书；已完成的进度保留，排队的书回到待发送（⌘.）")) { store.stopTranslation() })
+                             help: t("停止翻译，已译好的部分会保留（⌘.）")) { store.stopTranslation() })
         }
         return list
     }
@@ -146,7 +146,7 @@ struct FooterBar: View {
             Label(t("保存到本机"), systemImage: "square.and.arrow.down")
         }
         .controlSize(.large).disabled(sendDisabled).fixedSize()
-        .help(store.nothingToSendReason ?? t("保存到本机（要翻译的书先翻译），完成后在访达中选中；不需要连接 Kindle（⌥⌘↩）"))
+        .help(store.nothingToSendReason ?? t("存到这台 Mac，不用连 Kindle。要翻译的书先翻译（⌥⌘↩）"))
     }
 
     /// Enabled whenever there is something new to queue, even while another queue runs.
@@ -156,7 +156,7 @@ struct FooterBar: View {
 
     private var sendHelp: String {
         let names = store.targets.map(\.name).joined(separator: "、")
-        return (names.isEmpty ? "" : t("每本书都发给 \(names)。") + I18n.sentenceGap) + t("原文直接发送，要翻译的书译完自动发送（⌘↩）")
+        return (names.isEmpty ? "" : t("每本书都发给 \(names)。") + I18n.sentenceGap) + t("原文马上发，要翻译的书译完自动发（⌘↩）")
     }
 
     private var sendButton: some View {

@@ -30,8 +30,8 @@ struct AddKindleSheet: View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(store.upgrading.map { t("升级「\($0.name)」的接收端") } ?? t("添加 Kindle")).font(.title2.weight(.semibold))
-                Text(store.upgrading == nil ? t("适用于已越狱、运行过 KOReader 的 Kindle。每台只需做一次，之后换 Wi‑Fi 也不用重来。")
-                     : t("升级后才能发 MOBI、DjVu、漫画等格式。接收端在 Kindle 上受保护，只能通过 USB 更新。不用重新配对，书也不受影响。"))
+                Text(store.upgrading == nil ? t("适用于已越狱、装了 KOReader 的 Kindle。每台只做一次，换 Wi‑Fi 也不用重来。")
+                     : t("升级后就能发 MOBI、DjVu、漫画。要插一次 USB，不用重新配对。"))
                     .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             Step(number: 1, title: t("用 USB 写入接收配置")) { usbStep }
@@ -68,10 +68,10 @@ struct AddKindleSheet: View {
         if volumes.isEmpty {
             if store.kindlePlugged {
                 // The cable is fine; saying "connect it" here would send people in circles.
-                Label(t("线已经连上了。还差一步：在 Kindle 的 KOReader 里选「退出」回到原生书库。显示「USB 驱动器模式」后，它会出现在这里。"), systemImage: "cable.connector")
+                Label(t("线连上了。还差一步：在 KOReader 里选「退出」，回到 Kindle 书库。屏幕显示「USB 驱动器模式」后，它会出现在这里。"), systemImage: "cable.connector")
                     .font(.callout).fixedSize(horizontal: false, vertical: true)
             } else {
-                Text(t("在 KOReader 里选「退出」回到原生书库，再用数据线连接 Mac。Kindle 显示「USB 驱动器模式」后，它会出现在这里。"))
+                Text(t("在 KOReader 里选「退出」，回到 Kindle 书库，再用数据线连上 Mac。显示「USB 驱动器模式」后，它会出现在这里。"))
                     .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             if store.upgrading == nil {
@@ -170,7 +170,7 @@ struct AddKindleSheet: View {
         }
         ForEach(found) { kindle in candidateRow(kindle) }
         if searched && !searching && found.isEmpty {
-            Text(searchError.isEmpty ? t("没找到新的 Kindle。确认 KOReader 已打开、Wi‑Fi 相同；访客网络会隔离设备。也可以输入 Kindle 的 IP（KOReader › 网络 › 网络信息）：") : searchError)
+            Text(searchError.isEmpty ? t("没找到新的 Kindle。确认 KOReader 开着，并且和 Mac 连同一个 Wi‑Fi（访客网络不行）。也可以直接填 Kindle 的 IP（KOReader › 网络 › 网络信息）：") : searchError)
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             HStack {
                 TextField(t("例如 192.168.1.43"), text: $manualHost).textFieldStyle(.roundedBorder)

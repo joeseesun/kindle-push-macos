@@ -53,7 +53,7 @@ struct AboutView: View {
                             .foregroundStyle(Color.primary.opacity(0.75))
                     }
                 }
-                Text(t("本机排版，经 Wi‑Fi 直传 Kindle。只有翻译时，正文才发给你设置的翻译服务。"))
+                Text(t("书经 Wi‑Fi 直接传到 Kindle，不经过云端。只有翻译时，正文才会发给你选的翻译服务。"))
                     .font(.system(size: 11)).foregroundStyle(.secondary).multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
                 Text(t("© \(String(Calendar.current.component(.year, from: Date()))) 向阳乔木 · MIT 许可 · 基于 chasepal/kindle-push-macos\n第三方许可见 THIRD_PARTY_NOTICES.md"))

@@ -43,10 +43,10 @@ struct TranslationSettingsView: View {
     private enum KeyCheck: Equatable { case idle, checking, ok, failed(String) }
 
     private let styles: [(id: String, name: String, note: String)] = [
-        ("natural", t("自然流畅"), t("地道流畅、避免翻译腔，适合大多数书。")),
-        ("faithful", t("忠实准确"), t("不增删信息，保留原文层次与语气，适合非虚构、历史、传记。")),
-        ("literary", t("文学润色"), t("更地道有文采，保留人物口吻，减少翻译腔，适合小说、散文。")),
-        ("technical", t("技术学术"), t("术语准确统一，首次出现保留英文原词，代码和公式不动。")),
+        ("natural", t("自然流畅"), t("读起来像中文原创。适合大多数书。")),
+        ("faithful", t("忠实准确"), t("贴着原文译，不增不减。适合历史、传记等非虚构。")),
+        ("literary", t("文学润色"), t("更有文采，留住人物的语气。适合小说、散文。")),
+        ("technical", t("技术学术"), t("术语准确统一，代码和公式不动。适合技术书、论文。")),
     ]
 
     /// Everything saves itself; this line only says that it did, or why it could not.
@@ -135,12 +135,12 @@ struct TranslationSettingsView: View {
 
     private var languageNote: String {
         let name = Lang.name(store.targetLanguage)
-        let rule = t("拖入的书会在本机识别语言。")
+        let rule = t("拖进来的书会自动识别语言。")
         let choice = store.foreignDefault == .ask
-            ? t("不是\(name)的书会在列表上方问你要不要翻译成\(name)；选了默认处理方式，就在拖入时直接标好。")
-            : t("不是\(name)的书拖入时直接标为「\(store.foreignDefault.title(into: store.targetLanguage))」。")
-        let tag = t("每本书行尾的标签都能单独改，包括翻成哪种语言。")
-        return [rule, choice, tag, t("改动立即生效。")].filter { !$0.isEmpty }.joined(separator: I18n.sentenceGap)
+            ? t("不是\(name)的书，会在列表上方问你要不要翻译。")
+            : t("不是\(name)的书，拖进来就标为「\(store.foreignDefault.title(into: store.targetLanguage))」。")
+        let tag = t("每本书行尾的标签可以单独改。")
+        return [rule, choice, tag].filter { !$0.isEmpty }.joined(separator: I18n.sentenceGap)
     }
 
     private var qualityForm: some View {
@@ -152,7 +152,7 @@ struct TranslationSettingsView: View {
             } header: {
                 Text(t("质量"))
             } footer: {
-                Text(t(styles.first { $0.id == style }?.note ?? "") + I18n.sentenceGap + t("改风格后会重新翻译，原有进度不会被覆盖。"))
+                Text(t(styles.first { $0.id == style }?.note ?? "") + I18n.sentenceGap + t("换了风格，书会从头再译一遍。"))
                     .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -170,7 +170,7 @@ struct TranslationSettingsView: View {
             } header: {
                 Text(t("术语表"))
             } footer: {
-                Text(t("每行一条「原文 -> 译名」，优先于自动整理的译名。只有出现这些词的段落才会带上术语，不增加其他段落的费用。"))
+                Text(t("每行一条：原文 -> 译名。整本书都按这里的译名翻。"))
                     .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -189,7 +189,7 @@ struct TranslationSettingsView: View {
             } header: {
                 Text(t("速度"))
             } footer: {
-                Text(serviceID == "chatgpt" ? t("用 ChatGPT 账号翻译时一次只能翻一章。") : t("长章节会自动切成几段，和其他章一起并行翻译，译完再拼回原章；费用不变。默认 16 路，1–64 可调：服务商并发额度高（如 DeepSeek 官方）可以调大，频繁限流或失败时调低。并行时点停止需要等正在翻译的各段收尾。"))
+                Text(serviceID == "chatgpt" ? t("用 ChatGPT 账号时，一次只能翻一章。") : t("一次同时翻几段。越大越快，费用不变。经常报错或被限流，就调小一点。默认 16。"))
                     .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -227,7 +227,7 @@ struct TranslationSettingsView: View {
             } footer: {
                 VStack(alignment: .leading, spacing: 4) {
                     if pendingSwitch {
-                        Text(t("现在仍用\(gapped(savedServiceName))翻译。填好 Key 并验证通过后，才会改用\(gapped(t(service.name), before: true))。"))
+                        Text(t("现在还在用\(gapped(savedServiceName))。这个 Key 能用后，才换成\(gapped(t(service.name), before: true))。"))
                             .foregroundStyle(.orange)
                     }
                     Text(serviceNote).foregroundStyle(.secondary)
@@ -270,7 +270,7 @@ struct TranslationSettingsView: View {
             } header: {
                 Text(t("模型"))
             }
-            Section(t("翻译组件")) {
+            Section {
                 LabeledContent {
                     if ready {
                         Label(t("已就绪"), systemImage: "checkmark.circle.fill").foregroundStyle(.green)
@@ -280,8 +280,8 @@ struct TranslationSettingsView: View {
                         Button(t("安装")) { Task { await install() } }.disabled(working)
                     }
                 } label: {
-                    Text(t("中英对照引擎"))
-                    Text(t("基于开源 bilingual_book_maker，首次安装需要几分钟")).font(.caption)
+                    Text(t("翻译组件"))
+                    Text(t("第一次安装要几分钟")).font(.caption)
                 }
             }
         }
@@ -334,7 +334,7 @@ struct TranslationSettingsView: View {
                         Text(t(reason)).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
                         Button(t("重试")) { verifySoon(after: 0) }.buttonStyle(.inkLink)
                     default:
-                        Text(t("粘贴后自动验证，能用就直接保存。")).foregroundStyle(.secondary)
+                        Text(t("粘贴后会自动检查，能用就保存。")).foregroundStyle(.secondary)
                     }
                     Spacer(minLength: 0)
                 }
@@ -441,7 +441,7 @@ struct TranslationSettingsView: View {
         if codexInstalled == false {
             LabeledContent(t("Codex 命令行")) { Text(t("还没有安装")).foregroundStyle(.secondary) }
             VStack(alignment: .leading, spacing: 8) {
-                Text(t("用 ChatGPT 账号翻译要借助 OpenAI 的 Codex 命令行工具。在「终端」运行下面一行安装："))
+                Text(t("要先装 OpenAI 的 Codex 工具。打开「终端」，运行这一行："))
                     .font(.callout).foregroundStyle(.secondary)
                 HStack {
                     Text(installCommand).font(.system(.callout, design: .monospaced)).textSelection(.enabled)
@@ -467,7 +467,7 @@ struct TranslationSettingsView: View {
                     .buttonStyle(.ink).disabled(signingIn || codexInstalled == nil)
             } label: {
                 Text(t("账号"))
-                Text(t("会打开浏览器登录，Plus、Pro、Business 套餐都可以")).font(.caption)
+                Text(t("会打开浏览器。Plus、Pro、Business 都可以")).font(.caption)
             }
         }
     }
@@ -477,12 +477,12 @@ struct TranslationSettingsView: View {
     private var serviceNote: String {
         switch service.group {
         case .account:
-            return t("用 ChatGPT 套餐额度翻译，不按 API 计费，受套餐的 5 小时用量限制；一次翻译一章。书籍正文会发给 OpenAI。")
+            return t("用你 ChatGPT 套餐的额度，不另外收费，但有用量上限。正文会发给 OpenAI。")
         case .local:
-            return t("模型跑在这台 Mac 上，正文不出本机。先在 \(service.name) 里下载并运行模型。")
+            return t("模型在这台 Mac 上运行，正文不出本机。先在 \(service.name) 里下载并打开模型。")
         default:
             let name = service.name == "自定义服务" ? t("这个服务") : service.name
-            return t("书籍正文会发给\(gapped(name, before: true))，按用量计费。Key 只存在这台 Mac 的钥匙串里，每个服务各存一份，换回来不用重填。")
+            return t("翻译时，正文会发给\(gapped(name, before: true))，按用量付费。Key 只存在这台 Mac 上。")
         }
     }
 
@@ -518,7 +518,7 @@ struct TranslationSettingsView: View {
         let typed = editingKey ? key.trimmingCharacters(in: .whitespacesAndNewlines) : ""
         let wantsKey = service.needsKey || service.group == .custom
         if wantsKey && typed.isEmpty && savedKey == nil {
-            models = []; modelNote = t("填好 API Key 后会自动读取可用模型。"); return
+            models = []; modelNote = t("填好 API Key，会自动列出模型。"); return
         }
         if wantsKey { keyCheck = .checking }
         let response = await Bridge.call(["models", trimmedBase] + (typed.isEmpty ? [] : ["--key-stdin"]),
@@ -546,8 +546,8 @@ struct TranslationSettingsView: View {
             if wantsKey {
                 // A refused key is about the key, not the models: say so once, next to the field.
                 let refused = reason.contains("HTTP 401") || reason.contains("HTTP 403")
-                keyCheck = .failed(refused ? t("\(t(service.name)) 没有接受这个 Key。检查是否复制完整、是否是这个服务的 Key。") : reason)
-                modelNote = refused ? t("Key 验证通过后会自动读取可用模型。") : reason
+                keyCheck = .failed(refused ? t("\(t(service.name)) 不认这个 Key。看看是不是没复制全，或者不是这个服务的 Key。") : reason)
+                modelNote = refused ? t("Key 能用后，会自动列出模型。") : reason
                 modelNoteIsError = !refused
             } else { modelNote = reason; modelNoteIsError = true }
         }
