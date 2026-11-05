@@ -230,6 +230,14 @@ enum ForeignDefault: String, CaseIterable {
         case .original: "发原文"
         }
     }
+    /// The same words the rows use, for the preferred language: 中文对照 / 仅中文, not a generic 双语对照.
+    func title(into target: String) -> String {
+        switch self {
+        case .bilingual: t("\(Lang.name(target))对照")
+        case .targetOnly: OutputMode.targetOnly.title(from: "", to: target)
+        case .ask, .original: t(title)
+        }
+    }
     var mode: OutputMode? {
         switch self {
         case .ask: nil

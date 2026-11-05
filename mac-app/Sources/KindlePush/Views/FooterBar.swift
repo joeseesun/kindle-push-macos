@@ -14,11 +14,7 @@ struct FooterBar: View {
             HStack(alignment: .center, spacing: 14) {
                 summary
                 Spacer(minLength: 8)
-                if store.quick.running { sendingControls }
-                if store.currentJob != nil || store.translation.sending != nil {
-                    Button(store.currentJob != nil ? t("停止翻译") : t("取消发送译本")) { store.stopTranslation() }.buttonStyle(.inkOutline).controlSize(.large).fixedSize()
-                        .help(t("停止正在翻译的书；已完成的进度保留，排队的书回到待发送（⌘.）"))
-                }
+                stopControls
                 // While a queue runs, only "add to queue" stays, so the stop buttons and progress have room.
                 // No Kindle paired: this is a translation tool first, so saving is the main button.
                 if store.setupNeeded && !store.busy {
@@ -96,26 +92,51 @@ struct FooterBar: View {
         .frame(maxWidth: 380, alignment: .leading)
     }
 
-    /// Stop after the book in flight, or cancel it outright. Readable at all times: a status line
-    /// replaces the stop button once pressed, instead of a greyed-out button.
-    @ViewBuilder private var sendingControls: some View {
-        if store.quick.sending != nil {
-            Button(t("取消这本")) { store.stopSending(now: true) }
-                .buttonStyle(.inkOutline).controlSize(.large).fixedSize()
-                .help(t("断开正在传的这本，Kindle 上不会留下半个文件；后面的书也不再发送"))
+    private struct Stop: Identifiable {
+        let id: String
+        let title: String
+        let help: String
+        let action: () -> Void
+    }
+
+    /// Every way to stop what is running. One is a plain button; several share one "停止" menu,
+    /// so the bar never fills up with outline buttons, and a stop never looks like the main action.
+    private var stops: [Stop] {
+        var list: [Stop] = []
+        if store.quick.running && !store.sendStopRequested {
+            list.append(Stop(id: "send", title: t("停止发送"), help: t("正在传的这本照常传完并校验，排队的书回到待发送（⌘.）")) { store.stopSending() })
         }
+        if store.quick.running && store.quick.sending != nil {
+            list.append(Stop(id: "cancel", title: t("取消正在发的这本"), help: t("断开正在传的这本，Kindle 上不会留下半个文件；后面的书也不再发送")) { store.stopSending(now: true) })
+        }
+        if store.currentJob != nil || store.translation.sending != nil {
+            list.append(Stop(id: "translate", title: store.currentJob != nil ? t("停止翻译") : t("取消发送译本"),
+                             help: t("停止正在翻译的书；已完成的进度保留，排队的书回到待发送（⌘.）")) { store.stopTranslation() })
+        }
+        return list
+    }
+
+    /// A status line replaces "stop sending" once pressed, instead of a greyed-out button.
+    @ViewBuilder private var stopControls: some View {
         if store.sendStopRequested {
             HStack(spacing: 6) {
                 ProgressView().controlSize(.small)
-                Text(t("这本发完就停")).font(.callout)
+                Text(t("这本发完就停")).font(.callout).foregroundStyle(.secondary)
             }
             .fixedSize()
-        } else {
-            Button { store.stopSending() } label: {
-                Label(t("停止发送"), systemImage: "stop.fill")
+        }
+        let list = stops
+        if list.count == 1, let only = list.first {
+            Button(only.title, action: only.action)
+                .buttonStyle(.inkOutline).controlSize(.large).fixedSize().help(only.help)
+        } else if list.count > 1 {
+            Menu {
+                ForEach(list) { stop in Button(stop.title, action: stop.action).help(stop.help) }
+            } label: {
+                Label(t("停止"), systemImage: "stop.fill")
             }
-            .buttonStyle(.ink).controlSize(.large).fixedSize()
-            .help(t("正在传的这本照常传完并校验，排队的书回到待发送（⌘.）"))
+            .menuStyle(.button).buttonStyle(.inkOutline).controlSize(.large).fixedSize()
+            .help(t("停止发送、取消正在发的这本，或停止翻译"))
         }
     }
 
@@ -142,10 +163,7 @@ struct FooterBar: View {
         Button { Task { await store.send() } } label: {
             HStack(spacing: 7) {
                 Image(systemName: store.busy ? "plus" : "paperplane.fill")
-                // Both queues running leaves little room: "+ 2" still says it, with the words in the tooltip.
-                if !(store.translation.running && store.quick.running) {
-                    Text(store.busy ? t("加入队列") : store.targets.isEmpty ? t("发送到 Kindle") : t("发送到 \(store.targets.count) 台 Kindle"))
-                }
+                Text(store.busy ? t("加入队列") : store.targets.isEmpty ? t("发送到 Kindle") : t("发送到 \(store.targets.count) 台 Kindle"))
                 if !store.queueable.isEmpty {
                     Text("\(store.queueable.count)").font(.callout.weight(.semibold)).monospacedDigit()
                         .padding(.horizontal, 6).padding(.vertical, 1)

@@ -14,7 +14,8 @@ struct ArticleRow: View {
                 HStack(spacing: 6) {
                     Text(article.title).font(.body.weight(.semibold)).lineLimit(1).truncationMode(.tail)
                         .help(article.path)
-                    if article.bilingual == true {
+                    // The menu tag at the end already says what this book becomes; this one is for books done with.
+                    if article.bilingual == true && !showsChoice {
                         Text(t(translatedLabel)).font(.caption2.weight(.semibold)).foregroundStyle(Color.ink)
                             .padding(.horizontal, 6).padding(.vertical, 1.5)
                             .background(Color.ink.opacity(0.08), in: Capsule())
@@ -60,8 +61,14 @@ struct ArticleRow: View {
                 .accessibilityLabel(t("更多操作"))
                 .opacity(hovering || selected ? 1 : 0)
             }
-            if showsChoice { TranslationChoice(article: article, store: store) }
-            StatusChip(article: article)
+            // Fixed columns, so the folder, the tag and the status line up from row to row.
+            let column: CGFloat = I18n.english ? 136 : 88
+            if showsChoice {
+                TranslationChoice(article: article, store: store).frame(minWidth: column, alignment: .trailing)
+            } else {
+                Color.clear.frame(width: column, height: 1)
+            }
+            StatusChip(article: article).frame(minWidth: I18n.english ? 100 : 72, alignment: .trailing)
         }
         .padding(.vertical, 8).padding(.horizontal, 4)
         .contentShape(Rectangle())

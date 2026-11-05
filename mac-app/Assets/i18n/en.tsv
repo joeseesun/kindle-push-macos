@@ -31,8 +31,8 @@ USB 首次配置尚未完成。	First-time USB setup is not finished.
 {} 授权没有完成，请重试。	{} sign-in was not completed. Try again.
 {} 是固定版式，暂时不能翻译。可以直接发送。	{} is a fixed layout and can't be translated yet. You can send it as it is.
 {} 本	{} book(s)
-{} 本原文	{} original(s)
-{} 本原文 · 本机排版，经 Wi‑Fi 直传，不经过云端	{} original(s) · Laid out on this Mac and sent directly over Wi‑Fi, with no cloud
+{} 本原文	{} to send as is
+{} 本原文 · 本机排版，经 Wi‑Fi 直传，不经过云端	{} to send as is · Laid out on this Mac and sent directly over Wi‑Fi, with no cloud
 {} 本已放回待发送，点「发送到 Kindle」即可。	{} book(s) put back in the queue. Press Send to Kindle when ready.
 {} 本已译完的书留下的中间文件	Working files from {} translated book(s)
 {} 本翻译{}	{} to translate{}
@@ -648,3 +648,7 @@ USB 首次配置尚未完成。	First-time USB setup is not finished.
 不是{}的书会在列表上方问你要不要翻译成{}；选了默认处理方式，就在拖入时直接标好。	Books not in {} ask above the list whether to translate into {}. Choose a default to mark them as they are added.
 不是{}的书拖入时直接标为「{}」。	Books not in {} are marked “{}” as they are added.
 每本书行尾的标签都能单独改，包括翻成哪种语言。	The tag at the end of each row changes one book, including which language it becomes.
+停止	Stop
+取消正在发的这本	Cancel the Book Being Sent
+停止发送、取消正在发的这本，或停止翻译	Stop sending, cancel the book being sent, or stop translating
+{}对照	Side by side with {}

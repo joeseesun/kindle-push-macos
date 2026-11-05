@@ -99,7 +99,7 @@ struct TranslationSettingsView: View {
                     }
                 }
                 Picker(t("外文书默认"), selection: $store.foreignDefault) {
-                    ForEach(ForeignDefault.allCases, id: \.self) { Text(t($0.title)).tag($0) }
+                    ForEach(ForeignDefault.allCases, id: \.self) { Text($0.title(into: store.targetLanguage)).tag($0) }
                 }
             } footer: {
                 Text(languageNote)
@@ -124,7 +124,7 @@ struct TranslationSettingsView: View {
         let rule = t("拖入的书会在本机识别语言。")
         let choice = store.foreignDefault == .ask
             ? t("不是\(name)的书会在列表上方问你要不要翻译成\(name)；选了默认处理方式，就在拖入时直接标好。")
-            : t("不是\(name)的书拖入时直接标为「\(t(store.foreignDefault.title))」。")
+            : t("不是\(name)的书拖入时直接标为「\(store.foreignDefault.title(into: store.targetLanguage))」。")
         let tag = t("每本书行尾的标签都能单独改，包括翻成哪种语言。")
         return [rule, choice, tag, t("改动立即生效。")].filter { !$0.isEmpty }.joined(separator: I18n.sentenceGap)
     }
