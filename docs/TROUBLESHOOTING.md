@@ -2,7 +2,7 @@
 
 ## 应用打开后提示缺少组件
 
-执行 `brew install python pandoc`。如果已装旧版本，执行 `brew upgrade python pandoc`。应用需要保留本机的 Python 和 Pandoc，发布 ZIP 不包含它们。
+Python 和 Pandoc 都在应用里。出现这个提示说明应用不完整，请重新下载并安装。自己从源码构建时，运行 `./script/fetch_runtime.sh`，或 `brew install python pandoc`。
 
 ## USB 只有充电，没有磁盘
 

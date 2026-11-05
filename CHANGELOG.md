@@ -1,5 +1,13 @@
 # 更新记录
 
+## 1.16.0
+
+- 免安装：Python 和 Pandoc 都内置在应用里，不用装 Homebrew，不用开终端。安装包因此变大，约 70 MB。
+- 已经装好的翻译组件继续可用。如果它依赖的 Python 被删或升级了，应用会识别出来并提示重新安装，不再到翻译时才报错。
+- 修复：`<meta name="cover">` 用 id 指定封面的 EPUB 读不到封面。
+- 修复：`container.xml` 用单引号的 EPUB，长章节不会被分段。
+- 开发：加了 CI、Swift 测试，以及 10 种真实 EPUB 结构的测试语料。
+
 ## 1.15.0
 
 - 翻译不再只限 EPUB：TXT、Markdown、HTML、Word（.docx）、ODT、RTF、FB2 都能译；装了 Calibre 还能译 MOBI/AZW。PDF 等固定版式仍然只能直接发送。

@@ -4,15 +4,7 @@
 
 ## 1. 准备 Mac
 
-安装 [Homebrew](https://brew.sh/) 后，在终端运行：
-
-```sh
-brew install python pandoc
-```
-
-Python 需要 3.10+，Pandoc 需要 3.8+；版本较旧时先 `brew upgrade python pandoc`。应用运行时会查找 `/opt/homebrew/bin` 或 `/usr/local/bin` 中的 Python 和 Pandoc，不要删除这些组件。
-
-从 [Releases](https://github.com/joeseesun/kindle-push-macos/releases/latest) 下载 `KindlePush.dmg`，把 `乔木 Kindle 助手.app` 拖进「应用程序」。
+从 [Releases](https://github.com/joeseesun/kindle-push-macos/releases/latest) 下载 `KindlePush.dmg`，把 `乔木 Kindle 助手.app` 拖进「应用程序」。不用装 Homebrew、Python 或 Pandoc，都在应用里了。
 
 ## 2. 在应用里添加 Kindle
 

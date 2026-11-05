@@ -135,7 +135,7 @@ def public_settings():
             'hasKey': has_key(config),
             'workers': config.get('workers', DEFAULT_WORKERS), 'style': config.get('style', 'natural'),
             'glossary': config.get('glossary', ''),
-            'runtimeReady': (RUNTIME / 'bin/bbook_maker').is_file()}
+            'runtimeReady': runtime_ready()}
 
 
 def glossary_lines(text):
@@ -203,12 +203,45 @@ def read_key(config):
     return result.stdout.rstrip('\n')
 
 
+FIND_ENGINE = "import importlib.util, sys; sys.exit(importlib.util.find_spec('book_maker') is None)"
+
+
+def engine_runs():
+    try:
+        return subprocess.run([str(RUNTIME / 'bin/python3'), '-c', FIND_ENGINE], stdin=subprocess.DEVNULL,
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=20).returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
+def runtime_ready():
+    """Whether the engine can really start, not just whether its files are there. Its environment
+    points at the Python that made it: Homebrew's may have been removed or upgraded, and the app's
+    moves with the app. The same Python version elsewhere only needs the pointer fixed."""
+    if not (RUNTIME / 'bin/bbook_maker').is_file():
+        return False
+    if engine_runs():
+        return True
+    # Only an environment made by this same Python version can be repointed. Anything else would
+    # gain a pointer to a Python that cannot see its packages, and could not then be used even
+    # if the Python it really belongs to came back.
+    if not (RUNTIME / 'lib' / f'python{sys.version_info.major}.{sys.version_info.minor}').is_dir():
+        return False
+    try:
+        subprocess.run([sys.executable, '-m', 'venv', '--upgrade', str(RUNTIME)], stdin=subprocess.DEVNULL,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=60)
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return engine_runs()
+
+
 def install():
     DATA.mkdir(parents=True, exist_ok=True, mode=0o700)
     log = DATA / 'translation-install.log'
     with log.open('w') as out:
         log.chmod(0o600)
-        subprocess.run([sys.executable, '-m', 'venv', str(RUNTIME)], check=True, stdout=out, stderr=out, timeout=60)
+        # --clear: what is there may have been built by another Python and can't be reused.
+        subprocess.run([sys.executable, '-m', 'venv', '--clear', str(RUNTIME)], check=True, stdout=out, stderr=out, timeout=60)
         result = subprocess.run([str(RUNTIME / 'bin/python3'), '-m', 'pip', 'install',
                                  'bbook_maker==' + VERSION], stdout=out, stderr=out, timeout=600)
     if result.returncode:
@@ -401,7 +434,7 @@ def start(source, preview=False, mode='bilingual', goal='zh'):
         raise ValueError('翻译 MOBI/AZW 需要 Calibre 来提取文字。安装 Calibre 后再试，或换成 EPUB。')
     elif not kp.translatable(source):
         raise ValueError(suffix[1:].upper() + ' 是固定版式，暂时不能翻译。可以直接发送。')
-    if not (RUNTIME / 'bin/bbook_maker').is_file():
+    if not runtime_ready():
         raise ValueError('请先打开翻译设置，安装翻译组件。')
     config = settings()
     if config.get('provider') == 'chatgpt':

@@ -22,7 +22,9 @@ from urllib.parse import quote, unquote
 DATA = Path.home() / 'Library/Application Support/KindlePush'
 CONFIG = DATA / 'config.json'
 OUT = Path.home() / 'Documents/Kindle推送/已转换'
-PANDOC = next((p for p in ['/opt/homebrew/bin/pandoc', '/usr/local/bin/pandoc', shutil.which('pandoc')] if p and Path(p).is_file()), '/opt/homebrew/bin/pandoc')
+# The copy inside the app first; a source checkout uses whatever is installed.
+PANDOC = next((p for p in [str(Path(__file__).resolve().parent / 'runtime/pandoc'), '/opt/homebrew/bin/pandoc',
+                           '/usr/local/bin/pandoc', shutil.which('pandoc')] if p and Path(p).is_file()), 'pandoc')
 CSS = Path(__file__).with_name('ebook.css')
 
 MARKDOWN = {'.md', '.markdown'}

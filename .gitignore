@@ -18,3 +18,4 @@ backups/
 installation-state.json
 installed-manifest.json
 .env*
+mac-app/vendor/
