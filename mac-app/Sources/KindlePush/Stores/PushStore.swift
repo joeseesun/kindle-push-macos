@@ -13,6 +13,9 @@ final class PushStore: ObservableObject {
     @Published var devices: [KindleDevice] = []
     @Published var checkingDevices = false
     @Published var showAddKindle = false
+    @Published var showHistory = false
+    /// Books delivered to a Kindle, newest first.
+    @Published var history: [SendRecord] = []
     /// Translation and everything else run in separate queues, so a translation that takes hours
     /// never holds up sending, saving or tidying the other books.
     @Published var translation = Lane()
@@ -45,6 +48,8 @@ final class PushStore: ObservableObject {
     private var started = false
 
     init() {
+        if let data = UserDefaults.standard.data(forKey: "history"),
+           let saved = try? JSONDecoder().decode([SendRecord].self, from: data) { history = saved }
         if let data = UserDefaults.standard.data(forKey: "articles"),
            let saved = try? JSONDecoder().decode([Article].self, from: data) {
             articles = saved.map { item in
@@ -212,6 +217,54 @@ final class PushStore: ObservableObject {
     }
 
     func clearSent() { articles.removeAll { $0.status == "已发送" }; save() }
+
+    // MARK: Send history
+
+    private static let historyLimit = 500
+
+    private func record(_ article: Article, sentAs: String?, device: String?) {
+        let entry = SendRecord(path: article.path, title: article.title, author: article.author, cover: article.cover,
+                               device: device ?? (deviceName.isEmpty ? "Kindle" : deviceName),
+                               sentAs: sentAs.map { URL(fileURLWithPath: $0).lastPathComponent },
+                               translated: article.bilingual == true)
+        history.insert(entry, at: 0)
+        if history.count > Self.historyLimit { history.removeLast(history.count - Self.historyLimit) }
+        saveHistory()
+    }
+
+    private func saveHistory() {
+        if let data = try? JSONEncoder().encode(history) { UserDefaults.standard.set(data, forKey: "history") }
+    }
+
+    /// Puts a book from the history back in the list, ready to send.
+    func resend(_ entries: [SendRecord]) {
+        let urls = entries.filter(\.exists).map { URL(fileURLWithPath: $0.path) }
+        guard !urls.isEmpty else { announce("原文件已经不在了，无法再发。", error: true); return }
+        add(urls)
+        announce(urls.count == 1 ? "已放回待发送，点「发送到 Kindle」即可。" : "\(urls.count) 本已放回待发送，点「发送到 Kindle」即可。", error: false)
+    }
+
+    func revealHistory(_ entry: SendRecord) {
+        guard entry.exists else { announce("原文件已经不在了。", error: true); return }
+        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: entry.path)])
+    }
+
+    func forgetHistory(_ ids: Set<UUID>) { history.removeAll { ids.contains($0.id) }; saveHistory() }
+    func clearHistory() { history = []; saveHistory() }
+
+    /// Books delivered before history existed: listed once, so they are not lost on the first clear.
+    func seedHistoryIfNeeded() {
+        guard !UserDefaults.standard.bool(forKey: "historySeeded") else { return }
+        UserDefaults.standard.set(true, forKey: "historySeeded")
+        guard history.isEmpty else { return }
+        history = articles.filter { $0.status == "已发送" }.map {
+            SendRecord(path: $0.path, title: $0.title, author: $0.author, cover: $0.cover,
+                       device: "",
+                       sentAs: $0.output.map { URL(fileURLWithPath: $0).lastPathComponent },
+                       translated: $0.bilingual == true, earlier: true)
+        }
+        saveHistory()
+    }
     func retry(_ id: UUID) {
         guard let index = articles.firstIndex(where: { $0.id == id }),
               articles[index].status != "排队中", articles[index].phase != .working else { return }
@@ -220,6 +273,7 @@ final class PushStore: ObservableObject {
 
     func start() async {
         guard !started else { return }; started = true
+        seedHistoryIfNeeded()
         await refreshTranslationStatus()
         Task { await resumeTranslations() }
         let status = await Bridge.call(["status"])
@@ -543,6 +597,7 @@ final class PushStore: ObservableObject {
         articles[index].status = response.ok ? "已发送" : "失败"
         articles[index].details = response.ok ? (response.details?.contains("提示：") == true ? response.details! : "已读回文件，校验一致") : (response.message ?? "发送失败")
         articles[index].output = response.output
+        if response.ok { record(articles[index], sentAs: response.output, device: response.device) }
         if response.ok { self[keyPath: lane].sent += 1 } else { self[keyPath: lane].failures += 1 }
         self[keyPath: lane].completed += 1; save()
     }

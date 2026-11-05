@@ -1,5 +1,23 @@
 import Foundation
 
+/// One book delivered to a Kindle. Kept apart from the list, so clearing the list keeps it.
+struct SendRecord: Identifiable, Codable, Hashable {
+    var id = UUID()
+    var path: String
+    var title: String
+    var author: String?
+    var cover: String?
+    var device: String
+    /// The file name on the Kindle (under 我的文章).
+    var sentAs: String?
+    var translated = false
+    var date = Date()
+    /// Delivered before history was kept: the time is not known.
+    var earlier: Bool?
+    var format: String { Article.fileExtension(of: path).uppercased() }
+    var exists: Bool { FileManager.default.fileExists(atPath: path) }
+}
+
 struct Article: Identifiable, Codable {
     var id = UUID()
     var path: String

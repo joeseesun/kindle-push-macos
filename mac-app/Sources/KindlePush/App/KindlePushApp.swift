@@ -48,6 +48,8 @@ struct KindlePushApp: App {
                 Button("连接设置…") { store.showConnection = true }
                     .keyboardShortcut("k")
                 Button("添加 Kindle…") { store.showConnection = false; store.showAddKindle = true }
+                Button("发送历史…") { store.showConnection = false; store.showHistory = true }
+                    .keyboardShortcut("y")
                 Divider()
                 Button("发送到 Kindle") { Task { await store.send() } }
                     .keyboardShortcut(.return, modifiers: .command)
