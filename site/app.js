@@ -4,6 +4,17 @@
   const onScroll = () => nav.classList.toggle('scrolled', scrollY > 8);
   addEventListener('scroll', onScroll, { passive: true }); onScroll();
 
+  // 「交给 Agent」的复制按钮：复制提示词原文，按钮上说一声已复制。
+  document.querySelectorAll('[data-copy]').forEach(btn => btn.addEventListener('click', async () => {
+    const text = document.getElementById(btn.dataset.copy)?.textContent || '';
+    try { await navigator.clipboard.writeText(text); } catch {
+      const area = Object.assign(document.createElement('textarea'), { value: text });
+      document.body.append(area); area.select(); document.execCommand('copy'); area.remove();
+    }
+    const label = btn.textContent; btn.textContent = '已复制';
+    setTimeout(() => btn.textContent = label, 1600);
+  }));
+
   // 滚动显现
   const els = document.querySelectorAll('.section .wrap > *, .hero-shot');
   if ('IntersectionObserver' in window && !matchMedia('(prefers-reduced-motion: reduce)').matches) {

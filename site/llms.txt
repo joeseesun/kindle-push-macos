@@ -1,0 +1,40 @@
+# 乔木 Kindle 助手 (Kindle Push)
+
+> A free, open-source macOS app (MIT) that sends articles and ebooks to a jailbroken Kindle running KOReader over Wi‑Fi, with no cloud in between. It can also translate foreign books into a side-by-side or translation-only edition, and save results on the Mac without any Kindle.
+
+- Works on macOS 14 or later, Apple silicon and Intel. The Intel build is signed and notarized but has not been run on an Intel Mac yet.
+- Converting, tidying file names and saving to the Mac work right after install. Python and Pandoc are bundled.
+- Translating needs the translation engine (one click in Settings, a few minutes, needs internet) and a model service: a ChatGPT account, or an API key for DeepSeek, OpenAI, Gemini, Kimi, Qwen, OpenRouter and others, or a local Ollama / LM Studio.
+- Sending to a Kindle needs a jailbroken Kindle with KOReader and its SSH plugin, on the same Wi‑Fi as the Mac (guest networks will not work), paired once over USB from inside the app.
+- The interface follows the macOS language: Chinese or English.
+
+## Install (an agent can do this)
+
+1. Check the chip with `uname -m`.
+2. Download the DMG for it:
+   - arm64: https://github.com/joeseesun/kindle-push-macos/releases/latest/download/KindlePush.dmg
+   - x86_64: https://github.com/joeseesun/kindle-push-macos/releases/latest/download/KindlePush-Intel.dmg
+3. Mount it with `hdiutil attach -nobrowse`, copy `乔木 Kindle 助手.app` into `/Applications` with `ditto` (quit and replace any older copy first), then `hdiutil detach`.
+4. Confirm `spctl -a -vv "/Applications/乔木 Kindle 助手.app"` reports `source=Notarized Developer ID`, then `open` it.
+5. Do not disable Gatekeeper and do not use sudo. Checksums: https://github.com/joeseesun/kindle-push-macos/releases/latest/download/SHA256SUMS
+
+## Steps the person does themselves
+
+- Translation: Settings › Translation Service › choose a service, then install the engine and paste their own API key (it is checked and saved on paste). Never ask for, type or store the key for them.
+- Kindle: jailbreak and KOReader are outside this app. To pair, click 「添加 Kindle」 (Add Kindle) in the app, connect the Kindle by USB once, then pair over Wi‑Fi. Books arrive in KOReader under `documents/我的文章`.
+- Updates install from inside the app (Sparkle); no reinstall needed.
+
+## Docs
+
+- [Website](https://kindle.qiaomu.ai/): overview, downloads and FAQ (Chinese)
+- [README](https://github.com/joeseesun/kindle-push-macos#readme): features, requirements, building from source
+- [First-time Kindle setup](https://github.com/joeseesun/kindle-push-macos/blob/main/docs/SETUP.md)
+- [Translation](https://github.com/joeseesun/kindle-push-macos/blob/main/docs/TRANSLATION.md)
+- [Supported formats](https://github.com/joeseesun/kindle-push-macos/blob/main/docs/FORMATS.md)
+- [Troubleshooting](https://github.com/joeseesun/kindle-push-macos/blob/main/docs/TROUBLESHOOTING.md)
+- [Releases and changelog](https://github.com/joeseesun/kindle-push-macos/releases)
+
+## Optional
+
+- [Source code](https://github.com/joeseesun/kindle-push-macos): Swift 6 and Python; based on chasepal/kindle-push-macos
+- [乔木 SimpleUI](https://github.com/joeseesun/qiaomu-simpleui): a separate KOReader home-screen plugin by the same author; not required
