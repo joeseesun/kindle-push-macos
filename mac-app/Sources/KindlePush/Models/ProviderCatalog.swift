@@ -64,3 +64,30 @@ enum ProviderCatalog {
         return all.first { !$0.base.isEmpty && $0.base == trimmed } ?? service("custom")!
     }
 }
+
+/// This Mac or the same private network, where a model server (Ollama on a NAS, LM Studio on another
+/// computer) is usually plain http. Same rule as `on_local_network` in wifi-push/translation.py.
+/// Only literal addresses and local-only names count; nothing is resolved.
+enum LocalNetwork {
+    private static let suffixes = [".local", ".lan", ".home", ".home.arpa", ".internal", ".localhost"]
+
+    static func contains(_ rawHost: String) -> Bool {
+        let host = rawHost.trimmingCharacters(in: CharacterSet(charactersIn: "[]")).lowercased()
+            .trimmingCharacters(in: CharacterSet(charactersIn: "."))
+        guard !host.isEmpty else { return false }
+        if host == "localhost" || suffixes.contains(where: host.hasSuffix) { return true }
+        if !host.contains(".") && !host.contains(":") { return true }   // a bare name like "nas"
+        let parts = host.split(separator: ".", omittingEmptySubsequences: false)
+        let octets = parts.compactMap { UInt8($0) }
+        if parts.count == 4 && octets.count == 4 {
+            let (a, b) = (octets[0], octets[1])
+            return a == 127 || a == 10 || (a == 172 && (16...31).contains(b)) || (a == 192 && b == 168)
+                || (a == 169 && b == 254) || (a == 100 && (64...127).contains(b))   // 100.64/10: Tailscale
+        }
+        if host.contains(":") {
+            return host == "::1" || host.hasPrefix("fc") || host.hasPrefix("fd") || host.hasPrefix("fe8")
+                || host.hasPrefix("fe9") || host.hasPrefix("fea") || host.hasPrefix("feb")
+        }
+        return false
+    }
+}

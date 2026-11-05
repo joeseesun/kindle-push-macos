@@ -232,8 +232,11 @@ struct TranslationSettingsView: View {
                 Text(t("翻译服务"))
             } footer: {
                 VStack(alignment: .leading, spacing: 4) {
-                    if pendingSwitch {
-                        Text(t("现在还在用\(gapped(savedServiceName))。这个 Key 能用后，才换成\(gapped(t(service.name), before: true))。"))
+                    if badAddress {
+                        Text(t("这个地址用不了：云端服务要用 https://，本机和局域网里的服务可以用 http://。"))
+                            .foregroundStyle(.orange)
+                    } else if pendingSwitch, let step = missingStep {
+                        Text(t("现在还在用\(gapped(savedServiceName))。\(step)后，才换成\(gapped(t(service.name), before: true))。"))
                             .foregroundStyle(.orange)
                     }
                     Text(serviceNote).foregroundStyle(.secondary)
@@ -396,6 +399,27 @@ struct TranslationSettingsView: View {
     /// Picked a service that cannot run yet: the saved one stays in use until this one works.
     private var pendingSwitch: Bool { loaded && serviceID != savedService && !savedService.isEmpty && !usable }
 
+    /// The address points at another machine on the private network, not this Mac.
+    private var onAnotherMachine: Bool {
+        guard let host = URL(string: trimmedBase)?.host else { return false }
+        return LocalNetwork.contains(host) && !["localhost", "127.0.0.1", "::1"].contains(host.lowercased())
+    }
+
+    /// The address field has something in it that can never be saved.
+    private var badAddress: Bool {
+        service.signIn != .chatgpt && !trimmedBase.isEmpty && validBase(trimmedBase) == nil
+    }
+
+    /// The one thing still missing before the service on screen can take over.
+    private var missingStep: String? {
+        if service.signIn == .chatgpt { return codexLoggedIn ? (model.isEmpty ? t("选好模型") : nil) : t("登录 ChatGPT") }
+        if trimmedBase.isEmpty { return t("填好服务地址") }
+        let wantsKey = service.needsKey || service.group == .custom
+        if wantsKey && service.group != .local && savedKey == nil { return t("填好能用的 Key") }
+        if model.trimmingCharacters(in: .whitespaces).isEmpty { return t("选好模型") }
+        return nil
+    }
+
     /// Whether what is on screen can translate: signed in, local, or a key that is saved.
     private var usable: Bool {
         guard !model.trimmingCharacters(in: .whitespaces).isEmpty else { return false }
@@ -484,8 +508,11 @@ struct TranslationSettingsView: View {
         switch service.group {
         case .account:
             return t("用你 ChatGPT 套餐的额度，不另外收费，但有用量上限。正文会发给 OpenAI。")
-        case .local:
+        case .local where !onAnotherMachine:
             return t("模型在这台 Mac 上运行，正文不出本机。先在 \(service.name) 里下载并打开模型。")
+        case _ where onAnotherMachine:
+            // A NAS or another computer on the same network: not billed, and the text stays in the network.
+            return t("正文发给你局域网里的这台机器，不出这个网络，也不按用量付费。")
         default:
             let name = service.name == "自定义服务" ? t("这个服务") : service.name
             return t("翻译时，正文会发给\(gapped(name, before: true))，按用量付费。Key 只存在这台 Mac 上。")
@@ -521,6 +548,9 @@ struct TranslationSettingsView: View {
             return
         }
         guard !trimmedBase.isEmpty else { models = []; return }
+        guard validBase(trimmedBase) != nil else {
+            models = []; keyCheck = .idle; modelNote = ""; return
+        }
         let typed = editingKey ? key.trimmingCharacters(in: .whitespacesAndNewlines) : ""
         let wantsKey = service.needsKey || service.group == .custom
         if wantsKey && typed.isEmpty && savedKey == nil {
@@ -588,7 +618,7 @@ struct TranslationSettingsView: View {
     private func validBase(_ value: String) -> String? {
         guard let url = URL(string: value), let host = url.host,
               url.user == nil, url.password == nil, url.query == nil, url.fragment == nil,
-              url.scheme == "https" || (url.scheme == "http" && ["localhost", "127.0.0.1", "::1"].contains(host)) else { return nil }
+              url.scheme == "https" || (url.scheme == "http" && LocalNetwork.contains(host)) else { return nil }
         return value
     }
 

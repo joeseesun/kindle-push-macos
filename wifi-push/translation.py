@@ -1,6 +1,7 @@
 """Private, resumable bilingual_book_maker jobs. No book or key enters argv."""
 import fcntl
 import hashlib
+import ipaddress
 import json
 import os
 from pathlib import Path
@@ -95,13 +96,33 @@ def atomic_json(path, value):
     temp.replace(path)
 
 
+LOCAL_SUFFIXES = ('.local', '.lan', '.home', '.home.arpa', '.internal', '.localhost')
+
+
+def on_local_network(host):
+    """This Mac, or a machine on the same private network: a model server on a NAS or another
+    computer is usually plain http. Only literal addresses and local-only names count; nothing is resolved."""
+    host = (host or '').strip('[]').lower().rstrip('.')
+    if not host:
+        return False
+    if host == 'localhost' or host.endswith(LOCAL_SUFFIXES) or '.' not in host and ':' not in host:
+        return True
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    # 100.64.0.0/10 is carrier-grade NAT, which Tailscale uses for its private network.
+    return (address.is_loopback or address.is_private or address.is_link_local
+            or address in ipaddress.ip_network('100.64.0.0/10'))
+
+
 def endpoint(value):
     value = value.strip().rstrip('/')
     parts = urlsplit(value)
     if parts.username or parts.password or parts.query or parts.fragment or not parts.hostname:
         raise ValueError('服务地址不能包含密码、查询参数或片段。')
-    if parts.scheme != 'https' and not (parts.scheme == 'http' and parts.hostname in {'localhost', '127.0.0.1', '::1'}):
-        raise ValueError('云端服务必须使用 HTTPS；本机服务可以使用 HTTP。')
+    if parts.scheme != 'https' and not (parts.scheme == 'http' and on_local_network(parts.hostname)):
+        raise ValueError('云端服务要用 https://；本机和局域网里的服务可以用 http://。')
     return value
 
 
@@ -150,7 +171,7 @@ def glossary_lines(text):
 
 
 def is_local(base):
-    return urlsplit(base).hostname in {'localhost', '127.0.0.1', '::1'}
+    return on_local_network(urlsplit(base).hostname)
 
 
 def has_key(config):
@@ -199,7 +220,9 @@ def read_key(config):
     result = subprocess.run(['/usr/bin/security', 'find-generic-password', '-s', config['service'],
                              '-a', config['account'], '-w'], capture_output=True, text=True)
     if result.returncode or not result.stdout.strip():
-        raise ValueError('无法读取翻译 API Key，请在翻译设置中保存，或解锁 macOS 钥匙串。')
+        if not has_key(config):
+            raise ValueError('翻译服务还没有 API Key：在设置 › 翻译服务里粘贴一个。')
+        raise ValueError('读不到翻译 API Key：请解锁 macOS 钥匙串后重试。')
     return result.stdout.rstrip('\n')
 
 
