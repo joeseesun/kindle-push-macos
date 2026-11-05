@@ -40,17 +40,20 @@ def reachable(host, timeout=0.45):
         return False
 
 
-def host_key(host):
-    """The ED25519 host key `host` presents on the receiver port, without authenticating."""
-    try:
-        result = subprocess.run(['/usr/bin/ssh-keyscan', '-T', '2', '-p', '2222', '-t', 'ed25519', host],
-                                capture_output=True, timeout=4)
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    for line in result.stdout.decode().splitlines():
-        parts = line.split()
-        if len(parts) >= 3 and parts[1] == 'ssh-ed25519':
-            return parts[2]
+def host_key(host, attempts=2):
+    """The ED25519 host key `host` presents on the receiver port, without authenticating.
+
+    A Kindle busy writing a book can take seconds to answer, so a slow reply is retried."""
+    for attempt in range(attempts):
+        try:
+            result = subprocess.run(['/usr/bin/ssh-keyscan', '-T', str(3 + 2 * attempt), '-p', '2222', '-t', 'ed25519', host],
+                                    capture_output=True, timeout=10 + 4 * attempt)
+        except (OSError, subprocess.TimeoutExpired):
+            continue
+        for line in result.stdout.decode().splitlines():
+            parts = line.split()
+            if len(parts) >= 3 and parts[1] == 'ssh-ed25519':
+                return parts[2]
     return None
 
 
@@ -60,18 +63,48 @@ def identify(host, known):
     return next((d for d in known if d['key'] == key), None) if key else None
 
 
+MISMATCH = '这个地址的设备与已配对 Kindle 不一致。请核对 IP；应用没有发送文件。'
+NO_ANSWER = 'Kindle 暂时没有响应。请确认它没有休眠、KOReader 仍在前台，然后重试。'
+
+
+def ping(host, device):
+    """The receiver's answer, over a connection pinned to `device`'s host key."""
+    for attempt in range(2):
+        try:
+            return kp.ssh({'host': host, 'alias': device['alias']}, 'ping', timeout=30).strip()
+        except subprocess.CalledProcessError as error:
+            detail = error.stderr or b''
+            if b'Host key verification failed' in detail or b'IDENTIFICATION HAS CHANGED' in detail:
+                raise ValueError(MISMATCH) from error
+        except subprocess.TimeoutExpired:
+            pass
+    raise ValueError(NO_ANSWER)
+
+
 def verify(host, expected=None):
-    """Connect to the paired Kindle at `host` (the one with id `expected`, when given) and make it current."""
+    """Connect to the paired Kindle at `host` (the one with id `expected`, when given) and make it current.
+
+    With `expected`, SSH itself checks the host key, so no separate scan is needed; a different
+    device at that address fails the handshake and nothing is sent."""
     host = valid_host(host)
-    if not reachable(host, 2):
+    if not reachable(host, 3):
         raise ValueError('没有连上 Kindle。请连接同一个 Wi-Fi，在 Kindle 打开 KOReader；然后点“自动寻找”。')
-    device = identify(host, paired())
-    if device is None or (expected and device['id'] != expected):
-        raise ValueError('这个地址的设备与已配对 Kindle 不一致。请核对 IP；应用没有发送文件。')
-    if kp.ssh({'host': host, 'alias': device['alias']}, 'ping').strip() not in kp.RECEIVER_VERSIONS:
+    if expected:
+        device = next((d for d in paired() if d['id'] == expected), None)
+        if device is None:
+            raise ValueError('没有这台 Kindle 的配对记录。')
+    else:
+        key = host_key(host)
+        if key is None:
+            raise ValueError(NO_ANSWER)
+        device = next((d for d in paired() if d['key'] == key), None)
+        if device is None:
+            raise ValueError(MISMATCH)
+    if ping(host, device) not in kp.RECEIVER_VERSIONS:
         raise ValueError('Kindle 接收服务没有正常响应，请重新打开 KOReader。')
     dv.update(device['id'], host=host, select=True)
     return host, device
+
 
 def local_candidates():
     """Only active physical LANs; /24 cap on larger LANs plus observed ARP peers."""

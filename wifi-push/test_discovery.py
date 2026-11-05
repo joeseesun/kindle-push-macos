@@ -47,12 +47,37 @@ class DiscoveryTests(unittest.TestCase):
         update.assert_called_once_with('k2', host='192.168.1.77', select=True)
 
     def test_send_to_one_kindle_never_reaches_another(self):
+        refused = bridge.subprocess.CalledProcessError(255, 'ssh', stderr=b'Host key verification failed.\r\n')
         with patch.object(bridge, 'reachable', return_value=True), \
              patch.object(bridge, 'paired', return_value=[self.A, self.B]), \
-             patch.object(bridge, 'host_key', return_value='key-a'), \
-             patch.object(bridge.kp, 'ssh') as ssh:
+             patch.object(bridge, 'host_key') as scan, \
+             patch.object(bridge.kp, 'ssh', side_effect=refused) as ssh, \
+             patch.object(bridge.dv, 'update') as update:
             with self.assertRaisesRegex(ValueError, '不一致'):
                 bridge.verify('192.168.1.20', 'k2')
+        # Pinned by SSH itself: no separate scan, and the handshake used k2's alias.
+        scan.assert_not_called()
+        self.assertEqual(ssh.call_args.args[0]['alias'], 'kindle-push-2')
+        update.assert_not_called()
+
+    def test_a_slow_kindle_is_retried_not_reported_as_another_device(self):
+        with patch.object(bridge, 'reachable', return_value=True), \
+             patch.object(bridge, 'paired', return_value=[self.A]), \
+             patch.object(bridge.kp, 'ssh', side_effect=[bridge.subprocess.CalledProcessError(255, 'ssh', stderr=b'Connection timed out'),
+                                                         b'kindle-push-v2\n']), \
+             patch.object(bridge.dv, 'update'):
+            self.assertEqual(bridge.verify('192.168.1.10', 'k1')[1]['id'], 'k1')
+        with patch.object(bridge, 'reachable', return_value=True), \
+             patch.object(bridge, 'paired', return_value=[self.A]), \
+             patch.object(bridge.kp, 'ssh', side_effect=bridge.subprocess.CalledProcessError(255, 'ssh', stderr=b'timed out')):
+            with self.assertRaisesRegex(ValueError, '暂时没有响应'):
+                bridge.verify('192.168.1.10', 'k1')
+        with patch.object(bridge, 'reachable', return_value=True), \
+             patch.object(bridge, 'paired', return_value=[self.A]), \
+             patch.object(bridge, 'host_key', return_value=None), \
+             patch.object(bridge.kp, 'ssh') as ssh:
+            with self.assertRaisesRegex(ValueError, '暂时没有响应'):
+                bridge.verify('192.168.1.10')
             ssh.assert_not_called()
 
     def test_cached_address_failure_falls_back_to_identified_device(self):
