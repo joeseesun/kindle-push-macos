@@ -64,7 +64,7 @@
 
 ## 发送 PDF、MOBI 等原生格式
 
-EPUB 和会转成 EPUB 的格式（Markdown、TXT、Word、HTML 等）用原来的接收端就能发。PDF、MOBI、AZW3、DjVu、漫画等原样发送的格式，需要 Kindle 上的新版接收端：用 USB 连接 Kindle，按[首次配置](docs/SETUP.md)重新运行一次。应用会识别旧版接收端并提示，不会发一半。AZW3 发送时改名为 `.azw`，KOReader 按这个扩展名打开 KF8 书。
+EPUB 和会转成 EPUB 的格式（Markdown、TXT、Word、HTML 等）用原来的接收端就能发。PDF、MOBI、AZW3、DjVu、漫画等原样发送的格式，需要 Kindle 上的新版接收端：用 USB 连接 Kindle，按[首次配置](docs/SETUP.md)重新运行一次。没升级之前，PDF 会自动逐页转成图片版 EPUB 发送（每页按 Kindle 屏幕渲染成 16 级灰度，过大时自动分册），能看但不能选字、不能重排；其他格式会提示升级，不会发一半。AZW3 发送时改名为 `.azw`，KOReader 按这个扩展名打开 KF8 书。
 
 ## 换网络也能用吗？
 
