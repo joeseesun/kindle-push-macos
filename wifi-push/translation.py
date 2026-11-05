@@ -216,6 +216,65 @@ def install():
     return public_settings()
 
 
+# What failed, from the engine's log. Only status codes and exception names are matched, and only
+# the fixed sentence reaches the UI: a provider's own text can quote the book or echo a key.
+PROBLEMS = (
+    ('key', re.compile(r'Error code: 40[13]\b|AuthenticationError|PermissionDeniedError|invalid[_ ]api[_ ]key', re.I),
+     '模型服务拒绝了 Key。到翻译设置检查或重新填写后重试，已译好的部分不重复计费。'),
+    ('balance', re.compile(r'Error code: 402\b|insufficient[_ ](balance|quota)|CodexQuotaExhausted|exceeded your current quota', re.I),
+     '账户余额或额度用完了。充值后点重试，已译好的部分不重复计费。'),
+    ('rate', re.compile(r'Error code: 429\b|RateLimitError', re.I),
+     '请求太频繁，被模型服务限流了。到翻译设置调低并发数，稍后重试。'),
+    ('model', re.compile(r'Error code: 404\b|NotFoundError|model_not_found', re.I),
+     '这个模型用不了。到翻译设置重新选一个模型后重试。'),
+    ('server', re.compile(r'Error code: 5\d\d\b|InternalServerError|ServiceUnavailable', re.I),
+     '模型服务暂时出错了。等一会儿点重试，已译好的部分不重复计费。'),
+    ('network', re.compile(r'APIConnectionError|APITimeoutError|ConnectError|ConnectTimeout|ReadTimeout|Name or service not known', re.I),
+     '连不上模型服务。检查网络或代理后重试，已译好的部分不重复计费。'),
+)
+UNKNOWN_FAILURE = '翻译未完成，请检查模型设置、余额和网络后重试；已完成的进度会保留。'
+TOKENS = re.compile(r'tokens: in ([\d.]+)([kM]?), out ([\d.]+)([kM]?), cached [\d.]+[kM]? \(\d+ requests?\)')
+
+
+def log_tail(path, size=65536):
+    try:
+        with open(path, 'rb') as file:
+            file.seek(max(0, path.stat().st_size - size))
+            return file.read().decode('utf-8', 'replace')
+    except OSError:
+        return ''
+
+
+def diagnose(text):
+    """(problem, sentence) for a failed run. The last error named in the log is the one that stopped it."""
+    last, found = -1, ('', UNKNOWN_FAILURE)
+    for problem, pattern, sentence in PROBLEMS:
+        for match in pattern.finditer(text):
+            if match.start() > last:
+                last, found = match.start(), (problem, sentence)
+    return found
+
+
+def tokens_used(text):
+    """(in, out) from the engine's closing tally, or None when it never printed one."""
+    found = TOKENS.findall(text)
+    if not found:
+        return None
+    scale = {'': 1, 'k': 1_000, 'M': 1_000_000}
+    last = found[-1]
+    return int(float(last[0]) * scale[last[1]]), int(float(last[2]) * scale[last[3]])
+
+
+def stay_awake():
+    """Hold off idle sleep for as long as this worker lives, including when the app is closed.
+    A closed lid still sleeps; macOS gives no way round that without a power adapter and display."""
+    try:
+        subprocess.Popen(['/usr/bin/caffeinate', '-i', '-w', str(os.getpid())], stdin=subprocess.DEVNULL,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+    except OSError:
+        pass
+
+
 def job_dir(job):
     if not re.fullmatch('[0-9a-f]{24}', job):
         raise ValueError('无效的翻译任务。')
@@ -333,11 +392,15 @@ def start(source, preview=False, mode='bilingual', goal='zh'):
     if goal not in lang.TARGETS:
         raise ValueError('不支持的目标语言。')
     source = Path(source).expanduser().resolve(strict=True)
-    if source.suffix.lower() != '.epub':
-        raise ValueError('翻译仅支持 EPUB。其他格式可以直接发送。')
+    suffix = kp.extension(source)
     if source.stat().st_size > 100 * 1024 * 1024:
-        raise ValueError('EPUB 超过 100 MB，请先缩小图片。')
-    kp.validate_epub(source)
+        raise ValueError('这本书超过 100 MB，请先缩小图片。')
+    if suffix == '.epub':
+        kp.validate_epub(source)
+    elif suffix in {'.mobi', '.azw', '.azw3'} and not kp.calibre():
+        raise ValueError('翻译 MOBI/AZW 需要 Calibre 来提取文字。安装 Calibre 后再试，或换成 EPUB。')
+    elif not kp.translatable(source):
+        raise ValueError(suffix[1:].upper() + ' 是固定版式，暂时不能翻译。可以直接发送。')
     if not (RUNTIME / 'bin/bbook_maker').is_file():
         raise ValueError('请先打开翻译设置，安装翻译组件。')
     config = settings()
@@ -362,21 +425,29 @@ def start(source, preview=False, mode='bilingual', goal='zh'):
                 kp.validate_epub(Path(state['output']))
                 if hashlib.sha256(Path(state['output']).read_bytes()).hexdigest() == state.get('sha256'):
                     return state
+        previous = {}
+        if (folder / 'state.json').exists():
+            previous = json.loads((folder / 'state.json').read_text())
         snapshot = folder / 'book.epub'
         if not snapshot.exists():
-            shutil.copyfile(source, snapshot)
-            snapshot.chmod(0o600)
-        if hashlib.sha256(snapshot.read_bytes()).hexdigest() != digest:
+            # The job is named after the source's bytes, and this copy is kept, so resuming never
+            # depends on another conversion coming out byte for byte the same.
+            temp = folder / 'book.tmp'
+            temp.write_bytes(kp.epub_for_translation(source))
+            temp.chmod(0o600)
+            temp.replace(snapshot)
+        if suffix == '.epub' and hashlib.sha256(snapshot.read_bytes()).hexdigest() != digest:
             raise ValueError('任务副本校验失败，原书未修改。')
         (folder / 'cancel').unlink(missing_ok=True)
         atomic_json(folder / 'request.json', {'config': config, 'preview': preview, 'mode': mode, 'target': goal,
-                                                  'source': lang.detect(source), 'title': source.stem})
+                                                  'source': lang.detect(snapshot), 'title': source.stem})
         with (folder / 'worker.log').open('a') as log:
             child = subprocess.Popen([sys.executable, '-B', str(Path(__file__).resolve()), 'worker', job],
                                      stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True)
         birth = subprocess.run(['/bin/ps', '-p', str(child.pid), '-o', 'lstart='], capture_output=True, text=True).stdout.strip()
-        atomic_json(folder / 'state.json', {'state': 'queued', 'pid': child.pid, 'birth': birth,
-                                           'message': '正在准备翻译…'})
+        # Usage carries across retries, since all of it was paid for.
+        atomic_json(folder / 'state.json', {'state': 'queued', 'pid': child.pid, 'birth': birth, 'message': '正在准备翻译…',
+                                           **{k: previous[k] for k in ('tokensIn', 'tokensOut') if k in previous}})
     return {'ok': True, 'job': job, 'state': 'queued', 'message': '正在准备翻译…'}
 
 
@@ -460,6 +531,7 @@ def worker(job):
         fcntl.flock(lock, fcntl.LOCK_EX)
         state = json.loads((folder / 'state.json').read_text())
     child = None
+    stay_awake()
     try:
         request = json.loads((folder / 'request.json').read_text())
         config = request['config']
@@ -502,11 +574,14 @@ def worker(job):
                         os.killpg(child.pid, signal.SIGTERM)
                         child.wait(timeout=10)
                     state.update(state='cancelled', message='翻译已停止，再次开始会继续已保存的进度。')
-                    atomic_json(folder / 'state.json', state)
                     return
                 time.sleep(0.5)
         if child.returncode or not raw.is_file():
-            raise ValueError('翻译未完成，请检查模型设置、余额和网络后重试；已完成的进度会保留。')
+            problem, sentence = diagnose(log_tail(folder / 'engine.log'))
+            state.pop('problem', None)
+            if problem:
+                state['problem'] = problem
+            raise ValueError(sentence)
         finish_parts(folder, raw, result, goal)
         kp.validate_epub(result)
         kp.OUT.mkdir(parents=True, exist_ok=True)
@@ -522,6 +597,7 @@ def worker(job):
         shutil.copyfile(result, temp)
         temp.chmod(0o600)
         temp.replace(output)
+        state.pop('problem', None)
         state.update(state='done', message='试译完成，可先检查译文。' if request['preview'] else f'{name}版已生成。' if alone else f'{label}版已生成。',
                      output=str(output), sha256=hashlib.sha256(output.read_bytes()).hexdigest())
     except Exception as error:
@@ -531,6 +607,10 @@ def worker(job):
     finally:
         if child and child.poll() is None:
             os.killpg(child.pid, signal.SIGTERM)
+        used = tokens_used(log_tail(folder / 'engine.log')) if child else None
+        if used:
+            state['tokensIn'] = state.get('tokensIn', 0) + used[0]
+            state['tokensOut'] = state.get('tokensOut', 0) + used[1]
         atomic_json(folder / 'state.json', state)
 
 

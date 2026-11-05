@@ -20,8 +20,20 @@ final class PushStore: ObservableObject {
     @Published var history: [SendRecord] = []
     /// Translation and everything else run in separate queues, so a translation that takes hours
     /// never holds up sending, saving or tidying the other books.
-    @Published var translation = Lane()
-    @Published var quick = Lane()
+    @Published var translation = Lane() { didSet { holdOffSleep() } }
+    @Published var quick = Lane() { didSet { holdOffSleep() } }
+    /// Kept while either queue runs, so an idle Mac does not sleep through a transfer. The translation
+    /// worker holds its own (see translation.py), which also covers the window being closed.
+    private var awake: NSObjectProtocol?
+    private func holdOffSleep() {
+        if busy, awake == nil {
+            awake = ProcessInfo.processInfo.beginActivity(options: .userInitiated, reason: "正在翻译或发送书")
+        } else if !busy, let token = awake {
+            ProcessInfo.processInfo.endActivity(token); awake = nil
+        }
+    }
+    /// What the last removal took out and where it was, while it can still be undone.
+    @Published var undoable: [(offset: Int, article: Article)] = []
     var busy: Bool { translation.running || quick.running }
     @Published var activity = "正在检查连接…"
     @Published var notice = ""
@@ -52,8 +64,6 @@ final class PushStore: ObservableObject {
     /// Sending: stop after the book in flight, or (`cancelNow`) drop it too.
     @Published var sendStopRequested = false
     private var cancelNow = false
-    /// The book being transferred right now, for "cancel this one".
-    @Published var sendingID: UUID?
     private var started = false
     /// Kindles found away during a batch, until when not to search for them again.
     private var awayUntil: [String: Date] = [:]
@@ -83,7 +93,8 @@ final class PushStore: ObservableObject {
 
     /// Titles, authors, covers and languages for items that do not have them yet.
     func loadBookInfo() async {
-        for article in articles where article.bookTitle == nil || (article.format == "EPUB" && article.language == nil) {
+        // canTranslate is new in 1.15: books already in the list are read once more for it.
+        for article in articles where article.bookTitle == nil || article.canTranslate == nil {
             let response = await Bridge.call(["book-info", article.path])
             guard let index = articles.firstIndex(where: { $0.id == article.id }) else { continue }
             if response.ok {
@@ -92,7 +103,8 @@ final class PushStore: ObservableObject {
                 articles[index].cover = response.cover
                 articles[index].language = response.language ?? ""
                 articles[index].textSize = response.textSize
-            } else { articles[index].bookTitle = ""; articles[index].language = "" }
+                articles[index].canTranslate = response.translatable ?? false
+            } else { articles[index].bookTitle = ""; articles[index].language = ""; articles[index].canTranslate = false }
             if articles[index].format == "PDF", articles[index].cover == nil {
                 articles[index].cover = await Covers.pdf(articles[index].path)
             }
@@ -103,9 +115,9 @@ final class PushStore: ObservableObject {
 
     // MARK: Translation per book
 
-    /// An EPUB whose language has been read, not yet sent: any of these can be translated into any language.
+    /// A book whose text this app can read, with its language checked: any of these can be translated into any language.
     func translatable(_ article: Article) -> Bool {
-        article.format == "EPUB" && article.language != nil
+        (article.canTranslate ?? (article.format == "EPUB")) && article.language != nil
     }
     /// The language this book goes into: its own choice, else the preference from settings.
     func goal(of article: Article) -> String { article.target ?? targetLanguage }
@@ -171,13 +183,23 @@ final class PushStore: ObservableObject {
         return max(1, Int((Double(bytes) / Double(5000 * workers)).rounded()))
     }
 
+    /// About 0.6 tokens per byte of XHTML in and out together, from real whole-book runs; the same kind of guess.
+    var translationTokens: Int? {
+        let books = plannedTranslations
+        guard !books.isEmpty, books.allSatisfy({ $0.textSize != nil }) else { return nil }
+        return Int(Double(books.reduce(0) { $0 + ($1.textSize ?? 0) }) * 0.6)
+    }
+
     var pendingCount: Int { articles.filter { $0.status != "已发送" }.count }
     /// How far each queue has got; translation counts the book being translated right now.
     var translationProgress: Double {
         let current = articles.first { $0.status == "翻译中" }?.progress ?? 0
         return min(1, (Double(translation.completed) + current) / Double(max(translation.total, 1)))
     }
-    var quickProgress: Double { min(1, Double(quick.completed) / Double(max(quick.total, 1))) }
+    var quickProgress: Double {
+        let current = articles.first { $0.id == quick.sending }?.progress ?? 0
+        return min(1, (Double(quick.completed) + current) / Double(max(quick.total, 1)))
+    }
     /// Books the main buttons would start now: not sent, not already queued or running.
     var queueable: [Article] {
         articles.filter { $0.status != "已发送" && $0.status != "排队中" && $0.phase != .working && !active.contains($0.id) }
@@ -210,10 +232,10 @@ final class PushStore: ObservableObject {
         NSApp?.dockTile.badgeLabel = pendingCount > 0 ? "\(pendingCount)" : nil
     }
 
-    func dismissNotice() { notice = ""; isError = false }
+    func dismissNotice() { notice = ""; isError = false; undoable = [] }
 
     private func announce(_ message: String, error: Bool) {
-        notice = message; isError = error
+        notice = message; isError = error; undoable = []
         guard !error else { return }
         Task {
             try? await Task.sleep(for: .seconds(8))
@@ -247,7 +269,22 @@ final class PushStore: ObservableObject {
     func remove(_ id: UUID) { remove([id]) }
     /// The book being worked on stays; anything else can go, even mid-batch (the batch skips missing items).
     func remove(_ ids: Set<UUID>) {
-        articles.removeAll { ids.contains($0.id) && !(busy && $0.phase == .working) }; save()
+        take { ids.contains($0.id) && !(busy && $0.phase == .working) }
+    }
+    /// Removing is one key away and has no dialog, so it can always be taken back for a moment.
+    private func take(where chosen: (Article) -> Bool) {
+        let gone = articles.enumerated().filter { chosen($0.element) }.map { (offset: $0.offset, article: $0.element) }
+        guard !gone.isEmpty else { return }
+        articles.removeAll(where: chosen); save()
+        let label = gone.count == 1 ? "已移除《\(gone[0].article.title)》" : "已移除 \(gone.count) 本"
+        announce(label, error: false)
+        undoable = gone
+    }
+    func undoRemove() {
+        for item in undoable.sorted(by: { $0.offset < $1.offset }) where !articles.contains(where: { $0.id == item.article.id }) {
+            articles.insert(item.article, at: min(item.offset, articles.count))
+        }
+        dismissNotice(); save()
     }
     /// Shows the file the app made (translation or converted copy) when it still exists, else the original.
     func reveal(_ ids: Set<UUID>) {
@@ -308,7 +345,7 @@ final class PushStore: ObservableObject {
         return failed
     }
 
-    func clearSent() { articles.removeAll { $0.status == "已发送" }; save() }
+    func clearSent() { take { $0.status == "已发送" } }
 
     // MARK: Send history
 
@@ -385,7 +422,7 @@ final class PushStore: ObservableObject {
 
     /// Translations that kept running, or finished, while the app was closed: show them again.
     private func resumeTranslations() async {
-        for article in articles where article.format == "EPUB" && ["等待继续", "翻译中"].contains(article.status) {
+        for article in articles where (article.canTranslate ?? (article.format == "EPUB")) && ["等待继续", "翻译中"].contains(article.status) {
             let goal = article.translatedTo ?? self.goal(of: article)
             let found = await Bridge.call(["translation-find", article.path, goal])
             guard found.ok, let index = articles.firstIndex(where: { $0.id == article.id }) else { continue }
@@ -401,6 +438,7 @@ final class PushStore: ObservableObject {
                 if output != nil { translationFinished(article.id) }
                 else if !stopRequested, let failed = articles.first(where: { $0.id == article.id }) {
                     notice = failed.details; isError = true
+                    Notify.post("翻译没有完成", "《\(failed.title)》：\(failed.details)")
                 }
                 translation.running = false
                 // Books queued while this one was being picked up.
@@ -421,7 +459,7 @@ final class PushStore: ObservableObject {
         articles[index].details = "译本已生成 · 点「发送到 Kindle」送到 Kindle"
         save()
         announce("《\(articles[index].title)》翻译完成。点「发送到 Kindle」会直接用这份译本。", error: false)
-        if !NSApp.isActive { NSApp.requestUserAttention(.informationalRequest) }
+        Notify.post("翻译完成", "《\(articles[index].title)》的译本已生成。")
     }
 
     func refreshTranslationStatus() async {
@@ -682,7 +720,7 @@ final class PushStore: ObservableObject {
     func stopSending(now: Bool = false) {
         guard quick.running else { return }
         sendStopRequested = true
-        if now, let id = sendingID { cancelNow = true; Bridge.cancel("send-\(id)") }
+        if now, let id = quick.sending { cancelNow = true; Bridge.cancel("send-\(id)") }
     }
 
     /// Takes one book out of the queue without stopping the others.
@@ -754,9 +792,7 @@ final class PushStore: ObservableObject {
             await deliverToEach(job, source: source, step: step, lane: lane)
             return
         }
-        sendingID = id
-        let response = await Bridge.call(["send", host, source] + (deviceId.isEmpty ? [] : [deviceId]), tag: "send-\(id)")
-        sendingID = nil
+        let response = await transfer(["send", host, source] + (deviceId.isEmpty ? [] : [deviceId]), id: id, lane: lane)
         guard articles.contains(where: { $0.id == id }) else { return }
         if response.state == "cancelled" {
             // The receiver discards an unfinished file, so nothing half-written stays on the Kindle.
@@ -769,6 +805,29 @@ final class PushStore: ObservableObject {
         if response.ok { record(articles[index], sentAs: response.output, device: response.device) }
         if response.ok { self[keyPath: lane].sent += 1 } else { self[keyPath: lane].failures += 1 }
         self[keyPath: lane].completed += 1; save()
+    }
+
+    /// Sends and shows how far it has got, read from a file the bridge keeps up to date.
+    private func transfer(_ arguments: [String], id: UUID, lead: String = "",
+                          lane: ReferenceWritableKeyPath<PushStore, Lane>) async -> BridgeResponse {
+        self[keyPath: lane].sending = id
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("kindle-send-\(id.uuidString).json")
+        let watcher = Task { [weak self] in
+            struct Mark: Decodable { let percent: Int; let stage: String }
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(400))
+                guard let data = try? Data(contentsOf: file), let mark = try? JSONDecoder().decode(Mark.self, from: data),
+                      let self, let index = self.articles.firstIndex(where: { $0.id == id }), !Task.isCancelled else { continue }
+                self.articles[index].progress = Double(mark.percent) / 100
+                self.articles[index].details = lead + (mark.stage == "verify" ? "正在校验…" : "正在发送 · \(mark.percent)%")
+            }
+        }
+        let response = await Bridge.call(arguments, tag: "send-\(id)", progressFile: file.path)
+        watcher.cancel()
+        try? FileManager.default.removeItem(at: file)
+        self[keyPath: lane].sending = nil
+        if let index = articles.firstIndex(where: { $0.id == id }) { articles[index].progress = nil }
+        return response
     }
 
     /// One book to every Kindle ticked when it was queued, in turn. A Kindle that is away does not
@@ -784,10 +843,9 @@ final class PushStore: ObservableObject {
             if let until = awayUntil[kindle.id], until > Date() { missed.append("「\(kindle.name)」不在这个 Wi-Fi 里"); continue }
             guard articles.contains(where: { $0.id == id }) else { return }
             articles[index].details = "正在发到「\(kindle.name)」…"
+            let lead = job.kindles.count > 1 ? "「\(kindle.name)」" : ""
             self[keyPath: lane].activity = "正在发送 \(step)：\(articles[index].title) → \(kindle.name)"
-            sendingID = id
-            let response = await Bridge.call(["send", kindle.host, source, kindle.id], tag: "send-\(id)")
-            sendingID = nil
+            let response = await transfer(["send", kindle.host, source, kindle.id], id: id, lead: lead, lane: lane)
             guard articles.contains(where: { $0.id == id }) else { return }
             if response.state == "cancelled" {
                 // Those already reached stay recorded; pressing send again carries on from here.
@@ -832,7 +890,11 @@ final class PushStore: ObservableObject {
         if lane.failures > 0 { parts.append("\(lane.failures) 篇未完成，可以重试") }
         guard !parts.isEmpty else { return }
         announce(parts.joined(separator: "；") + "。", error: lane.failures > 0)
-        if !NSApp.isActive { NSApp.requestUserAttention(.informationalRequest) }
+        guard !stopped else { return }
+        // One failure's own reason says what to do next, which a count does not.
+        let failed = articles.filter { $0.phase == .failed }
+        let body = lane.failures == 1 && failed.count == 1 ? "《\(failed[0].title)》：\(failed[0].details)" : parts.joined(separator: "；") + "。"
+        Notify.post(lane.failures > 0 ? "有书没有完成" : "都完成了", body)
     }
 
     private func translate(index: Int, preview: Bool, mode: OutputMode, target: String) async -> String? {
@@ -840,6 +902,8 @@ final class PushStore: ObservableObject {
         articles[index].details = "正在准备\(title(mode, for: articles[index]))版…"
         translation.activity = "正在\(preview ? "试译" : "翻译")：\(articles[index].title)"; save()
         let id = articles[index].id
+        articles[index].problem = nil
+        Notify.ask()
         let response = await Bridge.call(["translation-start", articles[index].path, preview ? "preview" : "full",
                                           mode == .targetOnly ? "target-only" : "bilingual", target])
         return await follow(id, from: response, preview: preview, mode: mode, target: target)
@@ -860,6 +924,8 @@ final class PushStore: ObservableObject {
         }
         currentJob = nil
         articles[index].progress = nil
+        if let tokensIn = response.tokensIn, let tokensOut = response.tokensOut { articles[index].tokens = tokensIn + tokensOut }
+        articles[index].problem = response.problem
         guard response.ok, response.state == "done", let output = response.output, !stopRequested else {
             articles[index].status = stopRequested || response.state == "cancelled" ? "已停止" : "失败"
             articles[index].details = response.message ?? "翻译未完成，请检查翻译设置。"; save()
@@ -904,6 +970,15 @@ final class PushStore: ObservableObject {
     func stopTranslation() {
         stopRequested = true
         if let job = currentJob { Task { _ = await Bridge.call(["translation-cancel", job]) } }
+        // Past translating and on its way to the Kindle: the same button stops that.
+        if let id = translation.sending { Bridge.cancel("send-\(id)") }
+    }
+
+    /// "1.2 万", for tokens; nobody needs the digits of a rough count.
+    nonisolated static func tokenText(_ count: Int) -> String {
+        if count < 10_000 { return "\(count)" }
+        let wan = Double(count) / 10_000
+        return wan < 10 ? String(format: "%.1f 万", wan) : "\(Int(wan.rounded())) 万"
     }
 
     func revealOutput() {
@@ -920,6 +995,8 @@ struct Lane {
     var completed = 0, total = 0, failures = 0, sent = 0
     var saved: [URL] = []
     var activity = ""
+    /// The book this queue is transferring right now, for "cancel this one".
+    var sending: UUID?
 
     mutating func reset(total: Int) {
         queue = []; running = true; completed = 0; self.total = total; failures = 0; sent = 0; saved = []; activity = ""

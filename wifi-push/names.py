@@ -2,6 +2,7 @@
 
 Works on names only; the book itself is never changed here.
 """
+import fcntl
 import json
 import re
 from pathlib import Path
@@ -94,6 +95,13 @@ def unique_output(folder, title, suffix, owner):
     """`folder/title+suffix`, kept per owner so resending replaces the same file,
     while two different books with the same title get `title 2`, `title 3`."""
     index_file = folder / '.names.json'
+    # Two queues can finish at once, and each rewrites the index.
+    with open(folder / '.names.lock', 'w') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        return _claim(folder, index_file, title, suffix, owner)
+
+
+def _claim(folder, index_file, title, suffix, owner):
     try:
         index = json.loads(index_file.read_text())
     except (OSError, ValueError):

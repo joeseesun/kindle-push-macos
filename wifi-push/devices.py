@@ -8,6 +8,8 @@ there stays the current device's address for the command line.
 `selected` is the set of Kindles a book goes to; `current` is always one of them, the one the
 connection status follows. With one selected, the two are the same and it behaves as before.
 """
+import contextlib
+import fcntl
 import json
 import re
 import tempfile
@@ -15,6 +17,29 @@ from pathlib import Path
 import kindle_push as kp
 
 FIRST_ALIAS = 'kindle-push'
+_lock_depth = 0
+
+
+@contextlib.contextmanager
+def _locked():
+    """One writer at a time across processes: sends in two queues and a tick can land together,
+    and each rewrites the whole file. Re-entrant, since these functions call one another."""
+    global _lock_depth
+    if _lock_depth:
+        _lock_depth += 1
+        try:
+            yield
+        finally:
+            _lock_depth -= 1
+        return
+    kp.DATA.mkdir(parents=True, exist_ok=True, mode=0o700)
+    with open(kp.DATA / '.devices.lock', 'w') as handle:
+        fcntl.flock(handle, fcntl.LOCK_EX)
+        _lock_depth = 1
+        try:
+            yield
+        finally:
+            _lock_depth = 0
 
 
 def _read():
@@ -68,12 +93,13 @@ def selected():
 
 def set_selected(ids):
     """Choose which Kindles books go to. The current one stays if it is still chosen."""
-    devices, chosen = load()
-    ids = [d['id'] for d in devices if d['id'] in ids]
-    if not ids:
-        raise ValueError('至少要选一台 Kindle。')
-    save(devices, chosen if chosen in ids else ids[0], ids)
-    return ids
+    with _locked():
+        devices, chosen = load()
+        ids = [d['id'] for d in devices if d['id'] in ids]
+        if not ids:
+            raise ValueError('至少要选一台 Kindle。')
+        save(devices, chosen if chosen in ids else ids[0], ids)
+        return ids
 
 
 def save(devices, current, chosen_set=None):
@@ -111,54 +137,57 @@ def find(device_id):
 
 def add(key, host, name=''):
     """Pair a Kindle, or, for one already paired, note its new address. Returns the device."""
-    devices, chosen = load()
-    device = next((d for d in devices if d['key'] == key), None)
-    if device is None:
-        aliases = {d['alias'] for d in devices}
-        alias = FIRST_ALIAS if FIRST_ALIAS not in aliases else next(
-            f'{FIRST_ALIAS}-{n}' for n in range(2, 1000) if f'{FIRST_ALIAS}-{n}' not in aliases)
-        ids = {d['id'] for d in devices}
-        number = next(n for n in range(1, 1000) if 'k%d' % n not in ids)
-        device = {'id': 'k%d' % number, 'alias': alias, 'key': key, 'host': host,
-                  'name': clean_name(name) or ('我的 Kindle' if not devices else 'Kindle %d' % (len(devices) + 1))}
-        devices.append(device)
-    else:
-        device['host'] = host
-        if name.strip():
-            device['name'] = clean_name(name)
-    save(devices, chosen or device['id'])
-    return device
+    with _locked():
+        devices, chosen = load()
+        device = next((d for d in devices if d['key'] == key), None)
+        if device is None:
+            aliases = {d['alias'] for d in devices}
+            alias = FIRST_ALIAS if FIRST_ALIAS not in aliases else next(
+                f'{FIRST_ALIAS}-{n}' for n in range(2, 1000) if f'{FIRST_ALIAS}-{n}' not in aliases)
+            ids = {d['id'] for d in devices}
+            number = next(n for n in range(1, 1000) if 'k%d' % n not in ids)
+            device = {'id': 'k%d' % number, 'alias': alias, 'key': key, 'host': host,
+                      'name': clean_name(name) or ('我的 Kindle' if not devices else 'Kindle %d' % (len(devices) + 1))}
+            devices.append(device)
+        else:
+            device['host'] = host
+            if name.strip():
+                device['name'] = clean_name(name)
+        save(devices, chosen or device['id'])
+        return device
 
 
 def update(device_id, **fields):
-    devices, chosen = load()
-    for device in devices:
-        if device['id'] == device_id:
-            if 'name' in fields:
-                name = clean_name(fields['name'])
-                if not name:
-                    raise ValueError('名字不能为空。')
-                device['name'] = name
-            if 'host' in fields:
-                device['host'] = fields['host']
-            if fields.get('select'):
-                # One selected: it simply moves. Several: the set is kept, and this one joins it.
-                wanted = _read().get('selected') or []
-                wanted = [i for i in wanted if any(d['id'] == i for d in devices)]
-                keep = wanted + [device_id] if len(wanted) > 1 and device_id not in wanted else (wanted if len(wanted) > 1 else [device_id])
-                save(devices, device_id, keep)
-            else:
-                save(devices, chosen)
-            return device
-    raise ValueError('没有这台 Kindle 的配对记录。')
+    with _locked():
+        devices, chosen = load()
+        for device in devices:
+            if device['id'] == device_id:
+                if 'name' in fields:
+                    name = clean_name(fields['name'])
+                    if not name:
+                        raise ValueError('名字不能为空。')
+                    device['name'] = name
+                if 'host' in fields:
+                    device['host'] = fields['host']
+                if fields.get('select'):
+                    # One selected: it simply moves. Several: the set is kept, and this one joins it.
+                    wanted = _read().get('selected') or []
+                    wanted = [i for i in wanted if any(d['id'] == i for d in devices)]
+                    keep = wanted + [device_id] if len(wanted) > 1 and device_id not in wanted else (wanted if len(wanted) > 1 else [device_id])
+                    save(devices, device_id, keep)
+                else:
+                    save(devices, chosen)
+                return device
+        raise ValueError('没有这台 Kindle 的配对记录。')
 
 
 def forget(device_id):
-    devices, chosen = load()
-    remaining = [d for d in devices if d['id'] != device_id]
-    if len(remaining) == len(devices):
-        raise ValueError('没有这台 Kindle 的配对记录。')
-    save(remaining, chosen if chosen != device_id else (remaining[0]['id'] if remaining else None))
+    with _locked():
+        devices, chosen = load()
+        remaining = [d for d in devices if d['id'] != device_id]
+        if len(remaining) == len(devices):
+            raise ValueError('没有这台 Kindle 的配对记录。')
+        save(remaining, chosen if chosen != device_id else (remaining[0]['id'] if remaining else None))
 
 
 def clean_name(name):

@@ -31,6 +31,12 @@ struct ArticleRow: View {
                         .foregroundStyle(article.phase == .failed ? Color.orange : Color.secondary)
                         .lineLimit(2).truncationMode(.middle).help(detail)
                 }
+                // The failures only settings can fix get the way there, next to the reason.
+                if article.phase == .failed, let tab = settingsTabForProblem {
+                    SettingsLink { Text("打开翻译设置") }
+                        .simultaneousGesture(TapGesture().onEnded { store.settingsTab = tab })
+                        .buttonStyle(.inkLink).font(.caption)
+                }
             }
             Spacer(minLength: 8)
             HStack(spacing: 2) {
@@ -96,10 +102,19 @@ struct ArticleRow: View {
     }
 
     /// Author, language, format and folder: what tells two books apart at a glance.
+    private var settingsTabForProblem: SettingsTab? {
+        switch article.problem {
+        case "key", "model": .service
+        case "rate": .quality
+        default: nil
+        }
+    }
+
     private var metaLine: String {
         let label = FileBadge(format: article.format, sent: false).label
         let language = article.language.flatMap { $0.isEmpty ? nil : Lang.name($0) }
-        return [article.author, language, label, article.author == nil || article.author?.isEmpty == true ? article.folder : nil]
+        let used = article.tokens.map { "用了 \(PushStore.tokenText($0)) token" }
+        return [article.author, language, label, used, article.author == nil || article.author?.isEmpty == true ? article.folder : nil]
             .compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
     }
 

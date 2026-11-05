@@ -45,8 +45,14 @@ struct Article: Identifiable, Codable {
     var bookTitle: String?
     var author: String?
     var cover: String?
-    /// Translation progress, 0...1, while a translation runs.
+    /// Translation or transfer progress, 0...1, while it runs.
     var progress: Double?
+    /// Whether this file's text can be translated, from the bridge; nil until read.
+    var canTranslate: Bool?
+    /// Tokens the translation used, retries included.
+    var tokens: Int?
+    /// Why the translation failed, when known: key, balance, rate, model, server, network.
+    var problem: String?
     var title: String {
         if let bookTitle, !bookTitle.isEmpty { return bookTitle }
         let name = URL(fileURLWithPath: path).lastPathComponent
@@ -99,6 +105,17 @@ struct BridgeResponse: Decodable, Sendable {
     var remaining: Int?
     var language: String?
     var textSize: Int?
+    var translatable: Bool?
+    var problem: String?
+    var tokensIn: Int?
+    var tokensOut: Int?
+    var jobs: Int?
+    var jobsBytes: Int64?
+    var coversBytes: Int64?
+    var runtimeBytes: Int64?
+    var outputBytes: Int64?
+    var outputPath: String?
+    var running: Bool?
     var target: String?
     var names: [String]?
     var device: String?

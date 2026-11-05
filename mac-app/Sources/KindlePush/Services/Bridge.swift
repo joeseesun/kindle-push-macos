@@ -37,7 +37,8 @@ enum Bridge {
     }
 
     /// `input` goes to stdin, so secrets never appear in the process list.
-    static func call(_ arguments: [String], input: String? = nil, tag: String? = nil) async -> BridgeResponse {
+    /// `progressFile`: where the bridge writes how far a transfer has got.
+    static func call(_ arguments: [String], input: String? = nil, tag: String? = nil, progressFile: String? = nil) async -> BridgeResponse {
         await Task.detached(priority: .userInitiated) {
             guard let resources = Bundle.main.resourceURL else {
                 return BridgeResponse(ok: false, message: "应用组件不完整，请重新安装。")
@@ -54,6 +55,7 @@ enum Bridge {
             // Lets the bridge ask this app to render PDF pages (old Kindle receivers take only EPUB).
             var environment = ProcessInfo.processInfo.environment
             environment["KINDLEPUSH_APP"] = Bundle.main.executablePath
+            if let progressFile { environment["KINDLEPUSH_PROGRESS"] = progressFile }
             process.environment = environment
             let output = Pipe()
             process.standardOutput = output
