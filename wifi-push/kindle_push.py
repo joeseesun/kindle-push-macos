@@ -226,7 +226,7 @@ def send(epub, config):
         import pdfpages
         if extension(epub) != '.pdf' or not pdfpages.renderer():
             raise ValueError('Kindle 上的接收端是旧版，只收 EPUB。发送 ' + extension(epub)[1:].upper()
-                             + ' 需要用 USB 连接 Kindle，重新运行一次首次配置；EPUB、Markdown、TXT、Word 等不受影响。')
+                             + ' 需要用 USB 连接 Kindle，在「添加 Kindle」里点一次「写入」；EPUB、Markdown、TXT、Word 等不受影响。')
         print('Kindle 接收端是旧版，只收 EPUB：已把 PDF 逐页转成图片版 EPUB 发送。')
         files = pdfpages.build(epub, OUT)
     for path in files:

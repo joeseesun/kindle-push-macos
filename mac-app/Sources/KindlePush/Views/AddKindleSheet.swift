@@ -39,6 +39,7 @@ struct AddKindleSheet: View {
         }
         .padding(24)
         .frame(width: 500)
+        .task { await store.refreshDevices() }
         .task {
             // Notice a Kindle being plugged in or ejected while the sheet is open.
             while !Task.isCancelled {
@@ -164,7 +165,7 @@ struct AddKindleSheet: View {
     }
 
     private var defaultName: String {
-        store.devices.isEmpty && paired.isEmpty ? "我的 Kindle" : "Kindle \(store.devices.count + 1)"
+        store.devices.isEmpty ? "我的 Kindle" : "Kindle \(store.devices.count + 1)"
     }
 
     private func search(at host: String? = nil) async {
@@ -182,6 +183,7 @@ struct AddKindleSheet: View {
         } else {
             paired.append(store.deviceName.isEmpty ? name : store.deviceName)
             found.removeAll { $0.key == kindle.key }
+            searched = false   // not "nothing found": the one found was just paired
         }
         pairing = nil
     }
