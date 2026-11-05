@@ -265,9 +265,11 @@ def handle(args):
         if command == 'translation-settings': return tr.public_settings()
         if command == 'translation-save': return tr.save_settings(**json.loads(args[1]))
         if command == 'translation-install': return tr.install()
-        if command == 'translation-start': return tr.start(args[1], len(args) > 2 and args[2] == 'preview', args[3] if len(args) > 3 else 'bilingual')
+        # translation-start PATH preview|full [bilingual|target-only] [zh|en|ja…]
+        if command == 'translation-start': return tr.start(args[1], len(args) > 2 and args[2] == 'preview', args[3] if len(args) > 3 else 'bilingual',
+                                                           args[4] if len(args) > 4 else 'zh')
         if command == 'translation-progress': return tr.progress(args[1])
-        if command == 'translation-find': return tr.find(args[1])
+        if command == 'translation-find': return tr.find(args[1], args[2] if len(args) > 2 else 'zh')
         if command == 'translation-cancel': return tr.cancel(args[1])
         raise ValueError('未知翻译操作。')
     if command == 'tidy-names':

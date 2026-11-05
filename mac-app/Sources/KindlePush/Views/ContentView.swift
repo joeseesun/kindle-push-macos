@@ -12,6 +12,11 @@ struct ContentView: View {
                 EmptyStateView(store: store, targeted: targeted)
             } else {
                 listHeader
+                if !store.undecided.isEmpty {
+                    TranslationPrompt(store: store)
+                        .padding(.horizontal, 16).padding(.top, 6).padding(.bottom, 2)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
                 List(selection: $selection) {
                     ForEach(store.articles) { article in
                         ArticleRow(article: article, store: store, selected: selection.contains(article.id)).tag(article.id)
@@ -34,6 +39,7 @@ struct ContentView: View {
         .dropDestination(for: URL.self) { urls, _ in
             store.add(urls); return true
         } isTargeted: { targeted = $0 }
+        .animation(.easeOut(duration: 0.2), value: store.undecided.map(\.id))
         .frame(minWidth: 560, minHeight: 480)
         .navigationTitle("乔木 Kindle 助手")
         .navigationSubtitle(subtitle)
@@ -96,6 +102,36 @@ struct ContentView: View {
                                       : "整理文件名：去掉来源标记、杂乱分隔符和版本后缀，预览后再改名")
         }
         .padding(.horizontal, 20).padding(.top, 14).padding(.bottom, 4)
+    }
+}
+
+/// "有 2 本英文书，要翻译成中文吗？": one decision for every foreign book that has none yet.
+private struct TranslationPrompt: View {
+    @ObservedObject var store: PushStore
+
+    var body: some View {
+        let books = store.undecided
+        let languages = Set(books.compactMap(\.language))
+        let source = languages.count == 1 ? languages.first! : ""
+        let ids = Set(books.map(\.id))
+        HStack(spacing: 10) {
+            Image(systemName: "character.book.closed").foregroundStyle(.secondary)
+            Text("有 \(books.count) 本\(source.isEmpty ? "外文" : Lang.name(source))书，要翻译成\(Lang.name(store.targetLanguage))吗？")
+                .font(.callout.weight(.medium)).lineLimit(1).truncationMode(.tail)
+            Spacer(minLength: 8)
+            Button(OutputMode.bilingual.title(from: source, to: store.targetLanguage)) { store.choose(.bilingual, for: ids) }
+                .buttonStyle(.inkOutline).controlSize(.small)
+                .help("原文和译文逐段对照")
+            Button(OutputMode.targetOnly.title(from: source, to: store.targetLanguage)) { store.choose(.targetOnly, for: ids) }
+                .buttonStyle(.inkOutline).controlSize(.small)
+                .help("只保留译文")
+            Button("不用，发原文") { store.choose(.original, for: ids) }
+                .buttonStyle(.inkLink).font(.callout)
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .padding(.horizontal, 12).padding(.vertical, 9)
+        .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .help("每本书行尾的标签可以单独改。想以后不再问，在翻译设置 › 语言里选「外文书默认」")
     }
 }
 

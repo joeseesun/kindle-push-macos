@@ -15,7 +15,7 @@ struct ArticleRow: View {
                     Text(article.title).font(.body.weight(.semibold)).lineLimit(1).truncationMode(.tail)
                         .help(article.path)
                     if article.bilingual == true {
-                        Text(article.chineseOnly == true ? "中文译本" : "中英对照").font(.caption2.weight(.semibold)).foregroundStyle(Color.ink)
+                        Text(translatedLabel).font(.caption2.weight(.semibold)).foregroundStyle(Color.ink)
                             .padding(.horizontal, 6).padding(.vertical, 1.5)
                             .background(Color.ink.opacity(0.08), in: Capsule())
                             .fixedSize()
@@ -51,6 +51,7 @@ struct ArticleRow: View {
                 .accessibilityLabel("更多操作")
                 .opacity(hovering || selected ? 1 : 0)
             }
+            if showsChoice { TranslationChoice(article: article, store: store) }
             StatusChip(article: article)
         }
         .padding(.vertical, 8).padding(.horizontal, 4)
@@ -58,6 +59,17 @@ struct ArticleRow: View {
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.12), value: hovering)
         .animation(.easeOut(duration: 0.3), value: article.progress)
+    }
+
+    /// The menu tag: foreign EPUBs that can still be changed. Books in the target language get none.
+    private var showsChoice: Bool {
+        store.offersTranslation(article) && article.status != "已发送" && article.status != "排队中" && article.phase != .working
+            && !store.active.contains(article.id)
+    }
+
+    private var translatedLabel: String {
+        let goal = article.translatedTo ?? "zh"
+        return article.chineseOnly == true ? Lang.name(goal) + "译本" : Lang.pairLabel(article.language ?? "", goal)
     }
 
     private var revealHelp: String {
@@ -111,6 +123,12 @@ struct ArticleActions: View {
             Button("在访达中显示原文件") { store.revealOriginal(ids) }
         } else {
             Button("在访达中显示") { store.reveal(ids) }
+        }
+        if let single, store.offersTranslation(single) {
+            Divider()
+            Button("先试译 3 段") { Task { await store.preview(single.id) } }
+                .disabled(store.translation.running || single.phase == .working || single.status == "排队中")
+                .help("只翻译 3 段正文，在访达里打开给你检查；不发送")
         }
         Divider()
         if items.contains(where: { $0.status == "排队中" }) {
@@ -222,5 +240,39 @@ private struct StatusChip: View {
         case .failed: .orange
         case .waiting, .stopped: .secondary
         }
+    }
+}
+
+/// "中英对照 ▾": what this foreign book gets when it is sent, changeable one book at a time.
+private struct TranslationChoice: View {
+    let article: Article
+    @ObservedObject var store: PushStore
+
+    var body: some View {
+        let current = store.mode(of: article)
+        Menu {
+            Picker("发送时", selection: Binding(get: { current }, set: { store.choose($0, for: [article.id]) })) {
+                ForEach(OutputMode.allCases, id: \.self) { Text(store.title($0, for: article)).tag($0) }
+            }
+            .pickerStyle(.inline).labelsHidden()
+            Divider()
+            Button("先试译 3 段") { Task { await store.preview(article.id) } }
+                .disabled(store.translation.running)
+        } label: {
+            HStack(spacing: 3) {
+                Text(store.title(current, for: article))
+                Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold))
+            }
+            .font(.caption.weight(.medium))
+            .foregroundStyle(current == .original ? Color.secondary : Color.ink)
+            .padding(.horizontal, 8).padding(.vertical, 3)
+            .background(Color.primary.opacity(current == .original ? 0 : 0.08), in: Capsule())
+            .overlay(Capsule().strokeBorder(Color.primary.opacity(0.18), lineWidth: 0.5))
+            .contentShape(Capsule())
+        }
+        // .button + .plain keeps the label as drawn; .borderlessButton drops the capsule and moves the chevron.
+        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+        .help("这本\(Lang.name(article.language ?? ""))书发送时：原文，或先翻译成\(Lang.name(store.targetLanguage))")
+        .accessibilityLabel("发送版本：\(store.title(current, for: article))")
     }
 }

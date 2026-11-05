@@ -7,6 +7,7 @@ from pathlib import Path
 from xml.etree import ElementTree
 
 import kindle_push as kp
+import languages
 import names
 
 COVERS = kp.DATA / 'covers'
@@ -53,7 +54,9 @@ def epub_info(source):
                         COVERS.mkdir(parents=True, exist_ok=True, mode=0o700)
                         target.write_bytes(data)
                 cover_file = str(target) if target.exists() else None
-    return {'title': title, 'author': author, 'cover': cover_file}
+        # Size of the text documents, for a rough translation time.
+        text_size = sum(i.file_size for i in book.infolist() if i.filename.lower().endswith(('.xhtml', '.html', '.htm')))
+    return {'title': title, 'author': author, 'cover': cover_file, 'textSize': text_size}
 
 
 def guide_cover(book, opf, opf_path, items):
@@ -99,4 +102,6 @@ def info(path):
         pass  # Fall back to the cleaned file name; a broken book is reported when it is sent.
     stem = source.name[:-len(suffix)] if source.name.lower().endswith(suffix) else source.stem
     result['title'] = result['title'] or names.tidy(stem, smart=False)
+    # Translation handles EPUB only, so only an EPUB needs its language; '' means unknown.
+    result['language'] = languages.detect(source) if suffix == '.epub' else ''
     return {'ok': True, **result}

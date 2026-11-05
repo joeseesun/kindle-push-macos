@@ -25,7 +25,7 @@ if ! /usr/bin/otool -l "$CONTENTS/MacOS/KindlePush" | grep -q "@executable_path/
   /usr/bin/install_name_tool -add_rpath "@executable_path/../Frameworks" "$CONTENTS/MacOS/KindlePush"
 fi
 cp "$ROOT_DIR/wifi-push/kindle_push.py" "$ROOT_DIR/wifi-push/app_bridge.py" "$ROOT_DIR/wifi-push/markdown_support.py" "$ROOT_DIR/wifi-push/devices.py" "$ROOT_DIR/wifi-push/setup_device.py" "$ROOT_DIR/wifi-push/kindle-receive.sh" "$ROOT_DIR/wifi-push/ebook.css" "$CONTENTS/Resources/"
-cp "$ROOT_DIR/wifi-push/translation.py" "$ROOT_DIR/wifi-push/accounts.py" "$ROOT_DIR/wifi-push/bookinfo.py" "$ROOT_DIR/wifi-push/names.py" "$ROOT_DIR/wifi-push/terms.py" "$ROOT_DIR/wifi-push/chunks.py" "$ROOT_DIR/wifi-push/polish.py" "$ROOT_DIR/wifi-push/pdfpages.py" "$CONTENTS/Resources/"
+cp "$ROOT_DIR/wifi-push/translation.py" "$ROOT_DIR/wifi-push/accounts.py" "$ROOT_DIR/wifi-push/bookinfo.py" "$ROOT_DIR/wifi-push/names.py" "$ROOT_DIR/wifi-push/terms.py" "$ROOT_DIR/wifi-push/chunks.py" "$ROOT_DIR/wifi-push/polish.py" "$ROOT_DIR/wifi-push/pdfpages.py" "$ROOT_DIR/wifi-push/languages.py" "$CONTENTS/Resources/"
 cp "$ROOT_DIR/mac-app/Assets/AppIcon.icns" "$CONTENTS/Resources/AppIcon.icns"
 # About tab: QR codes (bundled so they work offline) and third-party licenses.
 rm -rf "$CONTENTS/Resources/About"; cp -R "$ROOT_DIR/mac-app/Assets/About" "$CONTENTS/Resources/About"

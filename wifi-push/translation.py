@@ -14,6 +14,7 @@ from urllib.parse import urlsplit
 
 import kindle_push as kp
 import chunks
+import languages as lang
 import names
 import polish
 import terms
@@ -58,6 +59,32 @@ STYLES = {
     'literary': '你是文学翻译家。把原文译成地道、流畅、有文采的简体中文：保留作者的语气、修辞和人物口吻，避免翻译腔，但不改写情节与信息。',
     'technical': '你是技术与学术翻译专家。把原文译成严谨、易读的简体中文：术语准确且前后统一，首次出现的专业术语在译名后用括号保留英文原词，代码、公式、命令保持原样。',
 }
+# The same styles for any other target language; {language} is its English name.
+RULES_OTHER = ('Translate every sentence in full: never omit or summarise, never correct errors in the original, '
+               'never soften or cut sensitive content, add no explanations or translator notes, and keep the '
+               'original paragraph breaks.')
+STYLES_OTHER = {
+    'natural': 'You are a professional book translator. Translate into natural, idiomatic {language}: faithful and '
+               'complete, with word order adapted to {language} so it never reads like a translation; keep names and '
+               'terms consistent, and keep the tone and paragraph structure of the original.',
+    'faithful': 'You are a senior translator. Translate accurately and completely into {language}: add or drop '
+                'nothing, keep the logical structure and tone of the original, and keep proper names consistent.',
+    'literary': 'You are a literary translator. Translate into fluent, idiomatic and elegant {language}: keep the '
+                "author's voice, rhetoric and each character's way of speaking, without rewriting plot or facts.",
+    'technical': 'You are a technical and academic translator. Translate into rigorous, readable {language}: terms '
+                 'accurate and consistent, the original term kept in parentheses after its first translation, and '
+                 'code, formulas and commands left as they are.',
+}
+
+
+def system_prompt(style, goal, title='', author=''):
+    """The system message: which book, how to translate it, and the rules every style keeps."""
+    if lang.target(goal) == 'zh':
+        book = f'正在翻译的书：《{title}》' + (f'，作者 {author}' if author else '') + '。' if title else ''
+        return book + STYLES.get(style, STYLES['natural']) + RULES
+    language = lang.TARGETS[lang.target(goal)][3]
+    book = f'The book being translated: "{title}"' + (f' by {author}' if author else '') + '. ' if title else ''
+    return book + STYLES_OTHER.get(style, STYLES_OTHER['natural']).format(language=language) + ' ' + RULES_OTHER
 
 
 def atomic_json(path, value):
@@ -244,33 +271,42 @@ def progress(job):
     return {'ok': state['state'] != 'failed', 'job': job, **state}
 
 
-MODES = ('bilingual', 'chinese')   # side by side, or the translation alone (--single_translate)
+MODES = ('bilingual', 'target-only')   # side by side, or the translation alone (--single_translate)
 
 
-def job_id(digest, config, preview, mode='bilingual'):
+def mode_of(value):
+    """'chinese' is what 1.13 called a translation alone."""
+    return 'target-only' if value == 'chinese' else value
+
+
+def job_id(digest, config, preview, mode='bilingual', goal='zh'):
     # Speed does not change the translation, so a run can resume at another worker count.
     # 'provider' only matters for the ChatGPT route; elsewhere base and model already identify the service.
     quality = {k: v for k, v in config.items() if k not in {'workers', 'partsEra'} and (k not in {'style', 'glossary', 'provider'} or v not in {'', 'natural'})
                and not (k == 'provider' and v != 'chatgpt')}
-    # Bilingual identities predate modes and stay as they were, so their checkpoints still resume.
-    parts = [digest, quality, preview, VERSION, 'pipeline-2'] + ([mode] if mode != 'bilingual' else [])
+    # Bilingual identities predate modes, and Chinese ones predate target languages; both stay as
+    # they were, so their checkpoints still resume. Every other target is part of the identity.
+    mode = mode_of(mode)
+    parts = [digest, quality, preview, VERSION, 'pipeline-2'] + ([] if mode == 'bilingual' else ['chinese'] if goal == 'zh' else [mode])
+    if lang.target(goal) != 'zh':
+        parts.append('target:' + lang.target(goal))
     identity = json.dumps(parts, sort_keys=True).encode()
     return hashlib.sha256(identity).hexdigest()[:24]
 
 
-def find(source):
+def find(source, goal='zh'):
     """The whole-book job this EPUB already has under the current settings, without starting one."""
     source = Path(source).expanduser().resolve(strict=True)
     digest = hashlib.sha256(source.read_bytes()).hexdigest()
     found = {'ok': True, 'state': 'none'}
     for mode in MODES:
-        job = job_id(digest, settings(), False, mode)
+        job = job_id(digest, settings(), False, mode, goal)
         if not (job_dir(job) / 'state.json').exists():
             continue
         state = progress(job)
         if state.get('state') == 'done' and not Path(state.get('output', '')).is_file():
             continue
-        state = {**state, 'ok': True, 'mode': mode}
+        state = {**state, 'ok': True, 'mode': mode, 'target': goal}
         # A running job wins; otherwise the first one with a result.
         if state['state'] in {'queued', 'running'}:
             return state
@@ -279,12 +315,15 @@ def find(source):
     return found
 
 
-def start(source, preview=False, mode='bilingual'):
+def start(source, preview=False, mode='bilingual', goal='zh'):
+    mode = mode_of(mode)
     if mode not in MODES:
         raise ValueError('未知的译文版本。')
+    if goal not in lang.TARGETS:
+        raise ValueError('不支持的目标语言。')
     source = Path(source).expanduser().resolve(strict=True)
     if source.suffix.lower() != '.epub':
-        raise ValueError('中文对照翻译仅支持 EPUB。其他格式可以直接发送。')
+        raise ValueError('翻译仅支持 EPUB。其他格式可以直接发送。')
     if source.stat().st_size > 100 * 1024 * 1024:
         raise ValueError('EPUB 超过 100 MB，请先缩小图片。')
     kp.validate_epub(source)
@@ -299,7 +338,7 @@ def start(source, preview=False, mode='bilingual'):
         # Check before starting a background job; never persist or pass the secret.
         read_key(config)
     digest = hashlib.sha256(source.read_bytes()).hexdigest()
-    job = job_id(digest, config, preview, mode)
+    job = job_id(digest, config, preview, mode, goal)
     folder = job_dir(job)
     folder.mkdir(parents=True, exist_ok=True, mode=0o700)
     with (folder / 'lock').open('w') as lock:
@@ -319,7 +358,8 @@ def start(source, preview=False, mode='bilingual'):
         if hashlib.sha256(snapshot.read_bytes()).hexdigest() != digest:
             raise ValueError('任务副本校验失败，原书未修改。')
         (folder / 'cancel').unlink(missing_ok=True)
-        atomic_json(folder / 'request.json', {'config': config, 'preview': preview, 'mode': mode, 'title': source.stem})
+        atomic_json(folder / 'request.json', {'config': config, 'preview': preview, 'mode': mode, 'target': goal,
+                                                  'source': lang.detect(source), 'title': source.stem})
         with (folder / 'worker.log').open('a') as log:
             child = subprocess.Popen([sys.executable, '-B', str(Path(__file__).resolve()), 'worker', job],
                                      stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True)
@@ -335,19 +375,18 @@ def cancel(job):
     return {'ok': True, 'job': job, 'message': '正在停止，保留已完成进度…'}
 
 
-def command(folder, config, preview, mode='bilingual'):
+def command(folder, config, preview, mode='bilingual', goal='zh'):
     codex = config.get('provider') == 'chatgpt'
     book_file = engine_book(folder)
     args = [str(RUNTIME / 'bin/python3'), '-c', LAUNCH, str(request_timeout(config)),
-            '--book_name', str(book_file), '--language', 'zh-hans']
+            '--book_name', str(book_file), '--language', lang.TARGETS[lang.target(goal)][0]]
     args += (['--api_format', 'codex', '--model', config['model']] if codex else
              ['--api_format', 'openai', '--api_base', config['base'], '--model', config['model'], '--no-thinking'])
     if (folder / f'.{book_file.stem}.temp.bin').is_file():
         args += ['--resume']
     # Every request knows which book it is in: parallel chapters never see each other.
     title, author = terms.book_meta(folder / 'book.epub')
-    book = f'正在翻译的书：《{title}》' + (f'，作者 {author}' if author else '') + '。' if title else ''
-    system = book + STYLES.get(config.get('style', 'natural'), STYLES['natural']) + RULES
+    system = system_prompt(config.get('style', 'natural'), goal, title, author)
     (folder / 'prompt.json').write_text(json.dumps({'user': ENGINE_PROMPT, 'system': system}, ensure_ascii=False))
     args += ['--prompt', str(folder / 'prompt.json')]
     auto = folder / 'glossary-auto.txt'
@@ -359,7 +398,7 @@ def command(folder, config, preview, mode='bilingual'):
         args += ['--temperature', TEMPERATURE]
         if SMALL_MODEL.search(config['model']):
             args += ['--max-batch-units', str(SMALL_BATCH)]
-    if mode == 'chinese':
+    if mode_of(mode) == 'target-only':
         args += ['--single_translate']
     if preview:
         args += ['--translate-tags', 'p', '--test', '--test_num', '3']
@@ -390,15 +429,16 @@ def prepare_parts(folder, config, preview):
     chunks.save_plan(plan_file, plan or {})
 
 
-def finish_parts(folder, raw, result):
-    """Join translated parts back into whole chapters, then tidy Chinese punctuation."""
+def finish_parts(folder, raw, result, goal='zh'):
+    """Join translated parts back into whole chapters, then tidy Chinese punctuation (Chinese only)."""
     plan_file = folder / 'split.json'
     plan = json.loads(plan_file.read_text()) if plan_file.is_file() else {}
     if plan.get('chapters'):
         chunks.join(raw, result, plan)
     elif raw != result:
         shutil.copyfile(raw, result)
-    polish.epub(result)
+    if lang.target(goal) == 'zh':
+        polish.epub(result)
 
 
 def worker(job):
@@ -412,6 +452,8 @@ def worker(job):
     try:
         request = json.loads((folder / 'request.json').read_text())
         config = request['config']
+        goal = lang.target(request.get('target', 'zh'))
+        mode = mode_of(request.get('mode', 'bilingual'))
         env = {k: v for k, v in os.environ.items() if not any(s in k.upper() for s in ('API_KEY', 'TOKEN', 'SECRET'))}
         if config.get('provider') == 'chatgpt':
             import accounts
@@ -423,7 +465,7 @@ def worker(job):
         if not request['preview'] and 'BBM_API_KEY' in env and not auto.exists():
             state.update(state='running', message='正在整理书中的人名和术语…')
             atomic_json(folder / 'state.json', state)
-            lines = terms.build(folder / 'book.epub', config['base'], config['model'], env['BBM_API_KEY'])
+            lines = terms.build(folder / 'book.epub', config['base'], config['model'], env['BBM_API_KEY'], goal)
             auto.write_text('\n'.join(lines) + ('\n' if lines else ''))
             auto.chmod(0o600)
         state.update(state='running', message='正在翻译，首次分析可能需要几分钟…')
@@ -435,7 +477,7 @@ def worker(job):
         result.unlink(missing_ok=True)
         raw.unlink(missing_ok=True)
         with (folder / 'engine.log').open('w') as log:
-            child = subprocess.Popen(command(folder, config, request['preview'], request.get('mode', 'bilingual')), cwd=folder,
+            child = subprocess.Popen(command(folder, config, request['preview'], mode, goal), cwd=folder,
                                      env=env, stdin=subprocess.DEVNULL, stdout=log, stderr=log,
                                      start_new_session=True)
             env.pop('BBM_API_KEY', None)
@@ -454,18 +496,22 @@ def worker(job):
                 time.sleep(0.5)
         if child.returncode or not raw.is_file():
             raise ValueError('翻译未完成，请检查模型设置、余额和网络后重试；已完成的进度会保留。')
-        finish_parts(folder, raw, result)
+        finish_parts(folder, raw, result, goal)
         kp.validate_epub(result)
         kp.OUT.mkdir(parents=True, exist_ok=True)
         title = names.tidy(request['title'], smart=False)[:60].strip() or '书籍'
-        chinese = request.get('mode') == 'chinese'
-        label = '试译3段' if request['preview'] else '中文' if chinese else '中英对照'
+        alone = mode == 'target-only'
+        name = lang.TARGETS[goal][1]
+        label = ('试译3段' if request['preview'] else lang.only_label(goal) if alone
+                 else lang.pair_label(request.get('source', ''), goal))
+        if request['preview'] and goal != 'zh':
+            label = f'{lang.only_label(goal) if alone else lang.pair_label(request.get("source", ""), goal)}·试译3段'
         output = names.unique_output(kp.OUT, f'{title}（{label}）', '.epub', job)
         temp = output.with_suffix('.tmp')
         shutil.copyfile(result, temp)
         temp.chmod(0o600)
         temp.replace(output)
-        state.update(state='done', message='试译完成，可先检查译文。' if request['preview'] else '中文版已生成。' if chinese else '中文对照版已生成。',
+        state.update(state='done', message='试译完成，可先检查译文。' if request['preview'] else f'{name}版已生成。' if alone else f'{label}版已生成。',
                      output=str(output), sha256=hashlib.sha256(output.read_bytes()).hexdigest())
     except Exception as error:
         # No raw provider response, book contents or secret in UI/state files.

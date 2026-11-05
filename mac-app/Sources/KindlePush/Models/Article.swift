@@ -25,8 +25,16 @@ struct Article: Identifiable, Codable {
     var details = ""
     var output: String?
     var bilingual: Bool? = false
-    /// A translation without the original text beside it.
+    /// A translation without the original text beside it (named for 1.13, when it was Chinese only).
     var chineseOnly: Bool?
+    /// The language the made translation is in.
+    var translatedTo: String?
+    /// The book's language from `book-info` ('en', 'zh', …); '' when it could not be told, nil until read.
+    var language: String?
+    /// Bytes of text documents in an EPUB, for a rough translation time.
+    var textSize: Int?
+    /// What this book gets when it is sent; nil until someone (or the default) decides.
+    var choice: OutputMode?
     /// From the book's own metadata (bridge `book-info`); the cleaned file name until then.
     var bookTitle: String?
     var author: String?
@@ -82,6 +90,9 @@ struct BridgeResponse: Decodable, Sendable {
     var percent: Int?
     var mode: String?
     var remaining: Int?
+    var language: String?
+    var textSize: Int?
+    var target: String?
     var names: [String]?
     var device: String?
     var deviceId: String?
@@ -155,22 +166,88 @@ struct RemoteModel: Decodable, Sendable, Hashable, Identifiable {
     var `default`: Bool?
 }
 
-/// What the Kindle gets: the book as it is, or a translation in one of two layouts.
-enum OutputMode: String, CaseIterable {
-    case original, bilingual, chinese
+/// What the Kindle gets: the book as it is, or a translation beside the original or on its own.
+enum OutputMode: String, CaseIterable, Codable {
+    case original, bilingual, targetOnly = "target-only"
+
+    /// 1.13 stored "chinese" for a translation on its own.
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = OutputMode(legacy: raw) ?? .original
+    }
+    init?(legacy raw: String) {
+        if raw == "chinese" { self = .targetOnly } else if let mode = OutputMode(rawValue: raw) { self = mode } else { return nil }
+    }
+
+    /// Words for this book's language and the target: 中英对照 / 仅中文, or 中英对照 / 仅英文 for a Chinese book.
+    func title(from source: String, to target: String) -> String {
+        switch self {
+        case .original: "原文"
+        case .bilingual: Lang.pairLabel(source, target)
+        case .targetOnly: "仅" + Lang.name(target)
+        }
+    }
+}
+
+/// What a foreign book gets when it is added, before anyone chooses.
+enum ForeignDefault: String, CaseIterable {
+    case ask, bilingual, targetOnly = "target-only", original
 
     var title: String {
         switch self {
-        case .original: "原文"
-        case .bilingual: "中英对照"
-        case .chinese: "仅中文"
+        case .ask: "每次问我"
+        case .bilingual: "双语对照"
+        case .targetOnly: "仅译文"
+        case .original: "发原文"
         }
     }
-    var engineMode: String { self == .chinese ? "chinese" : "bilingual" }
+    var mode: OutputMode? {
+        switch self {
+        case .ask: nil
+        case .bilingual: .bilingual
+        case .targetOnly: .targetOnly
+        case .original: .original
+        }
+    }
 
-    /// The last choice; older versions stored a yes/no for translation.
-    static var saved: OutputMode {
-        if let raw = UserDefaults.standard.string(forKey: "outputMode"), let mode = OutputMode(rawValue: raw) { return mode }
-        return UserDefaults.standard.bool(forKey: "translateBooks") ? .bilingual : .original
+    /// The saved choice; before 1.14 the footer's last version stood in for it.
+    static var saved: ForeignDefault {
+        let defaults = UserDefaults.standard
+        if let raw = defaults.string(forKey: "foreignDefault"), let value = ForeignDefault(rawValue: raw) { return value }
+        // "原文" was where everyone started, not a decision about foreign books: keep asking.
+        switch defaults.string(forKey: "outputMode") {
+        case "bilingual": return .bilingual
+        case "chinese": return .targetOnly
+        case nil: return defaults.bool(forKey: "translateBooks") ? .bilingual : .ask
+        default: return .ask
+        }
+    }
+}
+
+/// Languages: the targets the engine translates into, and the names a detected book language goes by.
+/// Must match wifi-push/languages.py.
+enum Lang {
+    /// (code, name in the picker, name in Chinese, one character)
+    static let targets: [(code: String, picker: String, name: String, char: String)] = [
+        ("zh", "中文", "中文", "中"), ("en", "English", "英文", "英"), ("ja", "日本語", "日文", "日"),
+        ("ko", "한국어", "韩文", "韩"), ("fr", "Français", "法文", "法"), ("de", "Deutsch", "德文", "德"),
+        ("es", "Español", "西班牙文", "西"),
+    ]
+    private static let others: [String: (name: String, char: String)] = [
+        "ru": ("俄文", "俄"), "it": ("意大利文", "意"), "pt": ("葡萄牙文", "葡"), "nl": ("荷兰文", "荷"),
+    ]
+
+    static func name(_ code: String) -> String {
+        targets.first { $0.code == code }?.name ?? others[code]?.name ?? "外文"
+    }
+    private static func char(_ code: String) -> String? {
+        targets.first { $0.code == code }?.char ?? others[code]?.char
+    }
+    /// 中英对照 for English and Chinese either way round, 英日对照 for English into Japanese.
+    static func pairLabel(_ source: String, _ target: String) -> String {
+        guard let first = char(source), let second = char(target), source != target else { return "双语对照" }
+        if source == "zh" { return "中\(second)对照" }
+        if target == "zh" { return "中\(first)对照" }
+        return "\(first)\(second)对照"
     }
 }
