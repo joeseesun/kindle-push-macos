@@ -16,7 +16,7 @@ struct FooterBar: View {
                 Spacer(minLength: 8)
                 if store.quick.running { sendingControls }
                 if store.currentJob != nil {
-                    Button("停止翻译") { store.stopTranslation() }.controlSize(.large)
+                    Button("停止翻译") { store.stopTranslation() }.buttonStyle(.inkOutline).controlSize(.large)
                         .help("停止正在翻译的书；已完成的进度保留，排队的书回到待发送（⌘.）")
                 }
                 // While the chosen queue runs, the buttons only reappear for books that can join it.
@@ -92,7 +92,7 @@ struct FooterBar: View {
     @ViewBuilder private var sendingControls: some View {
         if store.sendingID != nil {
             Button("取消这本") { store.stopSending(now: true) }
-                .controlSize(.large)
+                .buttonStyle(.inkOutline).controlSize(.large)
                 .help("断开正在传的这本，Kindle 上不会留下半个文件；后面的书也不再发送")
         }
         if store.sendStopRequested {
@@ -118,7 +118,7 @@ struct FooterBar: View {
         Button { Task { await store.saveLocally() } } label: {
             Label(store.translateBooks ? "翻译并保存" : "保存到本机", systemImage: "square.and.arrow.down")
         }
-        .controlSize(.large).disabled(sendDisabled)
+        .buttonStyle(.inkOutline).controlSize(.large).disabled(sendDisabled)
         .help(store.nothingToSendReason ?? "保存到本机，完成后在访达中选中；不需要连接 Kindle（⌥⌘↩）")
     }
 
